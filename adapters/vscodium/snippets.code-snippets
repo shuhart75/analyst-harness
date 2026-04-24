@@ -1,0 +1,227 @@
+{
+  "Workflow: Feature Intake Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-intake",
+    "body": [
+      "новая фича",
+      "",
+      "Источник: `${1:/absolute/or/project/path}`",
+      "Квартал: ${2:2026-Q2}",
+      "Контекст: ${3:что это за инициатива}",
+      "",
+      "Нужно:",
+      "- сделать feature intake/preflight;",
+      "- сопоставить с baseline/current, existing features и legacy planning;",
+      "- отделить existing coverage от новой дельты;",
+      "- предложить feature slug и slices;",
+      "- перечислить baseline gaps, planning gaps и workflow gaps;",
+      "- ничего не создавать в features/ до отдельного подтверждения."
+    ]
+  },
+  "Workflow: Planning Mode Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-plan",
+    "body": [
+      "занимаемся планированием",
+      "",
+      "Квартал: ${1:2026-Q2}",
+      "Входные материалы: ${2:путь к описанию/скринам/change request}",
+      "Цель: ${3:что планируем}",
+      "",
+      "Нужно:",
+      "- разложить scope на feature/slice и planning stories;",
+      "- подготовить HLE с якорными оценками в человеко-днях;",
+      "- обновить quarter-plan и commander-plan в PlantUML;",
+      "- отметить риски, зависимости и вопросы для команды."
+    ]
+  },
+  "Workflow: Requirements Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-req",
+    "body": [
+      "делаем требования",
+      "",
+      "В папке `${1:context/source-materials/change-requests/...}` лежат описание текущей системы, скрины и материалы по доработке.",
+      "Доработка: ${2:краткое описание}",
+      "Feature: ${3:feature-slug}",
+      "",
+      "Нужно:",
+      "- проверить baseline/current и доменную модель;",
+      "- разложить требования по feature/slice;",
+      "- оформить бизнес- и системные требования по шаблону;",
+      "- выявить влияние на соседние требования, baseline и прототипы;",
+      "- обновить domain-impact.md и consistency-backlog.md при необходимости."
+    ]
+  },
+  "Workflow: Scope Prototype Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-scope-proto",
+    "body": [
+      "делаем презентационный прототип",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Цель демо: ${2:согласование scope/MVP с заказчиком}",
+      "Материалы: ${3:путь к требованиям/скринам/заметкам}",
+      "",
+      "Нужно сделать single-file prototype.html на React + MUI без сборки:",
+      "- кликабельные переходы;",
+      "- fake data;",
+      "- демонстрация ideal и MVP;",
+      "- заметные ограничения и вопросы по scope."
+    ]
+  },
+  "Workflow: Delivery Prototype Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-delivery-proto",
+    "body": [
+      "делаем прототип для разработки",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "Requirement pack: ${3:features/.../requirements/...md}",
+      "",
+      "Нужно актуализировать single-file prototype.html на React + MUI без сборки:",
+      "- использовать только MUI-компоненты;",
+      "- отразить текущие требования и состояния;",
+      "- сделать структуру понятной для frontend handoff;",
+      "- зафиксировать расхождения/допущения в notes."
+    ]
+  },
+  "Workflow: Execution Update Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-progress",
+    "body": [
+      "обновляем прогресс",
+      "",
+      "Квартал: ${1:2026-Q2}",
+      "Изменение: ${2:задача RSCON-... завершена / задачу ... взял ... / добавить реальные задачи вместо story ...}",
+      "",
+      "Нужно:",
+      "- обновить md-карточки implementation tasks;",
+      "- обновить planning/actualization.md;",
+      "- пересчитать проценты PLAN-задач по связанным реальным задачам;",
+      "- обновить actual-progress PlantUML с marker `Мы сейчас здесь`;",
+      "- сохранить mapping many-to-many, если одна задача закрывает несколько stories."
+    ]
+  },
+  "Workflow: Consistency Sweep Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-consistency",
+    "body": [
+      "проверь консистентность требований",
+      "",
+      "Scope проверки: ${1:feature/release/decision/all}",
+      "Decision ID или feature: ${2:DEC-... / feature-slug}",
+      "",
+      "Нужно:",
+      "- проверить affected requirements из domain-impact.md;",
+      "- проверить affected baseline artifacts;",
+      "- проверить affected prototypes и выставить sync status;",
+      "- обновить .workflow/consistency-backlog.md;",
+      "- явно перечислить, что исправлено, что отложено, что требует решения."
+    ]
+  },
+  "Workflow: Domain Decision Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-decision",
+    "body": [
+      "зафиксируй доменное решение",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Decision ID: ${2:DEC-FEATURE-001}",
+      "Решение: ${3:что меняется}",
+      "Причина: ${4:почему так}",
+      "",
+      "Нужно обновить domain-impact.md:",
+      "- status и consistency level;",
+      "- affected requirements;",
+      "- affected baseline artifacts;",
+      "- affected prototypes;",
+      "- rollback notes;",
+      "- consistency-backlog для незакрытых последствий."
+    ]
+  },
+  "Workflow: Release Finalization Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-release",
+    "body": [
+      "финализируем релиз",
+      "",
+      "Квартал: ${1:2026-Q2}",
+      "Release ID: ${2:release-id}",
+      "Фичи: ${3:feature-slug-1, feature-slug-2}",
+      "",
+      "Нужно:",
+      "- собрать релизный пакет в releases/<quarter>/<release-id>/;",
+      "- зафиксировать итоговые требования;",
+      "- закрыть или явно отложить consistency backlog;",
+      "- подготовить baseline promotion notes."
+    ]
+  },
+  "Workflow: Baseline Promotion Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-baseline",
+    "body": [
+      "промоуть в baseline",
+      "",
+      "Release package: ${1:releases/2026-Q2/release-id}",
+      "Новая версия baseline: ${2:vYYYY.MM.DD}",
+      "",
+      "Нужно:",
+      "- сохранить предыдущий baseline в baseline/versions/;",
+      "- промоутить финальные требования и доменные изменения в baseline/current/;",
+      "- обновить baseline/current/VERSION.md;",
+      "- записать promoted-baseline-version.md в release package;",
+      "- не переписывать release history задним числом."
+    ]
+  },
+  "Planning Story Card": {
+    "scope": "markdown",
+    "prefix": "wf-story",
+    "body": [
+      "# STORY-${1:FEATURE}-${2:001}",
+      "",
+      "Status: draft",
+      "Type: ${3|FE,BE,Fullstack,Analysis,Integration,QA|}",
+      "Feature: ${4:feature-slug}",
+      "Slice: ${5:slice-slug}",
+      "",
+      "## Summary",
+      "$6",
+      "",
+      "## Description",
+      "$7",
+      "",
+      "## Ideal Scope",
+      "",
+      "## MVP Scope",
+      "",
+      "## Analyst Anchor Estimate",
+      "${8:0.0} pd",
+      "",
+      "## Team Estimate",
+      "${9:0.0} pd",
+      "",
+      "## Agreed Estimate",
+      "${10:0.0} pd",
+      "",
+      "## Dependencies And Assumptions",
+      "",
+      "## Related Requirements",
+      "",
+      "## Related Prototype",
+      ""
+    ]
+  },
+  "Implementation Tasks Table": {
+    "scope": "markdown",
+    "prefix": "wf-tasks",
+    "body": [
+      "# Implementation Tasks",
+      "",
+      "| Jira | Summary | Role | Estimate (d) | Executor | Planned Start | Planned Finish | Actual Start | Actual Finish | Status | Progress | Related Stories | Details |",
+      "|---|---|---|---:|---|---|---|---|---|---|---:|---|---|",
+      "| ${1:RSCON-0000} | ${2:summary} | ${3|FE,BE,QA,Analysis,Integration|} | ${4:0.0} | ${5:executor} | ${6:YYYY-MM-DD} | ${7:YYYY-MM-DD} | ${8:YYYY-MM-DD} | ${9:YYYY-MM-DD} | ${10|todo,in-progress,done,blocked,cancelled|} | ${11:0}% | ${12:STORY-...} | ${13:tasks/RSCON-0000.md} |"
+    ]
+  }
+}
