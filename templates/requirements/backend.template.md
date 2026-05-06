@@ -7,6 +7,11 @@ Slice: `<slice-slug>`
 Дата обновления: `<YYYY-MM-DD>`  
 Шаблон: `.workflow/templates/requirements/backend.template.md`
 
+## Связь с feature-level документом
+
+- Главный контрольный документ: `../../requirements.md`
+- Этот файл детализирует раздел `Реализация BACKEND` для текущего slice.
+
 ## Назначение пакета
 
 - Какой backend scope реализуется этим slice.
@@ -35,6 +40,7 @@ Slice: `<slice-slug>`
 
 ### Связанные артефакты
 
+- Feature requirements: `../../requirements.md`
 - Frontend requirements: `frontend.md`
 - Domain impact: `../../domain-impact.md`
 - Implementation tasks: `../execution/tasks.md`

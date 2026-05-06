@@ -19,6 +19,7 @@
 - `context/source-materials/current-system/requirements/`
 - `context/source-materials/current-system/screenshots/`
 - `context/source-materials/change-requests/`
+- `requirements.md`
 
 ## Domain impact
 - `domain-impact.md`

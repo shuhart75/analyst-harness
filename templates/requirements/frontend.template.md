@@ -7,6 +7,11 @@ Slice: `<slice-slug>`
 Дата обновления: `<YYYY-MM-DD>`  
 Шаблон: `.workflow/templates/requirements/frontend.template.md`
 
+## Связь с feature-level документом
+
+- Главный контрольный документ: `../../requirements.md`
+- Этот файл детализирует раздел `Реализация для FRONTEND` для текущего slice.
+
 ## Назначение пакета
 
 - Что именно должен получить frontend в рамках этого slice.
@@ -34,6 +39,7 @@ Slice: `<slice-slug>`
 
 ### Связанные артефакты
 
+- Feature requirements: `../../requirements.md`
 - Презентационный прототип: `../../planning/scope-prototype/prototype.html`
 - Delivery prototype: `../delivery-prototype/prototype.html`
 - Domain impact: `../../domain-impact.md`

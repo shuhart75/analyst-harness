@@ -3,7 +3,14 @@
 Статус: **draft**  
 Feature: `features/<feature-slug>/feature.md`  
 Slice slug: `<slice-slug>`  
+Порядок в feature requirements: `<01>`  
 Дата обновления: `<YYYY-MM-DD>`
+
+## Производность от общего требования
+
+- Этот slice не является самостоятельным источником требований.
+- Он выделяется из соответствующего раздела `../../requirements.md`.
+- Если здесь обнаруживается новый scope или противоречие, сначала обнови `../../requirements.md`, затем вернись к этому slice.
 
 ## Назначение
 
@@ -26,6 +33,7 @@ Slice slug: `<slice-slug>`
 ## Источники
 
 - `../../references.md`
+- `../../requirements.md`
 - `baseline/current/`
 - `context/source-materials/current-system/requirements/`
 - `context/source-materials/current-system/screenshots/`
@@ -33,16 +41,20 @@ Slice slug: `<slice-slug>`
 
 ## Шаблоны requirement packs
 
+- `.workflow/templates/requirements/feature-requirements.template.md`
 - `.workflow/templates/requirements/frontend.template.md`
 - `.workflow/templates/requirements/backend.template.md`
 
 ## Пакеты требований
 
+- `../../requirements.md`
 - `requirements/frontend.md`
 - `requirements/backend.md`
 
 ## Связанные прототипы
 
+- `../../prototype.html`
+- `../../prototype-notes.md`
 - `delivery-prototype/prototype.html`
 - `delivery-prototype/notes.md`
 

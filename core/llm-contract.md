@@ -16,9 +16,10 @@ Before changing artifacts, read:
 8. relevant `.workflow/overrides/*.md`
 9. `.workflow/templates/intake/` when the user brings a candidate new feature
 10. `.workflow/templates/requirements/` when working in requirements mode
-11. `baseline/current/` for the canonical deployed state when it exists
-12. relevant `features/<feature>/feature.md`, planning stories, requirements, prototypes, execution tasks and gantt includes
-13. relevant `releases/` artifacts when finalizing a delivered change
+11. `.workflow/templates/prototypes/` when working in prototype modes
+12. `baseline/current/` for the canonical deployed state when it exists
+13. relevant `features/<feature>/feature.md`, root requirements, root prototype, slice artifacts, planning stories, execution tasks and gantt includes
+14. relevant `releases/` artifacts when finalizing a delivered change
 
 If the user points to a folder with current-system docs/screenshots/change requests, inspect that folder first and keep source references in the produced artifacts.
 
@@ -74,16 +75,19 @@ If the user asks for work outside the active mode, either switch mode explicitly
 ## Canonical entities
 
 - `baseline/current` is the canonical deployed-system description.
-- `planning story` is a planning/HLE unit. It has Summary, Description, estimates and may not match implementation tasks 1:1.
+- `planning story` is a planning/HLE unit. It has Summary, Description, estimates split by `AN / FE / BE / QA`, and may not match implementation tasks 1:1.
 - `implementation task` is an execution tracking unit. It should match Jira naming where possible and includes estimate, dates, executor, status and progress.
 - `requirement pack` is grouped by feature/slice and then FE/BE.
-- `scope prototype` is for planning and scope agreement: live, clickable, fake data allowed.
-- `delivery prototype` is for a decomposed requirement: precise React + MUI, project-like components, frontend handoff quality.
+- `features/<feature>/requirements.md` is the primary control page and authored source for requirements; each slice must have its own ordered section there.
+- `slice card` and slice FE/BE packs are derived artifacts cut from the root feature requirements, not parallel independent sources.
+- `common feature prototype` lives in `features/<feature>/prototype.html`; the user iterates on it first as the visual source of truth.
+- `delivery prototype` is a slice-level schematic handoff artifact derived from the confirmed common feature prototype and root requirements.
 - `release package` captures the final delivered state before promotion into a new baseline.
 
 ## Gantt rules
 
 - `quarter-plan` and `commander-plan` are built from planning stories.
+- Planning story estimates must be stored in `features/<feature>/planning/estimates.md` with explicit `AN / FE / BE / QA` role splits and an agreed total.
 - `commander-plan` is the quarter plan with management buffer, normally 20-30%.
 - `actual-progress` must show two useful layers:
   - `PLAN <TYPE> <summary>` bars from commander-plan planning stories;
@@ -111,15 +115,24 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 
 - Requirements are living markdown artifacts until release fixation.
 - Write requirements by the project-local template in `.workflow/templates/requirements/`, not freeform.
-- Group requirement packs by feature/slice, with FE and BE inside the slice where needed.
+- Start from `features/<feature>/requirements.md` as the primary feature-level requirement page and only place where feature requirements are authored from scratch.
+- Build that page by `.workflow/templates/requirements/feature-requirements.template.md`, preserving the Confluence-style structure used by the user template.
+- Derive slice cards and FE/BE detail packs from the corresponding sections of the root feature requirements.
+- If a slice artifact exposes a missing rule or contradiction, update `features/<feature>/requirements.md` first and only then re-derive the slice artifact.
 - Keep business requirements, system requirements, acceptance criteria, API contracts and examples traceable to source materials.
 
 ## Prototype rules
 
 - Default prototype stack: single-file `prototype.html`, React + MUI via CDN, no build step.
 - Use only MUI components unless a project override says otherwise.
-- Scope prototypes can be more demo-like and data-rich.
-- Delivery prototypes must make the intended frontend implementation obvious.
+- Do not generate a prototype immediately after entering prototype mode; inspect existing prototypes and visual references first.
+- Clarify with the user which prototype, screenshot, page or other artifact is the visual base when the basis is not already explicit.
+- First work on one common root prototype in `features/<feature>/prototype.html` and `features/<feature>/prototype-notes.md`.
+- The common root prototype must be a user-facing clickable prototype for the whole feature as the user will see it; do not put frontend handoff comments, API notes or developer explanations inside that HTML.
+- Before touching any `features/<feature>/slices/*/delivery-prototype/*`, verify in `features/<feature>/prototype-notes.md` that both status lines are explicitly set to `да` for user confirmation and permission to proceed.
+- If those confirmations are missing, stop and report that slice prototype generation is blocked until the root prototype is approved.
+- Delivery prototypes are the only place for schematic frontend-facing explanations and must be derived from the confirmed root prototype plus current root requirements.
+- Never fall back to editing an existing slice prototype just because `delivery-prototype` mode is active.
 
 
 ## Consistency propagation rules

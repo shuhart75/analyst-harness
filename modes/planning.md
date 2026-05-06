@@ -23,10 +23,16 @@ The planning mode starts with feature intake when the user brings a candidate ne
 - feature intake / preflight notes
 - planning stories
 - preliminary domain impact
-- analyst/team/agreed estimates
+- analyst/team/agreed estimates split by `AN / FE / BE / QA`
 - scope prototype
 - quarter and commander gantt
 
+## Estimation rules
+
+- `features/<feature>/planning/estimates.md` must not contain only one undifferentiated story estimate.
+- For every planning story, store estimates by role in the format `AN / FE / BE / QA`.
+- Keep `Agreed total, дн` as a control sum of the agreed role estimates.
+- QA may be `0` only when testing was explicitly not estimated or is tracked outside the feature; do not omit the QA column.
 
 ## Preliminary impact
 

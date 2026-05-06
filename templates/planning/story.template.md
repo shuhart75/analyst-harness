@@ -13,13 +13,25 @@ Feature: `features/<feature-slug>/feature.md`
 ## MVP scope
 
 ## Analyst anchor estimate
-- `<N>` человеко-дней
+- AN: `<N>` человеко-дней
+- FE: `<N>` человеко-дней
+- BE: `<N>` человеко-дней
+- QA: `<N>` человеко-дней
+- Total: `<N>` человеко-дней
 
 ## Team estimate
-- `<N>` человеко-дней
+- AN: `<N>` человеко-дней
+- FE: `<N>` человеко-дней
+- BE: `<N>` человеко-дней
+- QA: `<N>` человеко-дней
+- Total: `<N>` человеко-дней
 
 ## Agreed estimate
-- `<N>` человеко-дней
+- AN: `<N>` человеко-дней
+- FE: `<N>` человеко-дней
+- BE: `<N>` человеко-дней
+- QA: `<N>` человеко-дней
+- Total: `<N>` человеко-дней
 
 ## Actualization state
 - `virtual`

@@ -29,9 +29,9 @@ Contains:
 Used for:
 - scope shaping
 - HLE discussion
-- analyst anchor estimate
-- team estimate
-- agreed estimate
+- analyst anchor estimate split by `AN / FE / BE / QA`
+- team estimate split by `AN / FE / BE / QA`
+- agreed estimate split by `AN / FE / BE / QA`
 
 Planning stories do not need to match implementation tasks 1:1.
 
