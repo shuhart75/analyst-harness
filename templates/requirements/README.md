@@ -39,3 +39,20 @@ Project-local copies are the templates that the LLM should follow when writing o
 4. Fill `requirements/frontend.md` and/or `requirements/backend.md` as detail annexes for each slice section.
 5. Link the relevant prototypes.
 6. Register consistency impact in `features/<feature>/domain-impact.md`.
+
+## Fast post-edit checklist
+
+Use this after a requirement edit so the first pass already cleans up most tails.
+
+1. Recheck the changed rule in the root feature document.
+2. Recheck every slice artifact that repeats the same rule.
+3. Search the current feature for superseded terms:
+   - old endpoint names;
+   - old field names;
+   - old role names;
+   - old status values;
+   - old UX labels or option names;
+   - old contract filenames or Decision IDs.
+4. If a stale mention is outside the active edit scope, record it in `.workflow/consistency-backlog.md` instead of leaving it implicit.
+
+Default to this feature-local sweep first. Expand further only when the change is clearly cross-feature or domain-wide.

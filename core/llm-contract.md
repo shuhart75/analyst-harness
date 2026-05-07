@@ -97,6 +97,9 @@ If the user asks for work outside the active mode, either switch mode explicitly
 - Root gantt files must include the marker `Мы сейчас здесь`.
 - Project start is quarter start, unless a visible task starts earlier.
 - Do not hide baseline planning stories from actual-progress; the diagram exists to compare plan vs fact.
+- Put hand-authored milestones in view-specific preamble files, for example `planning/<quarter>/gantt/preamble/actual-progress.puml`, not in generated root gantt files.
+- When a milestone uses `happens at YYYY/MM/DD` in a preamble, `sync-quarter-gantt.py` should highlight that day in the generated view.
+- If the user asks for a standalone PlantUML export without includes, expand the generated view into a separate file and leave the include-based source intact.
 
 ## Actual-progress mapping
 
@@ -120,6 +123,32 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 - Derive slice cards and FE/BE detail packs from the corresponding sections of the root feature requirements.
 - If a slice artifact exposes a missing rule or contradiction, update `features/<feature>/requirements.md` first and only then re-derive the slice artifact.
 - Keep business requirements, system requirements, acceptance criteria, API contracts and examples traceable to source materials.
+
+## Fast consistency sweep for requirement edits
+
+When a requirement change replaces one variant with another, remove stale tails in the same turn instead of leaving conflicting old wording behind.
+
+Use a two-speed approach:
+
+- `quick local sweep` is the default for minor edits confined to one feature or one slice;
+- `full sweep` is required only when the change is clearly `cross-feature` or `domain-wide`.
+
+Quick local sweep order:
+
+1. update `features/<feature>/requirements.md`;
+2. update the derived slice cards and FE/BE detail packs that repeat the changed rule;
+3. update `features/<feature>/domain-impact.md` and `.workflow/consistency-backlog.md` if the change affects consistency tracking;
+4. run a targeted text search, or equivalent local find-in-files sweep, across the current feature and any explicitly affected artifacts for superseded terms;
+   if available, use `.workflow/tools/find-stale-terms.py` as the fast default helper;
+5. specifically check for superseded:
+   - old endpoint names;
+   - old field names;
+   - old role names;
+   - old status values;
+   - old UX labels or option names;
+   - old Decision IDs or replaced contract filenames.
+
+Do not answer a minor local edit with a whole-repo reread or a broad manual audit unless the user asked for it or the evidence shows wider drift.
 
 ## Prototype rules
 

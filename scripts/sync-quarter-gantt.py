@@ -25,6 +25,9 @@ START_RE = re.compile(r"\bstarts\s+(\d{4})[-/](\d{2})[-/](\d{2})\b", re.IGNORECA
 FEATURE_COMMENT_RE = re.compile(r"^'\s*FEATURE:\s*(.+?)\s*$", re.MULTILINE)
 FEATURE_TITLE_RE = re.compile(r"^#\s+FEATURE-[A-Z0-9_-]+\s+[—-]\s+(.+?)\s*$", re.MULTILINE)
 CLOSED_DAY_RE = re.compile(r"^(\d{4})[-/](\d{2})[-/](\d{2})$")
+HAPPENS_AT_DATE_RE = re.compile(r"\bhappens\s+at\s+(\d{4})[-/](\d{2})[-/](\d{2})\b", re.IGNORECASE)
+TODAY_HIGHLIGHT_COLOR = "LightSalmon"
+MILESTONE_DAY_HIGHLIGHT_COLOR = "LightSteelBlue"
 DEFAULT_STYLE_BLOCK = """<style>
 ganttDiagram {
   task {
@@ -124,6 +127,15 @@ def read_closed_days(gantt_dir: Path) -> list[str]:
     return result
 
 
+def highlighted_milestone_days(paths: list[Path]) -> list[str]:
+    dates: set[str] = set()
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        for year, month, day in HAPPENS_AT_DATE_RE.findall(text):
+            dates.add(f"{year}/{month}/{day}")
+    return sorted(dates)
+
+
 def preamble_files(gantt_dir: Path, view_slug: str) -> list[Path]:
     preamble_dir = gantt_dir / "preamble"
     candidates = [
@@ -133,7 +145,13 @@ def preamble_files(gantt_dir: Path, view_slug: str) -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
-def header_lines(gantt_dir: Path, title: str, start: date, closed_days: list[str]) -> list[str]:
+def header_lines(
+    gantt_dir: Path,
+    title: str,
+    start: date,
+    closed_days: list[str],
+    highlighted_days: list[str],
+) -> list[str]:
     lines = [
         "@startgantt",
         f"title {title} - {gantt_dir.parent.name}",
@@ -150,9 +168,15 @@ def header_lines(gantt_dir: Path, title: str, start: date, closed_days: list[str
         [
             "printscale daily zoom 1.5",
             "projectscale daily",
-            "today is colored in LightSalmon",
+            f"today is colored in {TODAY_HIGHLIGHT_COLOR}",
             "!$now = %now()",
             '[Мы сейчас здесь] as [TODAY_MARK] happens %date("YYYY-MM-dd", $now)',
+        ]
+    )
+    for highlighted_day in highlighted_days:
+        lines.append(f"{highlighted_day} is colored in {MILESTONE_DAY_HIGHLIGHT_COLOR}")
+    lines.extend(
+        [
             "",
             DEFAULT_STYLE_BLOCK,
             f"' {title}",
@@ -193,7 +217,13 @@ def main() -> int:
         include_files = sorted(include_dir.glob("FEATURE-*.puml"))
         preambles = preamble_files(gantt_dir, slug)
         start = view_start(quarter_start, preambles + include_files)
-        lines = header_lines(gantt_dir, title, start, closed_days)
+        lines = header_lines(
+            gantt_dir,
+            title,
+            start,
+            closed_days,
+            highlighted_milestone_days(preambles),
+        )
 
         for preamble in preambles:
             lines.append(f'!include {preamble.relative_to(gantt_dir).as_posix()}')

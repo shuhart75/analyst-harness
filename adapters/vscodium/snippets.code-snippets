@@ -30,7 +30,7 @@
       "",
       "Нужно:",
       "- разложить scope на feature/slice и planning stories;",
-      "- подготовить HLE с якорными оценками в человеко-днях;",
+      "- подготовить HLE с якорными оценками в человеко-днях по AN/FE/BE/QA;",
       "- обновить quarter-plan и commander-plan в PlantUML;",
       "- отметить риски, зависимости и вопросы для команды."
     ]
@@ -47,10 +47,29 @@
       "",
       "Нужно:",
       "- проверить baseline/current и доменную модель;",
-      "- разложить требования по feature/slice;",
-      "- оформить бизнес- и системные требования по шаблону;",
+      "- собрать или обновить `features/${3:feature-slug}/requirements.md` по шаблону;",
+      "- только потом разложить root requirements по slices и detail packs;",
       "- выявить влияние на соседние требования, baseline и прототипы;",
       "- обновить domain-impact.md и consistency-backlog.md при необходимости."
+    ]
+  },
+  "Workflow: Requirement Tail Cleanup Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-req-tails",
+    "body": [
+      "проверь хвосты требований",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Что заменили: ${2:старый endpoint / field / status / label}",
+      "Новый вариант: ${3:новый endpoint / field / status / label}",
+      "",
+      "Нужно:",
+      "- сделать быстрый feature-local sweep;",
+      "- проверить `features/${1:feature-slug}/requirements.md`; ",
+      "- проверить slice cards и FE/BE detail packs, где повторяется это правило;",
+      "- проверить domain-impact.md и consistency-backlog.md, если они описывают старый вариант;",
+      "- использовать targeted search по старым названиям;",
+      "- не расширять проверку на весь репозиторий, если нет cross-feature/domain-wide признаков."
     ]
   },
   "Workflow: Scope Prototype Prompt": {
@@ -60,14 +79,16 @@
       "делаем презентационный прототип",
       "",
       "Feature: ${1:feature-slug}",
-      "Цель демо: ${2:согласование scope/MVP с заказчиком}",
-      "Материалы: ${3:путь к требованиям/скринам/заметкам}",
+      "Материалы: ${2:путь к требованиям/скринам/заметкам}",
+      "Базовый референс: ${3:какой текущий прототип/скрин/страница берется за основу}",
       "",
-      "Нужно сделать single-file prototype.html на React + MUI без сборки:",
-      "- кликабельные переходы;",
-      "- fake data;",
-      "- демонстрация ideal и MVP;",
-      "- заметные ограничения и вопросы по scope."
+      "Нужно:",
+      "- сначала проверить существующие прототипы и скриншоты этой feature;",
+      "- выбрать и зафиксировать визуальную базу;",
+      "- сделать или обновить только общий `features/${1:feature-slug}/prototype.html` без slice-макетов;",
+      "- root prototype должен быть кликабельным пользовательским макетом всей feature, без комментариев для фронта внутри HTML;",
+      "- показать ideal и MVP, добавить fake data и кликабельные переходы;",
+      "- продолжать работу только с общим prototype, пока я не подтвержу, что он согласован."
     ]
   },
   "Workflow: Delivery Prototype Prompt": {
@@ -78,13 +99,17 @@
       "",
       "Feature: ${1:feature-slug}",
       "Slice: ${2:slice-slug}",
-      "Requirement pack: ${3:features/.../requirements/...md}",
+      "Root prototype: ${3:features/.../prototype.html}",
       "",
-      "Нужно актуализировать single-file prototype.html на React + MUI без сборки:",
+      "Перед началом проверь `features/${1:feature-slug}/prototype-notes.md`.",
+      "Если там нет явных строк `Пользователь подтвердил, что общий prototype завершён: да` и `Можно переходить к slice delivery prototypes: да`,",
+      "ничего в `slices/*/delivery-prototype/*` не меняй и сообщи, что сначала нужно окнуть общий root prototype.",
+      "",
+      "Если подтверждение есть, тогда:",
+      "- взять root prototype и `features/${1:feature-slug}/requirements.md` как основу;",
+      "- сделать schematic handoff prototype для slice `features/${1:feature-slug}/slices/${2:slice-slug}/delivery-prototype/prototype.html`;",
       "- использовать только MUI-компоненты;",
-      "- отразить текущие требования и состояния;",
-      "- сделать структуру понятной для frontend handoff;",
-      "- зафиксировать расхождения/допущения в notes."
+      "- вынести frontend-пояснения и допущения в slice-level notes."
     ]
   },
   "Workflow: Execution Update Prompt": {
@@ -119,6 +144,22 @@
       "- проверить affected prototypes и выставить sync status;",
       "- обновить .workflow/consistency-backlog.md;",
       "- явно перечислить, что исправлено, что отложено, что требует решения."
+    ]
+  },
+  "Workflow: Standalone PlantUML Export Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-puml-export",
+    "body": [
+      "собери puml без инклюдов",
+      "",
+      "Источник: ${1:planning/2026-Q2/gantt/actual-progress.puml}",
+      "Выходной файл: ${2:planning/2026-Q2/gantt/actual-progress-confluence.puml}",
+      "",
+      "Нужно:",
+      "- развернуть все `!include` в standalone PlantUML;",
+      "- сохранить результат отдельным export-файлом;",
+      "- не переписывать include-based source;",
+      "- оставить BEGIN INCLUDE / END INCLUDE markers для трассировки."
     ]
   },
   "Workflow: Domain Decision Prompt": {
@@ -197,13 +238,25 @@
       "## MVP Scope",
       "",
       "## Analyst Anchor Estimate",
-      "${8:0.0} pd",
+      "- AN: ${8:0.0} pd",
+      "- FE: ${9:0.0} pd",
+      "- BE: ${10:0.0} pd",
+      "- QA: ${11:0.0} pd",
+      "- Total: ${12:0.0} pd",
       "",
       "## Team Estimate",
-      "${9:0.0} pd",
+      "- AN: ${13:0.0} pd",
+      "- FE: ${14:0.0} pd",
+      "- BE: ${15:0.0} pd",
+      "- QA: ${16:0.0} pd",
+      "- Total: ${17:0.0} pd",
       "",
       "## Agreed Estimate",
-      "${10:0.0} pd",
+      "- AN: ${18:0.0} pd",
+      "- FE: ${19:0.0} pd",
+      "- BE: ${20:0.0} pd",
+      "- QA: ${21:0.0} pd",
+      "- Total: ${22:0.0} pd",
       "",
       "## Dependencies And Assumptions",
       "",

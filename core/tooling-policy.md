@@ -19,6 +19,10 @@ After release promotion, validate both structure and links again.
 - Prefer small explicit edits over large opaque rewrites.
 - Do not regenerate unrelated files just because a tool can.
 - Preserve human-readable names in markdown; keep slugs and ids stable.
+- After requirement edits, use targeted text search or an equivalent local find-in-files sweep for superseded terms such as old endpoints, field names, role names, status values and UX labels.
+- Keep the sweep proportional: start with the current feature and explicitly affected artifacts; expand to neighboring features or baseline only when the change is cross-feature or domain-wide.
+- If the project provides `.workflow/tools/find-stale-terms.py`, use it as the fast default helper for local tail cleanup; otherwise use the platform's normal text search.
+- If the user asks for a PlantUML file "without includes" or Confluence-ready code, expand `!include` directives with `.workflow/tools/expand-plantuml-includes.py` when available instead of editing generated gantt sources by hand.
 
 ## CLI-neutrality
 

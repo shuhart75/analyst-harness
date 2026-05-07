@@ -16,6 +16,9 @@ COMMAND_CATALOG_FILE="$PROJECT_ROOT/.workflow/command-catalog.md"
 COMMAND_CHEATSHEET_FILE="$PROJECT_ROOT/.workflow/command-cheatsheet.md"
 REQUIREMENTS_TEMPLATE_README="$PROJECT_ROOT/.workflow/templates/requirements/README.md"
 INTAKE_TEMPLATE_README="$PROJECT_ROOT/.workflow/templates/intake/README.md"
+PROTOTYPES_TEMPLATE_README="$PROJECT_ROOT/.workflow/templates/prototypes/README.md"
+FIND_STALE_TERMS_TOOL="$PROJECT_ROOT/.workflow/tools/find-stale-terms.py"
+EXPAND_PLANTUML_INCLUDES_TOOL="$PROJECT_ROOT/.workflow/tools/expand-plantuml-includes.py"
 BASELINE_DIR="$PROJECT_ROOT/baseline/current"
 ACTIVE_FILE="$PROJECT_ROOT/.workflow/active-mode.md"
 
@@ -52,6 +55,15 @@ if [[ -f "$REQUIREMENTS_TEMPLATE_README" ]]; then
 fi
 if [[ -f "$INTAKE_TEMPLATE_README" ]]; then
   echo "- $INTAKE_TEMPLATE_README"
+fi
+if [[ -f "$PROTOTYPES_TEMPLATE_README" ]]; then
+  echo "- $PROTOTYPES_TEMPLATE_README"
+fi
+if [[ -f "$FIND_STALE_TERMS_TOOL" ]]; then
+  echo "- $FIND_STALE_TERMS_TOOL"
+fi
+if [[ -f "$EXPAND_PLANTUML_INCLUDES_TOOL" ]]; then
+  echo "- $EXPAND_PLANTUML_INCLUDES_TOOL"
 fi
 echo "- $ACTIVE_FILE"
 if [[ -d "$BASELINE_DIR" ]]; then

@@ -4,7 +4,7 @@ Use these helpers from any terminal-first LLM workflow.
 
 - `switch-mode.sh <project-root> <mode>` updates `.workflow/active-mode.md`
 - `start-session.sh <project-root>` prints the files the assistant should read first
-- standalone projects also contain `.workflow/tools/validate-structure.py`, `.workflow/tools/validate-links.py`, and `.workflow/tools/sync-quarter-gantt.py`
+- standalone projects also contain `.workflow/tools/validate-structure.py`, `.workflow/tools/validate-links.py`, `.workflow/tools/sync-quarter-gantt.py`, `.workflow/tools/sync-actual-progress-overlay.py`, `.workflow/tools/find-stale-terms.py`, and `.workflow/tools/expand-plantuml-includes.py`
 
 - `start-session.sh` also reminds the assistant to read `.workflow/llm-contract.md` before the active mode file.
 - `.workflow/command-catalog.md` defines the short natural-language workflow commands the assistant should interpret consistently.

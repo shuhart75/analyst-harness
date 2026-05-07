@@ -41,6 +41,33 @@ Use `.workflow/templates/requirements/` as the active project-local template sou
 
 The root feature document must follow `.workflow/templates/requirements/feature-requirements.template.md`, which is based on the user's Confluence-compatible requirement page structure.
 
+## Tail cleanup rule
+
+If the task replaces one requirement variant with another, remove stale mentions of the superseded variant in the same turn inside:
+
+- `features/<feature>/requirements.md`;
+- `features/<feature>/slices/*/slice.md`;
+- `features/<feature>/slices/*/requirements/frontend.md`;
+- `features/<feature>/slices/*/requirements/backend.md`;
+- `features/<feature>/domain-impact.md` and `.workflow/consistency-backlog.md` when they describe the replaced variant.
+
+Examples of stale tails to search for:
+
+- old endpoint paths;
+- old request or response field names;
+- old role names;
+- old status names;
+- old UX control names or option labels;
+- old contract filenames or Decision IDs.
+
+## Two-speed consistency sweep
+
+Keep consistency work proportional to the size of the change.
+
+- For a small local edit, do a quick feature-local sweep with targeted text search or equivalent local find-in-files and stop when the changed feature is clean.
+- For domain, lifecycle, role, API-semantic, shared-UI or neighboring-feature changes, expand into a full sweep with `domain-impact.md`, `.workflow/consistency-backlog.md`, and affected baseline artifacts.
+- Do not turn every minor wording fix into a whole-repo audit.
+
 ## Impact detection requirement
 
 Any requirement change must be checked for consistency impact.

@@ -78,6 +78,7 @@ Each working project should contain:
 - `.workflow/modes/*.md`
 - `.workflow/templates/intake/`
 - `.workflow/templates/requirements/`
+- `.workflow/templates/prototypes/`
 - `.workflow/command-cheatsheet.md`
 - `.workflow/overrides/*.md`
 - `baseline/current/`
