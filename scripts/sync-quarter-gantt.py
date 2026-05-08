@@ -201,6 +201,15 @@ def sync_actual_progress_overlays(gantt_dir: Path) -> None:
     )
 
 
+def sync_confluence_export(gantt_dir: Path) -> None:
+    script = Path(__file__).with_name("expand-plantuml-includes.py")
+    source = gantt_dir / "actual-progress.puml"
+    target = gantt_dir / "actual-progress-confluence.puml"
+    if not script.exists() or not source.exists():
+        return
+    subprocess.run([sys.executable, str(script), str(source), str(target)], check=True)
+
+
 def main() -> int:
     if len(sys.argv) < 2:
         usage()
@@ -240,8 +249,9 @@ def main() -> int:
         lines.append("@endgantt")
         target = gantt_dir / f"{slug}.puml"
         target.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-        print(f"Wrote {target}")
+        print(f"Wrote {target}", flush=True)
 
+    sync_confluence_export(gantt_dir)
     return 0
 
 

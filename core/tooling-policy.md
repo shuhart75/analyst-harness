@@ -11,7 +11,7 @@ Prefer the simplest tool that preserves auditability.
 ## Validation discipline
 
 After structural or canonical changes, run available validators.
-After gantt-related changes, regenerate the gantt.
+After gantt-related changes, regenerate the gantt. For actual-progress, the regeneration must also refresh the standalone Confluence export without includes.
 After release promotion, validate both structure and links again.
 
 ## Editing discipline

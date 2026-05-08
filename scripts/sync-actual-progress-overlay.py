@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
+import os
 import re
 import sys
 
@@ -14,6 +15,78 @@ ROLE_COLORS = {
     "FE": "LightCoral",
     "QA": "Gold",
 }
+
+ROLE_ORDER = {
+    "AN": 10,
+    "BE": 20,
+    "FE": 30,
+    "QA": 40,
+}
+
+RESOURCE_PREFIX = {
+    "AN": "A",
+    "BE": "B",
+    "FE": "F",
+    "QA": "Q",
+}
+
+DEFAULT_TEAM_RESOURCES = {
+    "AN": ["A1", "A2", "A3"],
+    "BE": ["B1", "B2", "B3"],
+    "FE": ["F1", "F2"],
+    "QA": ["Q1", "Q2", "Q3"],
+}
+
+ROLE_ALIASES = {
+    "AN": {
+        "a",
+        "an",
+        "analyst",
+        "analytics",
+        "analitic",
+        "аналитик",
+        "аналитика",
+    },
+    "BE": {
+        "b",
+        "be",
+        "back",
+        "backend",
+        "backender",
+        "api",
+        "бэк",
+        "бек",
+        "бэкенд",
+        "бекенд",
+        "бэкендер",
+        "бекендер",
+    },
+    "FE": {
+        "f",
+        "fe",
+        "front",
+        "frontend",
+        "frontender",
+        "ui",
+        "фронт",
+        "фронтенд",
+        "фронтендер",
+    },
+    "QA": {
+        "q",
+        "qa",
+        "test",
+        "testing",
+        "tester",
+        "тест",
+        "тестирование",
+        "тестировщик",
+        "qaинженер",
+    },
+}
+
+NOT_STARTED_STATUSES = {"planned", "todo", "open", "backlog"}
+FE_AFTER_BE_OPEN_DAYS = 3
 
 
 @dataclass
@@ -44,6 +117,15 @@ class Task:
     status: str
     progress: int
     related_stories: list[str]
+
+
+@dataclass
+class ScheduledTask:
+    start: date
+    finish: date | None
+    assignee: str
+    shifted: bool
+    resource_note: str = ""
 
 
 def usage() -> None:
@@ -78,6 +160,16 @@ def parse_date(value: str) -> date | None:
         return None
     year, month, day = match.groups()
     return date(int(year), int(month), int(day))
+
+
+def harness_today() -> date:
+    override = os.environ.get("HARNESS_TODAY", "").strip()
+    if override:
+        parsed = parse_date(override)
+        if not parsed:
+            raise ValueError(f"Invalid HARNESS_TODAY={override!r}; expected YYYY-MM-DD")
+        return parsed
+    return date.today()
 
 
 def fmt_date(value: date) -> str:
@@ -127,6 +219,16 @@ def add_open_days(start: date, days: int, closed_days: set[date]) -> date:
     return current
 
 
+def add_open_day_offset(start: date, offset: int, closed_days: set[date]) -> date:
+    current = next_open_day(start, closed_days)
+    remaining = max(offset, 0)
+    while remaining > 0:
+        current += timedelta(days=1)
+        if is_open_day(current, closed_days):
+            remaining -= 1
+    return current
+
+
 def is_separator_row(cells: list[str]) -> bool:
     return all(re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in cells)
 
@@ -166,6 +268,25 @@ def first_table_with(path: Path, required_header: str) -> list[dict[str, str]]:
     return []
 
 
+def load_team_resources(project_root: Path) -> dict[str, list[str]]:
+    resources = {role: list(values) for role, values in DEFAULT_TEAM_RESOURCES.items()}
+    path = project_root / ".workflow/team.md"
+    if not path.exists():
+        return resources
+
+    rows = first_table_with(path, "Role")
+    for row in rows:
+        role = normalize_role(row.get("Role", ""))
+        if role not in DEFAULT_TEAM_RESOURCES:
+            continue
+        raw_resources = split_list(row.get("Resources", ""))
+        normalized = [normalize_executor(item) for item in raw_resources]
+        normalized = [item for item in normalized if resource_role(item) == role]
+        if normalized:
+            resources[role] = normalized
+    return resources
+
+
 def load_story_map(feature_dir: Path) -> list[StoryMap]:
     path = feature_dir / "planning/actualization.md"
     if not path.exists():
@@ -201,6 +322,125 @@ def progress_from_status(status: str) -> int:
     if status in {"in_progress", "in progress", "doing"}:
         return 50
     return 0
+
+
+def normalized_token(value: str) -> str:
+    return re.sub(r"[^0-9a-zа-яё]+", "", value.lower().replace("ё", "е"))
+
+
+def role_alias_matches(token: str, alias: str) -> bool:
+    alias_token = normalized_token(alias)
+    if not alias_token:
+        return False
+    if token == alias_token:
+        return True
+    if len(alias_token) == 1:
+        return bool(re.fullmatch(rf"{re.escape(alias_token)}\d+", token))
+    return token.startswith(alias_token)
+
+
+def normalize_role(value: str) -> str:
+    token = normalized_token(clean_cell(value))
+    if not token:
+        return ""
+    for role, aliases in ROLE_ALIASES.items():
+        for alias in aliases:
+            if role_alias_matches(token, alias):
+                return role
+    return clean_cell(value).upper()
+
+
+def infer_role_from_task_id(value: str) -> str:
+    raw = clean_cell(value).upper()
+    for role, prefix in RESOURCE_PREFIX.items():
+        if re.match(rf"^{role}(?:[-_]\w|\d)", raw) or re.match(rf"^{prefix}\d+", raw):
+            return role
+    return ""
+
+
+def infer_role_from_summary(value: str) -> str:
+    text = clean_cell(value).lower().replace("ё", "е")
+    if any(keyword in text for keyword in ("frontend", "front", "ui", "фронт", "фронтенд")):
+        return "FE"
+    if any(keyword in text for keyword in ("backend", "back", "api", "бэк", "бек", "бэкенд", "бекенд")):
+        return "BE"
+    if any(keyword in text for keyword in ("qa", "test", "тест", "тестирование")):
+        return "QA"
+    if any(keyword in text for keyword in ("analyst", "аналитик", "аналитика")):
+        return "AN"
+    return ""
+
+
+def role_for_task(task: Task) -> str:
+    role = normalize_role(task.role)
+    if role in ROLE_COLORS:
+        return role
+    id_role = infer_role_from_task_id(task.task_id)
+    if id_role:
+        return id_role
+    executor_role = infer_role_from_executor(task.executor)
+    if executor_role:
+        return executor_role
+    summary_role = infer_role_from_summary(task.summary)
+    return summary_role or role
+
+
+def resource_role(value: str) -> str:
+    token = normalized_token(clean_cell(value))
+    for role, prefix in RESOURCE_PREFIX.items():
+        if re.fullmatch(rf"{normalized_token(prefix)}\d+", token):
+            return role
+    if token.startswith("tbd"):
+        return infer_role_from_executor(value)
+    return ""
+
+
+def infer_role_from_executor(value: str) -> str:
+    token = normalized_token(clean_cell(value))
+    if not token:
+        return ""
+    token = re.sub(r"^(tbd|todo|unknown)", "", token)
+    for role, aliases in ROLE_ALIASES.items():
+        for alias in aliases:
+            if role_alias_matches(token, alias):
+                return role
+    return ""
+
+
+def normalize_executor(value: str) -> str:
+    raw = clean_cell(value).strip("{} ")
+    if not raw or raw in {"-", "—"}:
+        return ""
+
+    lower_raw = raw.lower().replace("ё", "е")
+    role = infer_role_from_executor(raw)
+    number_match = re.search(r"(\d+)\s*$", raw)
+    number = number_match.group(1) if number_match else ""
+    is_tbd = any(marker in lower_raw for marker in ("tbd", "todo", "unknown", "не назнач", "не определ"))
+
+    if role:
+        prefix = RESOURCE_PREFIX[role]
+        if is_tbd:
+            return f"TBD_{prefix}"
+        return f"{prefix}{number}" if number else prefix
+
+    # Keep real human names usable as PlantUML resources without inventing a role.
+    return re.sub(r"[^0-9A-Za-zА-Яа-я_]+", "_", raw).strip("_")
+
+
+def is_tbd_executor(value: str) -> bool:
+    normalized = normalize_executor(value)
+    return normalized.startswith("TBD_")
+
+
+def explicit_executor(task: Task, team_resources: dict[str, list[str]]) -> str:
+    normalized = normalize_executor(task.executor)
+    if not normalized or normalized.startswith("TBD_"):
+        return ""
+    role = resource_role(normalized)
+    if role and normalized not in team_resources.get(role, []):
+        return ""
+    return normalized
 
 
 def load_tasks(feature_dir: Path) -> dict[str, Task]:
@@ -246,8 +486,245 @@ def task_finish(task: Task) -> date | None:
     return start + timedelta(days=max(task.estimate - 1, 0))
 
 
+def is_not_started(task: Task) -> bool:
+    status = task.status.lower()
+    return (
+        task.progress == 0
+        and not parse_date(task.actual_start)
+        and not parse_date(task.actual_finish)
+        and status in NOT_STARTED_STATUSES
+    )
+
+
+def task_duration(task: Task) -> int:
+    return max(task.estimate, 1)
+
+
+def open_days_between(start: date, finish: date, closed_days: set[date]) -> list[date]:
+    if finish < start:
+        return []
+    current = start
+    result: list[date] = []
+    while current <= finish:
+        if is_open_day(current, closed_days):
+            result.append(current)
+        current += timedelta(days=1)
+    return result
+
+
+def task_open_days(start: date, duration: int, closed_days: set[date]) -> list[date]:
+    first = next_open_day(start, closed_days)
+    finish = add_open_days(first, duration, closed_days)
+    return open_days_between(first, finish, closed_days)
+
+
+def reserve_resource(
+    occupied: dict[str, set[date]],
+    resource: str,
+    start: date,
+    finish: date | None,
+    duration: int,
+    closed_days: set[date],
+) -> None:
+    if not resource:
+        return
+    if finish and finish >= start:
+        days = open_days_between(start, finish, closed_days)
+    else:
+        days = task_open_days(start, duration, closed_days)
+    occupied.setdefault(resource, set()).update(days)
+
+
+def find_resource_slot(
+    occupied: dict[str, set[date]],
+    resource: str,
+    earliest: date,
+    duration: int,
+    closed_days: set[date],
+) -> tuple[date, date]:
+    current = next_open_day(earliest, closed_days)
+    for _ in range(370):
+        days = task_open_days(current, duration, closed_days)
+        busy = occupied.get(resource, set())
+        if all(day not in busy for day in days):
+            return days[0], days[-1]
+        current = next_open_day(current + timedelta(days=1), closed_days)
+    raise ValueError(f"Cannot find a free {duration}-day slot for {resource} after {earliest}")
+
+
+def earliest_task_start(task: Task, closed_days: set[date], today: date) -> tuple[date | None, bool]:
+    raw_start = task_start(task)
+    shifted = False
+
+    if is_not_started(task):
+        min_start = next_open_day(today, closed_days)
+        if raw_start is None or raw_start < min_start:
+            raw_start = min_start
+            shifted = True
+        else:
+            open_start = next_open_day(raw_start, closed_days)
+            shifted = shifted or open_start != raw_start
+            raw_start = open_start
+
+    return raw_start, shifted
+
+
+def fixed_task_schedule(
+    task: Task,
+    closed_days: set[date],
+    today: date,
+    team_resources: dict[str, list[str]],
+) -> ScheduledTask | None:
+    start, shifted = earliest_task_start(task, closed_days, today)
+    if not start:
+        return None
+    finish = parse_date(task.actual_finish) or parse_date(task.planned_finish)
+    if not finish or finish < start:
+        finish = add_open_days(start, task_duration(task), closed_days)
+    return ScheduledTask(start, finish, explicit_executor(task, team_resources), shifted)
+
+
+def candidate_resources(task: Task, team_resources: dict[str, list[str]]) -> tuple[list[str], str]:
+    explicit = explicit_executor(task, team_resources)
+    if explicit:
+        return [explicit], ""
+
+    role = role_for_task(task)
+    resources = team_resources.get(role, [])
+    if resources:
+        source = normalize_executor(task.executor) or role
+        if is_tbd_executor(task.executor):
+            source = normalize_executor(task.executor)
+        return resources, f"auto from {source}"
+
+    fallback = normalize_executor(task.executor)
+    return ([fallback] if fallback and not fallback.startswith("TBD_") else []), ""
+
+
+def schedule_not_started_task(
+    task: Task,
+    earliest: date,
+    shifted: bool,
+    occupied: dict[str, set[date]],
+    closed_days: set[date],
+    team_resources: dict[str, list[str]],
+) -> ScheduledTask:
+    duration = task_duration(task)
+    resources, note_source = candidate_resources(task, team_resources)
+    if not resources:
+        finish = add_open_days(earliest, duration, closed_days)
+        return ScheduledTask(earliest, finish, "", shifted)
+
+    best: tuple[date, date, int, str] | None = None
+    for resource in resources:
+        start, finish = find_resource_slot(occupied, resource, earliest, duration, closed_days)
+        load = len(occupied.get(resource, set()))
+        candidate = (start, finish, load, resource)
+        if best is None or candidate < best:
+            best = candidate
+
+    assert best is not None
+    start, finish, _, resource = best
+    reserve_resource(occupied, resource, start, finish, duration, closed_days)
+    resource_note = f"Auto-assigned {resource} ({note_source})" if note_source else ""
+    return ScheduledTask(start, finish, resource, shifted or start != earliest, resource_note)
+
+
+def task_schedules(
+    tasks: dict[str, Task],
+    closed_days: set[date],
+    today: date,
+    team_resources: dict[str, list[str]],
+) -> dict[str, ScheduledTask]:
+    schedules: dict[str, ScheduledTask] = {}
+    occupied: dict[str, set[date]] = {}
+
+    def task_scope(task_key: str) -> str:
+        return task_key.split("/", 1)[0] if "/" in task_key else ""
+
+    for task_id, task in tasks.items():
+        if is_not_started(task):
+            continue
+        scheduled = fixed_task_schedule(task, closed_days, today, team_resources)
+        if scheduled:
+            schedules[task_id] = scheduled
+            reserve_resource(
+                occupied,
+                scheduled.assignee,
+                scheduled.start,
+                scheduled.finish,
+                task_duration(task),
+                closed_days,
+            )
+
+    not_started = [
+        (task_id, task, *earliest_task_start(task, closed_days, today))
+        for task_id, task in tasks.items()
+        if is_not_started(task)
+    ]
+    not_started = [(task_id, task, start, shifted) for task_id, task, start, shifted in not_started if start]
+
+    def schedule_phase(roles: set[str]) -> None:
+        phase_items = [
+            item
+            for item in not_started
+            if item[0] not in schedules and (role_for_task(item[1]) in roles if roles else True)
+        ]
+        for task_id, task, start, shifted in sorted(
+            phase_items,
+            key=lambda item: (item[2] or date.max, ROLE_ORDER.get(role_for_task(item[1]), 90), item[0]),
+        ):
+            schedules[task_id] = schedule_not_started_task(
+                task,
+                start,
+                shifted,
+                occupied,
+                closed_days,
+                team_resources,
+            )
+
+    schedule_phase({"AN", "BE"})
+
+    be_starts_by_scope: dict[str, list[date]] = {}
+    for task_id, task in tasks.items():
+        if task_id in schedules and is_not_started(task) and role_for_task(task) == "BE":
+            be_starts_by_scope.setdefault(task_scope(task_id), []).append(schedules[task_id].start)
+
+    for task_id, task, start, shifted in sorted(
+        [item for item in not_started if item[0] not in schedules and role_for_task(item[1]) == "FE"],
+        key=lambda item: (item[2] or date.max, item[0]),
+    ):
+        be_starts = be_starts_by_scope.get(task_scope(task_id), [])
+        fe_min_start = add_open_day_offset(min(be_starts), FE_AFTER_BE_OPEN_DAYS, closed_days) if be_starts else None
+        earliest = max(start, fe_min_start) if fe_min_start else start
+        schedules[task_id] = schedule_not_started_task(
+            task,
+            earliest,
+            shifted or earliest != start,
+            occupied,
+            closed_days,
+            team_resources,
+        )
+
+    schedule_phase({"QA"})
+    for task_id, task, start, shifted in sorted(
+        [item for item in not_started if item[0] not in schedules],
+        key=lambda item: (item[2] or date.max, ROLE_ORDER.get(role_for_task(item[1]), 90), item[0]),
+    ):
+        schedules[task_id] = schedule_not_started_task(
+            task,
+            start,
+            shifted,
+            occupied,
+            closed_days,
+            team_resources,
+            )
+
+    return schedules
+
+
 def role_color(role: str) -> str:
-    return ROLE_COLORS.get(role.upper(), "Wheat")
+    return ROLE_COLORS.get(normalize_role(role), "Wheat")
 
 
 def story_type(story: StoryMap, tasks: dict[str, Task]) -> str:
@@ -286,7 +763,7 @@ def story_type(story: StoryMap, tasks: dict[str, Task]) -> str:
 
     counts: dict[str, int] = {}
     for task_id in mapped_task_ids(story, tasks):
-        role = tasks[task_id].role.upper()
+        role = role_for_task(tasks[task_id])
         if not role:
             continue
         counts[role] = counts.get(role, 0) + 1
@@ -296,18 +773,23 @@ def story_type(story: StoryMap, tasks: dict[str, Task]) -> str:
     return "GEN"
 
 
-def render_task(task: Task) -> list[str]:
+def render_task(task: Task, schedules: dict[str, ScheduledTask]) -> list[str]:
     alias = f"TASK_{to_alias(task.task_id)}"
-    start = task_start(task)
-    if not start:
+    scheduled = schedules.get(task.task_id)
+    if not scheduled:
         return [f"' Skip task without start date: {task.task_id}"]
-    assignee = f" on {{{task.executor}}}" if task.executor else ""
+    assignee = scheduled.assignee
+    assignee_part = f" on {{{assignee}}}" if assignee else ""
     lines = [
-        f"[{task.summary}] as [{alias}]{assignee} lasts {max(task.estimate, 1)} days",
-        f"[{alias}] starts {fmt_date(start)}",
-        f"[{alias}] is colored in {role_color(task.role)}",
+        f"[{task.summary}] as [{alias}]{assignee_part} starts {fmt_date(scheduled.start)}",
+        f"[{alias}] ends {fmt_date(scheduled.finish)}" if scheduled.finish else f"[{alias}] lasts {max(task.estimate, 1)} days",
+        f"[{alias}] is colored in {role_color(role_for_task(task))}",
         f"[{alias}] is {max(0, min(task.progress, 100))}% completed",
     ]
+    if scheduled.shifted:
+        lines.append(f"' Shifted not-started task from stale/non-open plan: {task.task_id}")
+    if scheduled.resource_note:
+        lines.append(f"' {scheduled.resource_note}: {task.task_id}")
     return lines
 
 
@@ -341,14 +823,15 @@ def story_progress(story: StoryMap, tasks: dict[str, Task]) -> int:
 def story_dates(
     story: StoryMap,
     tasks: dict[str, Task],
+    schedules: dict[str, ScheduledTask],
     story_ends: dict[str, date],
     closed_days: set[date],
 ) -> tuple[date | None, date | None]:
     baseline_start = parse_date(story.baseline_start)
     baseline_finish = add_open_days(baseline_start, max(story.baseline_duration, 1), closed_days) if baseline_start else None
     task_ids = mapped_task_ids(story, tasks)
-    starts = [task_start(tasks[task_id]) for task_id in task_ids]
-    finishes = [task_finish(tasks[task_id]) for task_id in task_ids]
+    starts = [schedules[task_id].start for task_id in task_ids if task_id in schedules]
+    finishes = [schedules[task_id].finish for task_id in task_ids if task_id in schedules]
     starts = [item for item in starts if item]
     finishes = [item for item in finishes if item]
 
@@ -370,10 +853,11 @@ def story_dates(
 def render_story(
     story: StoryMap,
     tasks: dict[str, Task],
+    schedules: dict[str, ScheduledTask],
     story_ends: dict[str, date],
     closed_days: set[date],
 ) -> tuple[list[str], date | None]:
-    start, finish = story_dates(story, tasks, story_ends, closed_days)
+    start, finish = story_dates(story, tasks, schedules, story_ends, closed_days)
     if not start:
         return [f"' Skip story without start date: {story.story_id}"], None
     alias = f"STORY_{to_alias(story.story_id)}"
@@ -396,11 +880,18 @@ def render_story(
     return lines, finish
 
 
-def render_feature(feature_dir: Path, feature_slug: str, closed_days: set[date]) -> str | None:
+def render_feature(
+    feature_dir: Path,
+    feature_slug: str,
+    closed_days: set[date],
+    tasks: dict[str, Task] | None = None,
+    schedules: dict[str, ScheduledTask] | None = None,
+) -> str | None:
     stories = load_story_map(feature_dir)
-    tasks = load_tasks(feature_dir)
+    tasks = tasks if tasks is not None else load_tasks(feature_dir)
     if not stories:
         return None
+    schedules = schedules or {}
 
     lines = [
         f"' FEATURE: {feature_slug}",
@@ -413,7 +904,7 @@ def render_feature(feature_dir: Path, feature_slug: str, closed_days: set[date])
 
     story_ends: dict[str, date] = {}
     for story in stories:
-        rendered, finish = render_story(story, tasks, story_ends, closed_days)
+        rendered, finish = render_story(story, tasks, schedules, story_ends, closed_days)
         lines.append(f"' Story {story.story_id}: {story.state}, mapping={story.mapping_mode}")
         lines.extend(rendered)
         lines.append("")
@@ -423,8 +914,15 @@ def render_feature(feature_dir: Path, feature_slug: str, closed_days: set[date])
     active_tasks = [task for task in tasks.values() if task.status.lower() != "superseded"]
     if active_tasks:
         lines.append("' Execution task layer")
-        for task in sorted(active_tasks, key=lambda item: (task_start(item) or date.max, item.task_id)):
-            lines.extend(render_task(task))
+        for task in sorted(
+            active_tasks,
+            key=lambda item: (
+                schedules[item.task_id].start if item.task_id in schedules else date.max,
+                ROLE_ORDER.get(role_for_task(item), 90),
+                item.task_id,
+            ),
+        ):
+            lines.extend(render_task(task, schedules))
             lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -438,10 +936,24 @@ def main() -> int:
     project_root = Path(sys.argv[1])
     quarter_id = sys.argv[2]
     closed_days = load_closed_days(project_root, quarter_id)
+    team_resources = load_team_resources(project_root)
     if len(sys.argv) > 3:
         feature_slugs = sys.argv[3:]
     else:
         feature_slugs = [path.name for path in sorted((project_root / "features").iterdir()) if path.is_dir()]
+
+    feature_tasks: dict[str, dict[str, Task]] = {}
+    scoped_tasks: dict[str, Task] = {}
+    for feature_slug in feature_slugs:
+        feature_dir = project_root / "features" / feature_slug
+        if not feature_dir.exists():
+            continue
+        tasks = load_tasks(feature_dir)
+        feature_tasks[feature_slug] = tasks
+        for task_id, task in tasks.items():
+            scoped_tasks[f"{feature_slug}/{task_id}"] = task
+
+    scoped_schedules = task_schedules(scoped_tasks, closed_days, harness_today(), team_resources)
 
     target_dir = project_root / "planning" / quarter_id / "gantt/includes/actual-progress"
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -452,7 +964,13 @@ def main() -> int:
             print(f"Skip missing feature: {feature_slug}")
             continue
         target = target_dir / f"FEATURE-{feature_slug}.puml"
-        content = render_feature(feature_dir, feature_slug, closed_days)
+        tasks = feature_tasks.get(feature_slug, {})
+        schedules = {
+            task_id: scoped_schedules[f"{feature_slug}/{task_id}"]
+            for task_id in tasks
+            if f"{feature_slug}/{task_id}" in scoped_schedules
+        }
+        content = render_feature(feature_dir, feature_slug, closed_days, tasks, schedules)
         if content is None:
             if target.exists():
                 target.unlink()

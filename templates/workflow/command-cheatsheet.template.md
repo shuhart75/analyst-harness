@@ -47,7 +47,7 @@
 - `обновляем прогресс, задача RSCON-2445 завершена вчера`
 - `обновляем прогресс, задачу RSCON-2451 взял второй фронтендер позавчера`
 - `добавь реальные задачи вместо story STORY-DEPLOYMENTS-003`
-- `обнови реальный прогресс и пересобери actual-progress gantt`
+- `обнови реальный прогресс и пересобери actual-progress gantt вместе с Confluence-копией`
 - `добавь milestone релиза на 2026-04-30`
 - `собери puml без инклюдов для actual-progress, чтобы вставить в Confluence`
 
@@ -90,6 +90,8 @@ Feature: `packages`
 - если root prototype не подтверждён, ничего в `slices/*/delivery-prototype/*` менять нельзя;
 - если изменение влияет на домен или соседние фичи, в том же сообщении проси обновить `domain-impact.md` и `consistency-backlog.md`.
 - standalone PlantUML для Confluence собирай отдельным export-файлом, не переписывая include-based gantt source.
+- состав команды и допустимые resource lanes смотри в `.workflow/team.md`;
+- при actual-progress не начатые задачи раскладывай без перегруза ресурсов выше 100%; если executor не задан или `TBD_*`, ресурс выбирается автоматически по роли/префиксу задачи.
 
 ## Полезные синонимы
 

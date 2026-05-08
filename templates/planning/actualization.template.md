@@ -11,6 +11,8 @@ Baseline: `commander-plan`
 - `Replaced By` заполняется явным указанием пользователя или выводом LLM по смыслу.
 - `Residual Virtual Tasks` заполняется только для `mixed`.
 - `Depends On` используем, если story без замещения должна в actual-progress стартовать после завершения другой story по логике commander-plan.
+- Не используем визуальные PlantUML-зависимости как source of truth для actual-progress; связи story/task фиксируются в этой таблице и в `tasks.md`.
+- Сдвиг не начатых execution tasks относительно текущей даты выполняет генератор actual-progress. Плановая baseline-дата story остаётся видимой как слой `PLAN ...`.
 
 ## Mapping
 

@@ -10,6 +10,7 @@ The planning mode starts with feature intake when the user brings a candidate ne
 
 - `planning/intake/*.md`
 - `.workflow/templates/intake/feature-intake.template.md`
+- `.workflow/team.md`
 - `features/*/feature.md`
 - `features/*/planning/stories/*.md`
 - `features/*/planning/estimates.md`
@@ -33,6 +34,24 @@ The planning mode starts with feature intake when the user brings a candidate ne
 - For every planning story, store estimates by role in the format `AN / FE / BE / QA`.
 - Keep `Agreed total, дн` as a control sum of the agreed role estimates.
 - QA may be `0` only when testing was explicitly not estimated or is tracked outside the feature; do not omit the QA column.
+
+## Gantt planning rules
+
+- Feature sections are the primary visual grouping in quarter, commander and actual-progress gantt views.
+- When planning future not-started work for a feature, put backend/API work before frontend work.
+- If exact dates are not known, plan frontend no earlier than 3 open days after backend/API work starts.
+- Use `.workflow/team.md` as the team roster. Default lanes are `A1-A3`, `B1-B3`, `F1-F2`, `Q1-Q3`.
+- Do not plan more than one full-time task on the same resource for the same open day. Use available resources as fully as possible before pushing work later.
+- Use canonical resource lanes when a resource is known: `A<N>`, `B<N>`, `F<N>`, `Q<N>`. Keep aliases only as input shorthand, not as the preferred written form.
+
+## Current-state actualization boundary
+
+Planning mode owns quarter and commander baselines. It does not own current execution state.
+
+- `спланируй квартал`, `собери командирский план`, HLE and planning stories may update quarter-plan and commander-plan.
+- `обнови реальный прогресс`, `обновляем прогресс`, task statuses, actual dates, execution resources and actual-progress gantt belong to `execution-update`.
+- If the user asks to актуализировать текущее положение дел while planning mode is active, switch to `execution-update` before changing tasks or actual-progress.
+- Do not silently edit `quarter-plan.puml` or `commander-plan.puml` while only updating current state.
 
 ## Preliminary impact
 

@@ -13,7 +13,8 @@ When working inside a project that uses this harness, read in this order:
 5. `.workflow/tooling-policy.md`
 6. `.workflow/active-mode.md`
 7. `.workflow/modes/<active-mode>.md`
-8. relevant files under `.workflow/overrides/`
+8. `.workflow/team.md` before planning resources or regenerating actual-progress
+9. relevant files under `.workflow/overrides/`
 
 ## Primary workflow rule
 

@@ -13,13 +13,14 @@ Before changing artifacts, read:
 5. `.workflow/tooling-policy.md`
 6. `.workflow/active-mode.md`
 7. `.workflow/modes/<active-mode>.md`
-8. relevant `.workflow/overrides/*.md`
-9. `.workflow/templates/intake/` when the user brings a candidate new feature
-10. `.workflow/templates/requirements/` when working in requirements mode
-11. `.workflow/templates/prototypes/` when working in prototype modes
-12. `baseline/current/` for the canonical deployed state when it exists
-13. relevant `features/<feature>/feature.md`, root requirements, root prototype, slice artifacts, planning stories, execution tasks and gantt includes
-14. relevant `releases/` artifacts when finalizing a delivered change
+8. `.workflow/team.md` before planning resources or regenerating actual-progress
+9. relevant `.workflow/overrides/*.md`
+10. `.workflow/templates/intake/` when the user brings a candidate new feature
+11. `.workflow/templates/requirements/` when working in requirements mode
+12. `.workflow/templates/prototypes/` when working in prototype modes
+13. `baseline/current/` for the canonical deployed state when it exists
+14. relevant `features/<feature>/feature.md`, root requirements, root prototype, slice artifacts, planning stories, execution tasks and gantt includes
+15. relevant `releases/` artifacts when finalizing a delivered change
 
 If the user points to a folder with current-system docs/screenshots/change requests, inspect that folder first and keep source references in the produced artifacts.
 
@@ -100,6 +101,24 @@ If the user asks for work outside the active mode, either switch mode explicitly
 - Put hand-authored milestones in view-specific preamble files, for example `planning/<quarter>/gantt/preamble/actual-progress.puml`, not in generated root gantt files.
 - When a milestone uses `happens at YYYY/MM/DD` in a preamble, `sync-quarter-gantt.py` should highlight that day in the generated view.
 - If the user asks for a standalone PlantUML export without includes, expand the generated view into a separate file and leave the include-based source intact.
+- For actual-progress execution tasks, tasks that have `Progress % = 0` and no actual dates are not allowed to render in the past. On each regeneration, the generator moves their rendered start to today, or the next open day, without changing the markdown source dates.
+- Within one feature section, not-started backend/API tasks should lead not-started frontend tasks. Frontend tasks may render no earlier than 3 open days after the earliest not-started backend task in the same feature.
+- Not-started execution tasks must not overload resource lanes. Use `.workflow/team.md` as the roster, keep each resource at no more than one full-time task per open day, and use available resources as fully as possible before pushing work later.
+- If a not-started task has no explicit executor, has a `TBD_*` executor, or references a non-roster resource lane, assign it by role from `Role`, task id prefix, executor alias or summary. Preserve explicit valid roster lanes, but still shift dates if needed to avoid overload.
+- Keep baseline `PLAN ...` story bars visible for plan-vs-fact comparison even when execution tasks are shifted forward by the current date.
+
+## Resource naming
+
+- Role estimates and semantic task roles use `AN / BE / FE / QA`.
+- The project-local roster lives in `.workflow/team.md`.
+- Default PlantUML resource lanes are `A1`, `A2`, `A3`, `B1`, `B2`, `B3`, `F1`, `F2`, `Q1`, `Q2`, `Q3`.
+- Accepted aliases for resource/executor input:
+  - analyst: `A`, `AN`, `analyst`, `аналитик`;
+  - backend/API: `B`, `BE`, `back`, `backend`, `api`, `бэк`, `бек`, `бэкенд`;
+  - frontend: `F`, `FE`, `front`, `frontend`, `фронт`, `фронтенд`, `фронтендер`;
+  - QA: `Q`, `QA`, `test`, `testing`, `тест`, `тестирование`, `тестировщик`.
+- Use `TBD_A`, `TBD_B`, `TBD_F`, `TBD_Q` for role-known but unassigned resources.
+- The actual-progress generator normalizes known aliases on render; prefer canonical names in markdown to avoid review noise.
 
 ## Actual-progress mapping
 

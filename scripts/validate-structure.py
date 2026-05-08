@@ -18,6 +18,7 @@ required = [
     ".workflow/command-catalog.md",
     ".workflow/command-cheatsheet.md",
     ".workflow/consistency-backlog.md",
+    ".workflow/team.md",
     ".workflow/active-mode.md",
     ".workflow/modes/planning.md",
     ".workflow/modes/requirements.md",
