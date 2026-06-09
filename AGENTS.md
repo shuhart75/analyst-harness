@@ -11,10 +11,12 @@ When working inside a project that uses this harness, read in this order:
 3. `.workflow/agent-delegation.md`
 4. `.workflow/skills-policy.md`
 5. `.workflow/tooling-policy.md`
-6. `.workflow/active-mode.md`
-7. `.workflow/modes/<active-mode>.md`
-8. `.workflow/team.md` before planning resources or regenerating actual-progress
-9. relevant files under `.workflow/overrides/`
+6. `.workflow/context-policy.md`
+7. `.workflow/research-policy.md`
+8. `.workflow/active-mode.md`
+9. `.workflow/modes/<active-mode>.md`
+10. `.workflow/team.md` before planning resources or regenerating actual-progress
+11. relevant files under `.workflow/overrides/`
 
 ## Primary workflow rule
 
@@ -62,3 +64,11 @@ When a local change affects neighboring requirements, baseline artifacts, or pro
 Use `.workflow/command-catalog.md` to interpret short workflow commands like `делаем требования`, `обнови реальный прогресс`, `актуализируй прототипы`, or `промоуть в baseline`.
 
 Use `.workflow/command-cheatsheet.md` as the preferred quick-reference list of ready-to-send Russian prompt phrasings.
+
+## Context and research
+
+Context summaries, checkpoints and research files are internal harness operations, not extra commands the user must remember.
+
+- Use `.workflow/context-policy.md` to decide when to create or refresh context summaries and checkpoints.
+- Use `.workflow/research-policy.md` to run role-based research for large features, slices, prototypes, development handoff, implementation planning and QA checks.
+- Treat `.research/`, context summaries and external memory as auxiliary. Accepted findings must be transferred into the authoritative planning, requirements, prototype, execution, release or baseline artifacts.

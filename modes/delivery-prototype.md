@@ -17,6 +17,7 @@ Build precise slice-level handoff prototypes derived from the confirmed common f
 
 - `features/*/slices/*/delivery-prototype/prototype.html`
 - `features/*/slices/*/delivery-prototype/notes.md`
+- updated `features/*/slices/*/context-summary.md` when slice prototype state changes
 
 ## Hard gate before generation
 
@@ -40,6 +41,9 @@ If any of these checks fails, stop immediately. Do not edit any slice prototype.
 - Align with the chosen project visual language and MUI usage.
 - Show real states, realistic component usage, and explicit notes for the frontend developer.
 - If a slice prototype exposes a missing or conflicting requirement, update `features/<feature>/requirements.md` first, then re-derive the slice prototype.
+- Automatically gather slice context from root requirements, slice card, FE/BE packs, root prototype and prototype notes. The user should not need a separate `собери контекст среза` command.
+- Before presenting the prototype as ready, automatically check it against the slice requirements and confirmed root prototype.
+- After creating or materially changing a slice prototype, refresh the slice context summary when present or when the slice is large enough to need small-window continuation.
 
 ## Forbidden without mode switch
 

@@ -9,6 +9,7 @@ Track real work after planning.
 - `features/*/slices/*/execution/tasks.md`
 - `features/*/slices/*/execution/tasks/*.md`
 - `features/*/planning/actualization.md`
+- `features/*/execution-context.md`
 - `.workflow/team.md`
 - `planning/*/gantt/actual-progress.puml`
 - `planning/*/gantt/actual-progress-confluence.puml`
@@ -24,6 +25,7 @@ Track real work after planning.
 - mapping `planning story -> implementation task`
 - actualization state: `virtual` / `mixed` / `materialized`
 - milestones and factual notes in actual-progress gantt
+- execution context notes that explain current fact state and plan-vs-fact decisions
 
 ## Actual-progress scheduling rules
 
@@ -36,6 +38,21 @@ Track real work after planning.
 - Actual started or completed tasks keep their actual dates, even when those dates are in the past.
 - Keep `PLAN ...` story bars visible; they are the commander-plan baseline, not a replacement for the execution task layer.
 - Regenerate actual-progress through `.workflow/tools/sync-quarter-gantt.py`; it also refreshes `actual-progress-confluence.puml`.
+
+## Small-context execution rules
+
+Execution updates must keep enough fact context for a small-window LLM to continue safely.
+
+For `обнови реальный прогресс`, `обновляем прогресс`, `задача X завершена`, `задачу X взял Y`, `добавь реальные задачи вместо story X`, and `сравни план и факт`, automatically:
+
+- collect current planning stories, `actualization.md`, execution tasks and `.workflow/team.md`;
+- preserve commander/quarter plan story bars as the baseline for plan-vs-fact comparison;
+- update story-to-task mapping in markdown, not only in generated PlantUML;
+- avoid duplicating a real task that maps to multiple stories;
+- refresh `features/<feature>/execution-context.md` or the relevant checkpoint when fact state changes materially;
+- regenerate actual-progress and standalone Confluence export after gantt-related updates.
+
+Do not change quarter-plan or commander-plan baselines while only updating real progress. Switch mode or ask for explicit confirmation if the requested fact update implies a planning baseline change.
 
 ## Resource rules
 

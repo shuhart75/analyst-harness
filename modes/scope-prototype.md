@@ -15,6 +15,7 @@ Build or update the common feature-level live prototype that is used for scope d
 
 - `features/*/prototype.html`
 - `features/*/prototype-notes.md`
+- updated `features/*/context-summary.md` and `features/*/artifact-map.md` when prototype state changes
 - optional legacy mirror: `features/*/planning/scope-prototype/*` only when the task explicitly asks to keep that folder in sync
 
 ## Required first actions
@@ -35,6 +36,9 @@ Build or update the common feature-level live prototype that is used for scope d
 - Show ideal target state and MVP cut in the same prototype when useful.
 - Optimize for discussion and agreement, not for frontend handoff precision.
 - Update `features/<feature>/prototype-notes.md` on every iteration and keep the status fields truthful.
+- Automatically use feature context, requirements, source materials and existing visual references to gather prototype context. The user should not need a separate context command.
+- After creating or materially changing the common prototype, refresh the feature context summary and artifact map if they exist or if the feature is large enough to need them.
+- If prototype work reveals missing or conflicting requirements, stop and route the issue back to requirements instead of silently encoding a new business rule only in HTML.
 
 ## Forbidden without mode switch
 

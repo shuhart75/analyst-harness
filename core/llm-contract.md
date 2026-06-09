@@ -11,18 +11,37 @@ Before changing artifacts, read:
 3. `.workflow/agent-delegation.md`
 4. `.workflow/skills-policy.md`
 5. `.workflow/tooling-policy.md`
-6. `.workflow/active-mode.md`
-7. `.workflow/modes/<active-mode>.md`
-8. `.workflow/team.md` before planning resources or regenerating actual-progress
-9. relevant `.workflow/overrides/*.md`
-10. `.workflow/templates/intake/` when the user brings a candidate new feature
-11. `.workflow/templates/requirements/` when working in requirements mode
-12. `.workflow/templates/prototypes/` when working in prototype modes
-13. `baseline/current/` for the canonical deployed state when it exists
-14. relevant `features/<feature>/feature.md`, root requirements, root prototype, slice artifacts, planning stories, execution tasks and gantt includes
-15. relevant `releases/` artifacts when finalizing a delivered change
+6. `.workflow/context-policy.md`
+7. `.workflow/research-policy.md`
+8. `.workflow/active-mode.md`
+9. `.workflow/modes/<active-mode>.md`
+10. `.workflow/team.md` before planning resources or regenerating actual-progress
+11. relevant `.workflow/overrides/*.md`
+12. `.workflow/templates/intake/` when the user brings a candidate new feature
+13. `.workflow/templates/requirements/` when working in requirements mode
+14. `.workflow/templates/prototypes/` when working in prototype modes
+15. `.workflow/templates/context/` when creating or refreshing feature/slice context
+16. `.workflow/templates/research/` when role-based research is needed
+17. `baseline/current/` for the canonical deployed state when it exists
+18. relevant `features/<feature>/context-summary.md` and `artifact-map.md` when present
+19. relevant `features/<feature>/feature.md`, root requirements, root prototype, slice artifacts, planning stories, execution tasks and gantt includes
+20. relevant `releases/` artifacts when finalizing a delivered change
 
 If the user points to a folder with current-system docs/screenshots/change requests, inspect that folder first and keep source references in the produced artifacts.
+
+
+## Small-context operating rules
+
+Treat context management as an internal harness responsibility. Users should not have to request context summaries, checkpoints, research, completeness sweeps, or prototype/slice alignment checks.
+
+When work is broad, long-running, or likely to exceed a small context window:
+- read existing `context-summary.md`, `artifact-map.md`, planning context and run-state files before broad source artifacts;
+- create or refresh feature/slice/planning/execution context summaries when source-of-truth artifacts change substantially;
+- update `.workflow/run-state/current.md` or an equivalent checkpoint before and after long passes;
+- keep facts, inferences, assumptions and open questions separate;
+- transfer accepted research findings into authoritative artifacts instead of leaving them only in `.research/` or chat.
+
+External memory systems are optional accelerators. Repository markdown remains the source of truth.
 
 
 ## Command interpretation rules
@@ -138,7 +157,12 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 - Requirements are living markdown artifacts until release fixation.
 - Write requirements by the project-local template in `.workflow/templates/requirements/`, not freeform.
 - Start from `features/<feature>/requirements.md` as the primary feature-level requirement page and only place where feature requirements are authored from scratch.
-- Build that page by `.workflow/templates/requirements/feature-requirements.template.md`, preserving the Confluence-style structure used by the user template.
+- Build that page by the selected project-local requirements format:
+  - new readable format: `.workflow/templates/requirements/feature-requirements.readable.template.md` plus `*.readable.template.md` slice/FE/BE packs;
+  - old detailed format: `.workflow/templates/requirements/feature-requirements.template.md` plus the original slice/FE/BE templates.
+- If the user names the format, obey it. If the feature already exists and the user does not name a format, preserve the current feature format. For a new feature without an explicit choice, use the new readable format.
+- Do not mix new and old requirement formats inside one feature unless the user explicitly asks for a migration or comparison.
+- Requirement diagrams must be PlantUML; do not introduce Mermaid blocks.
 - Derive slice cards and FE/BE detail packs from the corresponding sections of the root feature requirements.
 - If a slice artifact exposes a missing rule or contradiction, update `features/<feature>/requirements.md` first and only then re-derive the slice artifact.
 - Keep business requirements, system requirements, acceptance criteria, API contracts and examples traceable to source materials.

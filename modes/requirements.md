@@ -16,6 +16,22 @@ Produce or update living requirement packs from canonical baseline, source mater
 
 Use `.workflow/templates/requirements/` as the active project-local template source. Do not write requirement packs freeform when these templates exist.
 
+## Requirement format selection
+
+Before generating or substantially rewriting requirements, choose one format:
+
+- `new readable` / `новый лёгкий формат`: use `feature-requirements.readable.template.md`, `slice.readable.template.md`, `frontend.readable.template.md`, `backend.readable.template.md`.
+- `old detailed` / `старый подробный формат`: use `feature-requirements.template.md`, `slice.template.md`, `frontend.template.md`, `backend.template.md`.
+
+Selection rules:
+
+- If the user explicitly says `новый формат`, `лёгкий формат`, `как deployments`, `краткие срезы`, use the new readable templates.
+- If the user explicitly says `старый формат`, `подробный формат`, `как раньше`, use the old detailed templates.
+- If the user does not specify a format and the feature already has requirements, preserve the feature's current format.
+- If the user does not specify a format and this is a new feature, use the new readable format by default.
+- Do not mix formats inside one feature unless the user explicitly asks for a migration or a partial experiment.
+- Diagrams in either format must be PlantUML, not Mermaid.
+
 ## Main outputs
 
 - `features/*/requirements.md`
@@ -24,12 +40,17 @@ Use `.workflow/templates/requirements/` as the active project-local template sou
 - `features/*/slices/*/requirements/frontend.md`
 - `features/*/slices/*/requirements/backend.md`
 - `features/*/domain-impact.md`
+- `features/*/context-summary.md`
+- `features/*/artifact-map.md`
+- `features/*/slices/*/context-summary.md`
+- optional `features/*/.research/*` and `features/*/slices/*/.research/*`
 
 ## Source-of-truth rule
 
 - `features/<feature>/requirements.md` is the primary and authoritative requirements document for the feature.
 - Slice cards and FE/BE packs are derived artifacts. They are not authored as independent parallel truths.
 - If a slice pack reveals a missing rule, contradiction, or new requirement, update the root feature document first and only then re-derive the slice artifacts.
+- Context summaries, artifact maps and `.research/` files are auxiliary. Accepted findings must be transferred into the root feature document, slice packs, `domain-impact.md` or `.workflow/consistency-backlog.md`.
 
 ## Writing order
 
@@ -39,7 +60,7 @@ Use `.workflow/templates/requirements/` as the active project-local template sou
 4. Create or update `slices/*/requirements/frontend.md` and `slices/*/requirements/backend.md` as detailed annexes derived from the corresponding root section.
 5. Do not invent slice scope that is absent from the root feature document without editing the root feature document first.
 
-The root feature document must follow `.workflow/templates/requirements/feature-requirements.template.md`, which is based on the user's Confluence-compatible requirement page structure.
+The root feature document must follow the selected root template. The old detailed root template is `.workflow/templates/requirements/feature-requirements.template.md`; the new readable root template is `.workflow/templates/requirements/feature-requirements.readable.template.md`.
 
 ## Tail cleanup rule
 
@@ -77,6 +98,20 @@ If the change affects domain rules, lifecycle, roles, API semantics, data model,
 - list affected requirements and prototypes;
 - update `.workflow/consistency-backlog.md` when propagation is deferred;
 - do not silently mutate `baseline/current/` unless the active task explicitly includes baseline update.
+
+## Small-context requirements rules
+
+For `делаем требования`, `актуализируй требования`, `разложи требования на срезы` and `подготовь детальные требования по срезам`, the assistant must automatically:
+
+- read existing feature/slice context summaries and artifact map when present;
+- create or refresh `features/<feature>/context-summary.md` after substantial root requirement changes;
+- create or refresh `features/<feature>/artifact-map.md` when authored, derived or auxiliary artifacts change;
+- create or refresh `features/<feature>/slices/<slice>/context-summary.md` when a slice card or FE/BE pack is created or materially changed;
+- run role-based research from `.workflow/research-policy.md` when requirements are large, ambiguous, cross-cutting, or code/source-material inspection is needed;
+- run the completeness checklist before presenting slice requirements as ready;
+- update a checkpoint before and after long decomposition or derivation passes.
+
+Do not expose `собери контекст`, `исследуй срез` or `проверь полноту среза` as required user commands. Ask the user only when research finds a contradiction, missing business decision, prototype mismatch, neighboring-feature impact or required root requirement change.
 
 ## Forbidden without mode switch
 

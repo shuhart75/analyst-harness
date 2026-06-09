@@ -10,8 +10,16 @@ The planning mode starts with feature intake when the user brings a candidate ne
 
 - `planning/intake/*.md`
 - `.workflow/templates/intake/feature-intake.template.md`
+- `.workflow/templates/planning/planning-context.template.md`
+- `.workflow/templates/planning/assumptions.template.md`
+- `.workflow/templates/planning/risk-register.template.md`
+- `.workflow/templates/planning/story-map.template.md`
 - `.workflow/team.md`
 - `features/*/feature.md`
+- `features/*/planning/planning-context.md`
+- `features/*/planning/assumptions.md`
+- `features/*/planning/risk-register.md`
+- `features/*/planning/story-map.md`
 - `features/*/planning/stories/*.md`
 - `features/*/planning/estimates.md`
 - `features/*/planning/scope-prototype/*`
@@ -27,6 +35,7 @@ The planning mode starts with feature intake when the user brings a candidate ne
 - analyst/team/agreed estimates split by `AN / FE / BE / QA`
 - scope prototype
 - quarter and commander gantt
+- planning context, assumptions, risk register and story map
 
 ## Estimation rules
 
@@ -75,3 +84,18 @@ When the user says `новая фича` or otherwise points to an external fold
 - separate existing coverage from the true new delta;
 - write the result to `planning/intake/<candidate-slug>.md` using `.workflow/templates/intake/feature-intake.template.md`;
 - only after intake confirmation proceed to feature scaffolding and planning stories.
+
+## Small-context planning rules
+
+Planning work must automatically maintain enough context for a small-window LLM to resume without rereading all source materials.
+
+For `новая фича`, `занимаемся планированием`, `спланируй фичу`, `подготовь HLE`, quarter-plan and commander-plan work:
+
+- summarize source materials into the intake result or `features/<feature>/planning/planning-context.md`;
+- explicitly separate current-system coverage, new delta and uncertain items;
+- keep planning assumptions in `features/<feature>/planning/assumptions.md` or a clearly named section of `planning-context.md`;
+- keep planning risks in `features/<feature>/planning/risk-register.md` or a clearly named section of `planning-context.md`;
+- map `source -> delta -> planning story -> slice` in `features/<feature>/planning/story-map.md` when the feature is large enough that the relationship is not obvious;
+- update the run checkpoint before and after long planning passes.
+
+Do not ask the user to request these context operations explicitly. Ask only when scope, quarter boundary, estimate basis or current-vs-new classification requires a human decision.

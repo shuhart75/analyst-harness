@@ -12,6 +12,8 @@ This repository is designed to work with Codex CLI, Claude Code, Qwen CLI, and s
 - Support planning, delivery, execution updates, and release finalization as different modes.
 - Keep `planning story` separate from `implementation task`.
 - Keep artifacts grouped by `feature` and then by `slice`.
+- Support small-context LLM work through context summaries, artifact maps, checkpoints and bounded research.
+- Keep role-oriented user commands simple while context, research and completeness checks run inside the harness.
 - Use React + MUI prototypes with no build step so a single `prototype.html` can be opened locally or sent by email.
 
 ## Quick command entry
@@ -31,6 +33,16 @@ Minimal daily command set:
 - `делаем прототип для разработки`
 - `обновляем прогресс`
 - `финализируем релиз`
+
+Additional role-oriented commands:
+
+- `спланируй фичу`
+- `возьми срез в разработку`
+- `разбери срез по коду`
+- `предложи план реализации`
+- `подготовь проверки по срезу`
+- `собери негативные сценарии`
+- `сверь проверки с требованиями`
 
 Typical usage:
 
@@ -56,6 +68,9 @@ Typical usage:
 - `requirement packs` live under `feature -> slice -> FE/BE`, using project-local templates from `.workflow/templates/requirements/`.
 - `scope prototype` is a live demo prototype for shaping and HLE discussions.
 - `delivery prototype` is a precise React + MUI prototype for handoff and developer alignment.
+- `context summaries` and `artifact maps` let small-context LLMs resume without rereading every requirement.
+- `.research/` files are bounded auxiliary research outputs, not source-of-truth requirements.
+- `implementation handoff`, `implementation plan`, and `test plan` are role aids tied back to slice requirements.
 - `releases/*` store final delivered requirements before promotion into a new baseline.
 
 ## Modes
@@ -73,12 +88,20 @@ Each working project should contain:
 - `.workflow/agent-delegation.md`
 - `.workflow/skills-policy.md`
 - `.workflow/tooling-policy.md`
+- `.workflow/context-policy.md`
+- `.workflow/research-policy.md`
 - `.workflow/tools/`
 - `.workflow/active-mode.md`
 - `.workflow/modes/*.md`
 - `.workflow/templates/intake/`
 - `.workflow/templates/requirements/`
 - `.workflow/templates/prototypes/`
+- `.workflow/templates/context/`
+- `.workflow/templates/research/`
+- `.workflow/templates/handoff/`
+- `.workflow/templates/execution/`
+- `.workflow/templates/planning/`
+- `.workflow/templates/testing/`
 - `.workflow/command-cheatsheet.md`
 - `.workflow/overrides/*.md`
 - `baseline/current/`
@@ -121,6 +144,45 @@ Project-local runtime helpers will be available under `.workflow/tools/`, so a s
 bash scripts/scaffold-quarter.sh /path/to/project 2026-Q2
 bash scripts/scaffold-feature.sh /path/to/project deployments
 bash scripts/scaffold-slice.sh /path/to/project deployments form-editing
+```
+
+## Small-context workflow
+
+The harness assumes that large planning and requirements work may exceed the model context window.
+
+Users should continue to speak in role-oriented commands such as `делаем требования`, `создай общий кликабельный прототип`, `возьми срез в разработку`, or `подготовь проверки по срезу`.
+
+The assistant should automatically:
+
+- read or refresh feature and slice context summaries;
+- update checkpoints before and after long passes;
+- run bounded role-based research when requirements, prototypes, source materials or code are too large for one pass;
+- keep facts, inferences, assumptions and open questions separate;
+- transfer accepted findings into source-of-truth artifacts.
+
+Repository markdown remains the source of truth. External memory systems may accelerate retrieval, but they are not required and are not authoritative.
+
+## Borrowed OpenSpec-style practices
+
+This harness does not use OpenSpec as its artifact model. It borrows useful practices from service-oriented spec workflows:
+
+- two-stage clarification: first `what/why`, then `how/constraints`;
+- role-based research over interface, backend, data, integrations, errors, roles and observability;
+- auxiliary `.research/*.yaml` and a short research summary;
+- completeness checks for data, API, integrations, migration, errors, security, logs, metrics, configuration and acceptance checks;
+- slice implementation handoff and implementation plans;
+- stepwise implementation discipline with explicit verification.
+
+The harness intentionally does not adopt `change.md`, `apply-change`, or `archive-change` as source-of-truth mechanisms. Release finalization and baseline promotion remain the canonical completion path.
+
+## Validation
+
+Standalone projects include validation helpers under `.workflow/tools/`:
+
+```bash
+python .workflow/tools/validate-structure.py .
+python .workflow/tools/validate-links.py .
+python .workflow/tools/validate-context.py .
 ```
 
 ## Prototype standard

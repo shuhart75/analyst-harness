@@ -15,6 +15,9 @@ Use a skill only when it adds repeatable domain value or enforces a stable workf
 - `execution-tracker` — implementation task updates and actual-progress mapping.
 - `release-promoter` — final requirements, baseline promotion, release package assembly.
 - `domain-curator` — baseline/current/domain maintenance and DDD normalization.
+- `context-curator` — small-window feature/slice/planning summaries, artifact maps and checkpoints.
+- `research-analyst` — bounded role-based research over requirements, prototypes, source materials or code.
+- `qa-analyst` — slice-level checks, negative scenarios and coverage matrices.
 
 ## Skill input discipline
 
@@ -31,3 +34,4 @@ Do not create skills that:
 - bypass mode boundaries;
 - assume one vendor-specific tool unless clearly marked;
 - silently mutate canonical baseline files without release-finalization context.
+- expose internal context/research/checkpoint operations as mandatory user commands instead of automating them under role-oriented commands.
