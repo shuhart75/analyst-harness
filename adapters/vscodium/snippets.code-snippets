@@ -73,6 +73,39 @@
       "- не расширять проверку на весь репозиторий, если нет cross-feature/domain-wide признаков."
     ]
   },
+  "Workflow: Slice Decomposition Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-slices",
+    "body": [
+      "разложи требования на срезы",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Root requirements: ${2:features/${1:feature-slug}/requirements.md}",
+      "",
+      "Нужно:",
+      "- разложить root requirements на проверяемые срезы;",
+      "- автоматически проверить полноту и границы срезов;",
+      "- при найденных пробелах сначала предложить правку root requirements;",
+      "- не создавать параллельный источник истины;",
+      "- спросить меня только при противоречии, непроверяемом правиле или влиянии на соседние фичи."
+    ]
+  },
+  "Workflow: Slice Detail Requirements Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-slice-details",
+    "body": [
+      "подготовь детальные требования по срезам",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slices: ${2:all / slice-slug}",
+      "",
+      "Нужно:",
+      "- взять root requirements как источник истины;",
+      "- автоматически обновить контекст срезов и проверить полноту;",
+      "- подготовить slice cards и FE/BE detail packs;",
+      "- спорные места вернуть в root requirements, а не оставлять только в детализации."
+    ]
+  },
   "Workflow: Scope Prototype Prompt": {
     "scope": "markdown,plaintext",
     "prefix": "wf-scope-proto",
@@ -111,6 +144,23 @@
       "- сделать schematic handoff prototype для slice `features/${1:feature-slug}/slices/${2:slice-slug}/delivery-prototype/prototype.html`;",
       "- использовать только MUI-компоненты;",
       "- вынести frontend-пояснения и допущения в slice-level notes."
+    ]
+  },
+  "Workflow: Slice Frontend Prototype Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-slice-proto",
+    "body": [
+      "создай прототип среза для фронта",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "",
+      "Нужно:",
+      "- проверить подтверждение общего root prototype;",
+      "- взять root prototype и требования среза как основу;",
+      "- создать или обновить slice-level handoff prototype;",
+      "- автоматически сверить прототип с требованиями среза;",
+      "- если найдёшь расхождение, не замалчивай его: верни вопрос в требования или prototype notes."
     ]
   },
   "Workflow: Execution Update Prompt": {
@@ -163,6 +213,55 @@
       "- отдельно перечислить проверки для завершения."
     ]
   },
+  "Workflow: Start Implementation Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-impl-start",
+    "body": [
+      "начни реализацию",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "Задача плана: ${3:first / task-id}",
+      "",
+      "Нужно:",
+      "- использовать implementation-plan и handoff;",
+      "- выполнять только согласованный scope;",
+      "- обновлять checkpoint после значимого шага;",
+      "- остановиться и спросить, если требования, прототип или проверки противоречат друг другу."
+    ]
+  },
+  "Workflow: Continue Implementation Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-impl-continue",
+    "body": [
+      "продолжи реализацию",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "",
+      "Нужно:",
+      "- восстановиться с последнего checkpoint;",
+      "- сверить implementation-plan, текущий diff и проверки;",
+      "- продолжить следующую незавершённую задачу;",
+      "- кратко показать что сделано, что осталось и какие проверки выполнены."
+    ]
+  },
+  "Workflow: Review Preparation Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-review",
+    "body": [
+      "подготовь к ревью",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "",
+      "Нужно:",
+      "- сверить изменения с требованиями, прототипом и проверками;",
+      "- дать краткую сводку изменённых файлов и поведения;",
+      "- перечислить выполненные проверки;",
+      "- отдельно указать риски, допущения и открытые вопросы."
+    ]
+  },
   "Workflow: Slice QA Prompt": {
     "scope": "markdown,plaintext",
     "prefix": "wf-qa-slice",
@@ -177,6 +276,55 @@
       "- добавить негативные и граничные сценарии;",
       "- построить покрытие требование -> проверки;",
       "- предположения пометить отдельно."
+    ]
+  },
+  "Workflow: Slice Prototype Check Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-qa-proto",
+    "body": [
+      "проверь прототип по срезу",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "",
+      "Нужно:",
+      "- сравнить slice prototype с требованиями среза;",
+      "- проверить состояния, роли, ошибки и обязательные действия;",
+      "- сверить с test-plan, если он уже есть;",
+      "- найденные расхождения вернуть в требования, prototype notes или список пробелов."
+    ]
+  },
+  "Workflow: Slice Implementation Check Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-qa-impl",
+    "body": [
+      "проверь реализацию по срезу",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "",
+      "Нужно:",
+      "- сравнить готовое поведение с требованиями среза;",
+      "- сверить реализацию с prototype и test-plan;",
+      "- отметить выполненные и невыполненные проверки;",
+      "- не исправлять требования молча, если реализация выявила пробел."
+    ]
+  },
+  "Workflow: Gap Capture Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-gaps",
+    "body": [
+      "зафиксируй найденные пробелы",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Slice: ${2:slice-slug}",
+      "Источник: ${3:requirements/prototype/implementation/testing}",
+      "",
+      "Нужно:",
+      "- перечислить найденные пробелы и источник обнаружения;",
+      "- отделить факты, предположения и вопросы;",
+      "- предложить куда вернуть каждый пункт: requirements, prototype, implementation-plan, test-plan или consistency-backlog;",
+      "- не менять источник истины без явного подтверждения, если решение спорное."
     ]
   },
   "Workflow: Consistency Sweep Prompt": {

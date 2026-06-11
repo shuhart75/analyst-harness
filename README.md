@@ -24,7 +24,7 @@ If you use the harness through an LLM, start here:
 - `.workflow/command-catalog.md` - canonical interpretation rules and mode mapping
 - `.workflow/templates/requirements/` - active project-local requirement templates
 
-Minimal daily command set:
+Minimal daily mode switches:
 
 - `новая фича`
 - `занимаемся планированием`
@@ -34,15 +34,42 @@ Minimal daily command set:
 - `обновляем прогресс`
 - `финализируем релиз`
 
-Additional role-oriented commands:
+## Команды по ролям
 
+### Аналитик
+
+- `новая фича` - предварительно разобрать входящие материалы, отделить текущее поведение от новой дельты и предложить feature/slices.
+- `занимаемся планированием` - подготовить плановые истории, оценки по ролям, риски и квартальный/командирский план.
 - `спланируй фичу`
+- `делаем требования` - создать или обновить корневой `requirements.md` по фиче.
+- `разложи требования на срезы` - разложить корневые требования на проверяемые срезы.
+- `подготовь детальные требования по срезам` - подготовить карточки срезов и детальные требования к интерфейсу/серверной части.
+- `делаем презентационный прототип` - создать или обновить общий кликабельный прототип фичи для согласования.
+- `общий прототип согласован` - зафиксировать подтверждение общего прототипа и перейти к срезовым прототипам.
+- `создай прототип среза для фронта` - подготовить прототип конкретного среза для передачи разработчику интерфейса.
+
+### Разработчик
+
 - `возьми срез в разработку`
 - `разбери срез по коду`
 - `предложи план реализации`
+- `начни реализацию`
+- `продолжи реализацию`
+- `проверь реализацию среза`
+- `подготовь к ревью`
+
+Разработчик получает краткий контекст среза, техническую передачу, исследование затронутого кода, план реализации, список проверок и сводку к ревью. Требования при этом не меняются молча: если реализация выявила противоречие или недостающую бизнес-логику, агент должен спросить или вернуть вопрос в требования.
+
+### Тестировщик
+
 - `подготовь проверки по срезу`
 - `собери негативные сценарии`
 - `сверь проверки с требованиями`
+- `проверь прототип по срезу`
+- `проверь реализацию по срезу`
+- `зафиксируй найденные пробелы`
+
+Тестировщик получает черновик тест-дизайна, негативные и граничные сценарии, матрицу покрытия требований проверками и список пробелов, которые нужно вернуть в требования, прототип или план реализации.
 
 Typical usage:
 
@@ -157,8 +184,14 @@ The assistant should automatically:
 - read or refresh feature and slice context summaries;
 - update checkpoints before and after long passes;
 - run bounded role-based research when requirements, prototypes, source materials or code are too large for one pass;
+- check slice completeness;
+- compare prototypes with slice requirements;
+- trace implementation tasks and checks back to requirements;
+- refresh technical context and coverage matrices;
 - keep facts, inferences, assumptions and open questions separate;
 - transfer accepted findings into source-of-truth artifacts.
+
+The assistant should interrupt the user only for ambiguity, contradictions, cross-slice or cross-feature impact, untestable requirements, unexplained failing checks, or a required source-of-truth change.
 
 Repository markdown remains the source of truth. External memory systems may accelerate retrieval, but they are not required and are not authoritative.
 
