@@ -256,6 +256,7 @@ Partial rollback:
 - Never modify copied legacy/original source folders unless the user explicitly asks. For `changesWork`, read or copy only.
 - Preserve user edits; do not revert unrelated changes.
 - In a standalone project workspace, prefer project-local tools under `.workflow/tools/`.
+- Before the final response after file edits, and always before a commit, review the current-turn diff for necessity, correctness and conciseness. Fix in-scope issues; report or ask about issues that are out of mode, touch unrelated user changes, or require a business decision.
 - After planning/execution gantt edits, run `.workflow/tools/sync-quarter-gantt.py <project>/planning/<quarter>/gantt` when available.
 - After structural edits, run `.workflow/tools/validate-structure.py <project>` and `.workflow/tools/validate-links.py <project>` when available.
 - If working from the harness repo instead of a standalone project, the equivalent scripts may also exist under `scripts/`.

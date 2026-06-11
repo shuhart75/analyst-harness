@@ -19,6 +19,12 @@ After release promotion, validate both structure and links again.
 - Prefer small explicit edits over large opaque rewrites.
 - Do not regenerate unrelated files just because a tool can.
 - Preserve human-readable names in markdown; keep slugs and ids stable.
+- Before the final response after file edits, and always before a commit, review only the changes made in the current turn:
+  - Necessity: each change must directly support the user's request or required workflow consistency.
+  - Correctness: changes must match source-of-truth artifacts, active mode rules, links, generated artifacts and available validators.
+  - Conciseness: simplify without losing traceability, auditability or clarity.
+- If this review finds an issue inside the allowed scope, fix it before responding. If it is outside the active mode, touches unrelated user changes, or needs a business decision, do not fix silently; report it or ask.
+- Do not remove traceability, source references, acceptance criteria, risk records or consistency records only because they look verbose.
 - After requirement edits, use targeted text search or an equivalent local find-in-files sweep for superseded terms such as old endpoints, field names, role names, status values and UX labels.
 - Keep the sweep proportional: start with the current feature and explicitly affected artifacts; expand to neighboring features or baseline only when the change is cross-feature or domain-wide.
 - If the project provides `.workflow/tools/find-stale-terms.py`, use it as the fast default helper for local tail cleanup; otherwise use the platform's normal text search.
