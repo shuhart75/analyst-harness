@@ -1,42 +1,42 @@
 # analyst-harness
 
-Editor-agnostic workflow harness for long-lived product knowledge: baseline domain model, quarter planning, requirements work, MUI prototypes, execution updates, and release finalization.
+Editor-agnostic (т.е. не зависящая от конкретной LLM) обвязка для работы над долгоживущим продуктовым знанием: baseline доменной модели, квартальное планирование, работа над требованиями, MUI-прототипы, актуализация факта и финализация релизов.
 
-This repository is designed to work with Codex CLI, Claude Code, Qwen CLI, and similar LLM-driven terminal workflows. VSCodium support is provided as an adapter layer, not as the source of truth.
+Репозиторий рассчитан на Gigacode CLI, Codex CLI, Claude Code, Qwen CLI и аналогичные LLM-driven терминальные среды. Поддержка VSCodium реализована как adapter layer, а не как источник истины.
 
-## Design goals
+## Цели
 
-- Keep workflow rules in the repository, not in one IDE.
-- Treat the project as a long-lived knowledge base, not a one-off task folder.
-- Keep a canonical deployed baseline separate from planned or in-progress changes.
-- Support planning, delivery, execution updates, and release finalization as different modes.
-- Keep `planning story` separate from `implementation task`.
-- Keep artifacts grouped by `feature` and then by `slice`.
-- Support small-context LLM work through context summaries, artifact maps, checkpoints and bounded research.
-- Keep role-oriented user commands simple while context, research and completeness checks run inside the harness.
-- Use React + MUI prototypes with no build step so a single `prototype.html` can be opened locally or sent by email.
+- Хранить правила процесса в репозитории, а не в одной IDE.
+- Относиться к проекту как к долгоживущей базе знаний, а не к разовой задачной папке.
+- Держать канонический deployed baseline отдельно от запланированных или текущих изменений.
+- Поддерживать планирование, поставку, актуализацию факта и финализацию релиза как разные режимы.
+- Разделять `planning story` и `implementation task`.
+- Группировать артефакты по `feature`, затем по `slice`.
+- Поддерживать работу LLM с малым контекстным окном через context summaries, artifact maps, чекпойнты и ограниченное исследование.
+- Делать пользовательские команды по ролям простыми, а сбор контекста, исследование и проверки полноты держать внутри обвязки.
+- Использовать React + MUI прототипы без сборки, чтобы один `prototype.html` можно было открыть локально или отправить по почте.
 
-## How to start working with the harness
+## С чего начать работу с обвязкой
 
-If you are new to the harness, read in this order:
+Если вы впервые видите обвязку, читайте в таком порядке:
 
-1. This `README.md` - design goals, structure, and quick start
-2. `AGENTS.md` - rules every LLM agent must follow when working inside a project
-3. `core/llm-contract.md` - the CLI-neutral LLM contract (mirrored into `.workflow/llm-contract.md` in every project)
-4. `core/workflow.md`, `core/entity-model.md`, `core/naming.md`, `core/guardrails.md` - the conceptual model behind the harness
-5. `modes/*.md` - what each mode owns and what it must not touch
+1. Этот `README.md` — цели, структура и быстрый старт.
+2. `AGENTS.md` — правила, которым должен следовать любой LLM-агент внутри проекта.
+3. `core/llm-contract.md` — CLI-нейтральный контракт LLM (зеркалится в `.workflow/llm-contract.md` каждого проекта).
+4. `core/workflow.md`, `core/entity-model.md`, `core/naming.md`, `core/guardrails.md` — концептуальная модель обвязки.
+5. `modes/*.md` — что каждый режим владеет и чего трогать нельзя.
 
-After you have read the above, scaffold a project (see [Quick start](#quick-start)) and use the command catalog below.
+После этого создайте проект (см. [Быстрый старт](#быстрый-старт)) и пользуйтесь каталогом команд ниже.
 
-## Quick command entry
+## Быстрый вход в команды
 
-If you use the harness through an LLM, start here:
+Если работаете через LLM, начните отсюда:
 
-- `.workflow/command-cheatsheet.md` - ready-to-send Russian command phrasings
-- `.workflow/command-catalog.md` - canonical interpretation rules and mode mapping
-- `.workflow/templates/requirements/` - active project-local requirement templates
+- `.workflow/command-cheatsheet.md` — готовые русские формулировки команд.
+- `.workflow/command-catalog.md` — канонические правила интерпретации и маппинг на режимы.
+- `.workflow/templates/requirements/` — активные шаблоны требований проекта.
 
-Minimal daily mode switches:
+Минимальные ежедневные переключатели режима:
 
 - `новая фича`
 - `занимаемся планированием`
@@ -50,15 +50,15 @@ Minimal daily mode switches:
 
 ### Аналитик
 
-- `новая фича` - предварительно разобрать входящие материалы, отделить текущее поведение от новой дельты и предложить feature/slices.
-- `занимаемся планированием` - подготовить плановые истории, оценки по ролям, риски и квартальный/командирский план.
+- `новая фича` — предварительно разобрать входящие материалы, отделить текущее поведение от новой дельты и предложить feature/slices.
+- `занимаемся планированием` — подготовить плановые истории, оценки по ролям, риски и квартальный/командирский план.
 - `спланируй фичу`
-- `делаем требования` - создать или обновить корневой `requirements.md` по фиче.
-- `разложи требования на срезы` - разложить корневые требования на проверяемые срезы.
-- `подготовь детальные требования по срезам` - подготовить карточки срезов и детальные требования к интерфейсу/серверной части.
-- `делаем презентационный прототип` - создать или обновить общий кликабельный прототип фичи для согласования.
-- `общий прототип согласован` - зафиксировать подтверждение общего прототипа и перейти к срезовым прототипам.
-- `создай прототип среза для фронта` - подготовить прототип конкретного среза для передачи разработчику интерфейса.
+- `делаем требования` — создать или обновить корневой `requirements.md` по фиче.
+- `разложи требования на срезы` — разложить корневые требования на проверяемые срезы.
+- `подготовь детальные требования по срезам` — подготовить карточки срезов и детальные требования к интерфейсу/серверной части.
+- `делаем презентационный прототип` — создать или обновить общий кликабельный прототип фичи для согласования.
+- `общий прототип согласован` — зафиксировать подтверждение общего прототипа и перейти к срезовым прототипам.
+- `создай прототип среза для фронта` — подготовить прототип конкретного среза для передачи разработчику интерфейса.
 
 ### Разработчик
 
@@ -83,7 +83,7 @@ Minimal daily mode switches:
 
 Тестировщик получает черновик тест-дизайна, негативные и граничные сценарии, матрицу покрытия требований проверками и список пробелов, которые нужно вернуть в требования, прототип или план реализации.
 
-Typical usage:
+Типичное использование:
 
 ```text
 новая фича
@@ -97,22 +97,22 @@ Typical usage:
 Нужно подготовить requirement pack по feature/slice, обновить domain-impact и перечислить затронутые прототипы.
 ```
 
-## Core concepts
+## Ключевые понятия
 
-- `baseline/current` is the canonical current-state system description.
-- `feature` is the main container for a change delta.
-- `planning stories` drive quarter and commander plans.
-- `planning/intake/*` captures feature preflight notes before scaffolding.
-- `implementation tasks` drive actual progress.
-- `requirement packs` live under `feature -> slice -> FE/BE`, using project-local templates from `.workflow/templates/requirements/`.
-- `scope prototype` is a live demo prototype for shaping and HLE discussions.
-- `delivery prototype` is a precise React + MUI prototype for handoff and developer alignment.
-- `context summaries` and `artifact maps` let small-context LLMs resume without rereading every requirement.
-- `.research/` files are bounded auxiliary research outputs, not source-of-truth requirements.
-- `implementation handoff`, `implementation plan`, and `test plan` are role aids tied back to slice requirements.
-- `releases/*` store final delivered requirements before promotion into a new baseline.
+- `baseline/current` — каноническое описание текущей системы.
+- `feature` — основной контейнер для дельты изменений.
+- `planning stories` — основа квартального и командирского плана.
+- `planning/intake/*` — preflight-заметки по фиче до scaffold.
+- `implementation tasks` — основа фактического прогресса.
+- `requirement packs` лежат под `feature -> slice -> FE/BE`, используют локальные шаблоны проекта из `.workflow/templates/requirements/`.
+- `scope prototype` — живой демо-прототип для шейпинга и HLE-обсуждений.
+- `delivery prototype` — точный React + MUI прототип для передачи разработчику и согласования.
+- `context summaries` и `artifact maps` позволяют LLM с малым контекстом продолжать работу без перечитывания всех требований.
+- `.research/` — ограниченные вспомогательные исследования, не источник истины.
+- `implementation handoff`, `implementation plan` и `test plan` — role-aids, привязанные к требованиям среза.
+- `releases/*` — финальные доставленные требования перед промоушеном в новый baseline.
 
-## Modes
+## Режимы
 
 - `planning`
 - `requirements`
@@ -121,9 +121,10 @@ Typical usage:
 - `execution-update`
 - `release-finalization`
 
-Each working project must contain:
+Каждый рабочий проект должен содержать:
 
-**Workflow contracts** (copied from `core/` and `modes/` during scaffold):
+**Контракты обвязки** (копируются из `core/` и `modes/` при scaffold):
+
 - `.workflow/llm-contract.md`
 - `.workflow/agent-delegation.md`
 - `.workflow/skills-policy.md`
@@ -132,21 +133,25 @@ Each working project must contain:
 - `.workflow/research-policy.md`
 - `.workflow/active-mode.md`
 - `.workflow/modes/*.md`
-- `.workflow/overrides/` *(empty directory for project-specific rule overrides)*
+- `.workflow/overrides/` _(пустая директория под локальные правила-переопределения)_
 
-**Command catalog** (initialized from `templates/workflow/`):
+**Каталог команд** (инициализируется из `templates/workflow/`):
+
 - `.workflow/command-catalog.md`
 - `.workflow/command-cheatsheet.md`
 - `.workflow/consistency-backlog.md`
 - `.workflow/team.md`
 
-**Runtime helpers** (copied from `scripts/`):
-- `.workflow/tools/` — validation and sync scripts
+**Runtime-помощники** (копируются из `scripts/`):
 
-**Runtime state** (auto-created during sessions):
-- `.workflow/run-state/` — LLM session checkpoints
+- `.workflow/tools/` — скрипты валидации и синхронизации.
 
-**Templates** (copied from `templates/`):
+**Runtime-состояние** (создаётся в ходе сессий):
+
+- `.workflow/run-state/` — чекпойнты LLM-сессий.
+
+**Шаблоны** (копируются из `templates/`):
+
 - `.workflow/templates/intake/`
 - `.workflow/templates/requirements/`
 - `.workflow/templates/prototypes/`
@@ -157,63 +162,65 @@ Each working project must contain:
 - `.workflow/templates/planning/`
 - `.workflow/templates/testing/`
 
-**Knowledge base directories**:
-- `baseline/current/` — canonical deployed-system description
-- `baseline/versions/` — previous deployed baselines
-- `features/` — one subdirectory per feature (change delta)
-- `context/` — source materials, current-system docs, change requests
-- `planning/` — quarter plans and intake notes
-- `planning/intake/` — feature preflight notes before scaffolding
-- `releases/` — immutable release packages
+**Директории базы знаний**:
 
-**Root**:
-- `AGENTS.md` — LLM session bootstrap and harness rules
+- `baseline/current/` — каноническое описание deployed-системы.
+- `baseline/versions/` — предыдущие deployed baselines.
+- `features/` — по одной поддиректории на фичу (дельта изменений).
+- `context/` — исходные материалы, описание текущей системы, change requests.
+- `planning/` — квартальные планы и intake-заметки.
+- `planning/intake/` — preflight-заметки по фиче до scaffold.
+- `releases/` — неизменяемые release-пакеты.
 
-The active mode defines what the assistant is allowed to change without an explicit mode switch.
+**Корень проекта**:
 
-## Repo layout
+- `AGENTS.md` — bootstrap LLM-сессии и правила обвязки.
 
-- `core/` - permanent workflow contracts and the conceptual model
-  - `llm-contract.md`, `agent-delegation.md`, `context-policy.md`, `research-policy.md`, `skills-policy.md`, `tooling-policy.md` - CLI-neutral policies copied into every project as `.workflow/*.md`
-  - `workflow.md`, `entity-model.md`, `naming.md`, `guardrails.md` - conceptual reference (layers, entities, naming conventions, mode boundaries)
-- `modes/` - mode-specific rules (`planning`, `requirements`, `scope-prototype`, `delivery-prototype`, `execution-update`, `release-finalization`)
-- `prompts/` - role-oriented prompt snippets that pair with each mode
-- `templates/` - markdown templates copied or referenced by scaffolded projects
-  - workflow scaffolding: `baseline/`, `domain/`, `releases/`, `workflow/`
-  - role artifacts: `intake/`, `requirements/`, `prototypes/`, `context/`, `research/`, `handoff/`, `execution/`, `planning/`, `testing/`
-- `scripts/` - scaffolding and validation helpers (`scaffold-project.sh`, `scaffold-quarter.sh`, `scaffold-feature.sh`, `scaffold-slice.sh`, `validate-*.py`, `sync-*.py`, `expand-plantuml-includes.py`, `find-stale-terms.py`)
-- `adapters/cli/` - shell helpers for mode switching and session bootstrap (`switch-mode.sh`, `start-session.sh`)
-- `adapters/vscodium/` - VSCodium tasks, snippets, and suggested settings
-- `examples/demo-project/` - small sample layout
-- `AGENTS.md` - LLM session bootstrap rules (mirrored into each scaffolded project)
+Активный режим определяет, что ассистент может менять без явного переключения режима.
 
-## Quick start
+## Структура репозитория
 
-1. Create a new project skeleton:
+- `core/` — постоянные контракты процесса и концептуальная модель.
+  - `llm-contract.md`, `agent-delegation.md`, `context-policy.md`, `research-policy.md`, `skills-policy.md`, `tooling-policy.md` — CLI-нейтральные политики, копируются в каждый проект как `.workflow/*.md`.
+  - `workflow.md`, `entity-model.md`, `naming.md`, `guardrails.md` — концептуальная справка (слои, сущности, правила именования, границы режимов).
+- `modes/` — правила для конкретных режимов (`planning`, `requirements`, `scope-prototype`, `delivery-prototype`, `execution-update`, `release-finalization`).
+- `prompts/` — role-oriented prompt-сниппеты, парные к каждому режиму.
+- `templates/` — markdown-шаблоны, копируемые или используемые scaffold-ленными проектами.
+  - workflow-скаффолд: `baseline/`, `domain/`, `releases/`, `workflow/`.
+  - артефакты по ролям: `intake/`, `requirements/`, `prototypes/`, `context/`, `research/`, `handoff/`, `execution/`, `planning/`, `testing/`.
+- `scripts/` — скрипты scaffold и валидации (`scaffold-project.sh`, `scaffold-quarter.sh`, `scaffold-feature.sh`, `scaffold-slice.sh`, `validate-*.py`, `sync-*.py`, `expand-plantuml-includes.py`, `find-stale-terms.py`).
+- `adapters/cli/` — shell-помощники для переключения режима и старта сессии (`switch-mode.sh`, `start-session.sh`).
+- `adapters/vscodium/` — задачи VSCodium, сниппеты и предлагаемые настройки.
+- `examples/demo-project/` — небольшой пример раскладки.
+- `AGENTS.md` — bootstrap-правила LLM-сессии (зеркалятся в каждый scaffold-нутый проект).
+
+## Быстрый старт
+
+1. Создайте скелет нового проекта:
 
 ```bash
 bash scripts/scaffold-project.sh /path/to/project
 ```
 
-This copies all `.workflow/` contracts, mode files, template directories, CLI helpers, and validation tools into the target directory. It also creates empty `baseline/current/`, `context/`, `features/`, `planning/intake/`, and `releases/` directories, and places `AGENTS.md` in the project root.
+Скрипт копирует все `.workflow/`-контракты, файлы режимов, директории шаблонов, CLI-помощники и инструменты валидации в целевую директорию. Также создаются пустые `baseline/current/`, `context/`, `features/`, `planning/intake/`, `releases/` и кладётся `AGENTS.md` в корень проекта.
 
-2. Add team and workflow configuration:
+2. Настройте команду и каталог команд:
 
-Edit `.workflow/team.md` (from template `templates/workflow/team.template.md`) to list resources with roles, lanes, and capacity before running any planning or actual-progress sync.
+Заполните `.workflow/team.md` (из шаблона `templates/workflow/team.template.md`) — перечислите ресурсы с ролями, lane и capacity до того, как запускать планирование или sync факта.
 
-Edit `.workflow/command-catalog.md` and `.workflow/command-cheatsheet.md` if you need project-specific command overrides (default content copied from `templates/workflow/`).
+Поправьте `.workflow/command-catalog.md` и `.workflow/command-cheatsheet.md`, если нужны проектные переопределения команд (по умолчанию копируется содержимое из `templates/workflow/`).
 
-3. Switch mode in that project:
+3. Переключите режим в проекте:
 
 ```bash
 bash adapters/cli/switch-mode.sh /path/to/project planning
 ```
 
-4. Start a session by telling the LLM where the project lives and which mode is active.
+4. Стартуйте сессию: укажите LLM путь к проекту и текущий активный режим.
 
-Project-local runtime helpers will be available under `.workflow/tools/`, so a standalone project can validate itself without depending on the harness repo being opened as the workspace root.
+Локальные runtime-помощники проекта будут доступны в `.workflow/tools/`, поэтому самостоятельный проект может валидироваться без открытия репозитория обвязки в качестве рабочей директории.
 
-5. Add features and slices as needed:
+5. Добавляйте фичи и срезы по мере необходимости:
 
 ```bash
 bash scripts/scaffold-quarter.sh /path/to/project 2026-Q2
@@ -221,44 +228,44 @@ bash scripts/scaffold-feature.sh /path/to/project deployments
 bash scripts/scaffold-slice.sh /path/to/project deployments form-editing
 ```
 
-## Small-context workflow
+## Работа с малым контекстным окном
 
-The harness assumes that large planning and requirements work may exceed the model context window.
+Обвязка предполагает, что объём работы над планированием и требованиями может превышать контекстное окно модели.
 
-Users should continue to speak in role-oriented commands such as `делаем требования`, `создай общий кликабельный прототип`, `возьми срез в разработку`, or `подготовь проверки по срезу`.
+Пользователь продолжает говорить роль-ориентированными командами: `делаем требования`, `создай общий кликабельный прототип`, `возьми срез в разработку`, `подготовь проверки по срезу`.
 
-The assistant should automatically:
+Ассистент сам должен:
 
-- read or refresh feature and slice context summaries;
-- update checkpoints before and after long passes;
-- run bounded role-based research when requirements, prototypes, source materials or code are too large for one pass;
-- check slice completeness;
-- compare prototypes with slice requirements;
-- trace implementation tasks and checks back to requirements;
-- refresh technical context and coverage matrices;
-- keep facts, inferences, assumptions and open questions separate;
-- transfer accepted findings into source-of-truth artifacts.
+- читать или обновлять context summaries по фиче и срезу;
+- обновлять чекпойнты перед длинными проходами и после них;
+- запускать ограниченное role-based исследование, когда требования, прототипы, исходные материалы или код не помещаются в один проход;
+- проверять полноту среза;
+- сверять прототипы с требованиями среза;
+- трассировать implementation tasks и проверки к требованиям;
+- обновлять технический контекст и матрицы покрытия;
+- держать факты, выводы, допущения и открытые вопросы отдельно;
+- переносить принятые находки в источники истины.
 
-The assistant should interrupt the user only for ambiguity, contradictions, cross-slice or cross-feature impact, untestable requirements, unexplained failing checks, or a required source-of-truth change.
+Ассистент прерывает пользователя только при неопределённости, противоречии, влиянии между срезами/фичами, непроверяемом требовании, непонятно падающей проверке или необходимости менять источник истины.
 
-Repository markdown remains the source of truth. External memory systems may accelerate retrieval, but they are not required and are not authoritative.
+Markdown в репозитории остаётся источником истины. Внешние memory-системы могут ускорять выборку, но не обязательны и не авторитетны.
 
-## Borrowed OpenSpec-style practices
+## Заимствованные практики из OpenSpec
 
-This harness does not use OpenSpec as its artifact model. It borrows useful practices from service-oriented spec workflows:
+Обвязка не использует OpenSpec как модель артефактов, но заимствует полезные практики из service-oriented spec-процессов:
 
-- two-stage clarification: first `what/why`, then `how/constraints`;
-- role-based research over interface, backend, data, integrations, errors, roles and observability;
-- auxiliary `.research/*.yaml` and a short research summary;
-- completeness checks for data, API, integrations, migration, errors, security, logs, metrics, configuration and acceptance checks;
-- slice implementation handoff and implementation plans;
-- stepwise implementation discipline with explicit verification.
+- двухстадийное уточнение: сначала `что/зачем`, потом `как/ограничения`;
+- role-based исследование по интерфейсу, бэкенду, данным, интеграциям, ошибкам, ролям и observability;
+- вспомогательные `.research/*.yaml` и короткий research summary;
+- проверки полноты по данным, API, интеграциям, миграции, ошибкам, безопасности, логам, метрикам, конфигурации и приёмочным проверкам;
+- slice implementation handoff и implementation plan;
+- пошаговая дисциплина реализации с явной верификацией.
 
-The harness intentionally does not adopt `change.md`, `apply-change`, or `archive-change` as source-of-truth mechanisms. Release finalization and baseline promotion remain the canonical completion path.
+Обвязка сознательно не принимает `change.md`, `apply-change` или `archive-change` как механизмы источника истины. Канонический путь завершения работы — финализация релиза и промоушен в baseline.
 
-## Validation
+## Проверки
 
-Standalone projects include validation helpers under `.workflow/tools/`:
+Самостоятельные проекты содержат скрипты валидации в `.workflow/tools/`:
 
 ```bash
 python .workflow/tools/validate-structure.py .
@@ -267,22 +274,22 @@ python .workflow/tools/validate-context.py .
 python .workflow/tools/find-stale-terms.py .
 ```
 
-After gantt edits:
+После правок gantt:
 
 ```bash
 python .workflow/tools/sync-quarter-gantt.py planning/2026-Q2/gantt
 python .workflow/tools/sync-actual-progress-overlay.py planning/2026-Q2/gantt
 ```
 
-Use `python .workflow/tools/expand-plantuml-includes.py` to flatten PlantUML includes for renderers that do not follow `!include`.
+`python .workflow/tools/expand-plantuml-includes.py` разворачивает PlantUML-include для рендереров, которые не поддерживают `!include`.
 
-## Prototype standard
+## Стандарт прототипа
 
-All prototypes use a single-file `prototype.html` based on:
+Все прототипы — single-file `prototype.html` на:
 
-- React 18 via CDN
-- ReactDOM via CDN
-- MUI via CDN
-- Babel standalone
+- React 18 через CDN;
+- ReactDOM через CDN;
+- MUI через CDN;
+- Babel standalone.
 
-This keeps prototypes portable and easy to open with Live Preview, a browser, or email recipients.
+Так прототип остаётся портативным и открывается через Live Preview, браузер или вложение в письме.
