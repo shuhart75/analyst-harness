@@ -190,12 +190,27 @@ def sync_actual_progress_overlays(gantt_dir: Path) -> None:
     script = Path(__file__).with_name("sync-actual-progress-overlay.py")
     if not script.exists():
         return
+    feature_slugs = sorted(
+        {
+            feature_slug(path)
+            for view in ("quarter-plan", "commander-plan")
+            for path in (gantt_dir / "includes" / view).glob("FEATURE-*.puml")
+        }
+    )
+    if feature_slugs:
+        actual_dir = gantt_dir / "includes" / "actual-progress"
+        actual_dir.mkdir(parents=True, exist_ok=True)
+        allowed = {f"FEATURE-{slug}.puml" for slug in feature_slugs}
+        for stale in actual_dir.glob("FEATURE-*.puml"):
+            if stale.name not in allowed:
+                stale.unlink()
     subprocess.run(
         [
             sys.executable,
             str(script),
             str(project_root(gantt_dir)),
             gantt_dir.parent.name,
+            *feature_slugs,
         ],
         check=True,
     )

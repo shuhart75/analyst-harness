@@ -913,13 +913,14 @@ def render_feature(
 
     active_tasks = [task for task in tasks.values() if task.status.lower() != "superseded"]
     if active_tasks:
+        task_order = {task_id: index for index, task_id in enumerate(tasks)}
         lines.append("' Execution task layer")
         for task in sorted(
             active_tasks,
             key=lambda item: (
                 schedules[item.task_id].start if item.task_id in schedules else date.max,
                 ROLE_ORDER.get(role_for_task(item), 90),
-                item.task_id,
+                task_order.get(item.task_id, 0),
             ),
         ):
             lines.extend(render_task(task, schedules))

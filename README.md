@@ -16,6 +16,18 @@ This repository is designed to work with Codex CLI, Claude Code, Qwen CLI, and s
 - Keep role-oriented user commands simple while context, research and completeness checks run inside the harness.
 - Use React + MUI prototypes with no build step so a single `prototype.html` can be opened locally or sent by email.
 
+## How to start working with the harness
+
+If you are new to the harness, read in this order:
+
+1. This `README.md` - design goals, structure, and quick start
+2. `AGENTS.md` - rules every LLM agent must follow when working inside a project
+3. `core/llm-contract.md` - the CLI-neutral LLM contract (mirrored into `.workflow/llm-contract.md` in every project)
+4. `core/workflow.md`, `core/entity-model.md`, `core/naming.md`, `core/guardrails.md` - the conceptual model behind the harness
+5. `modes/*.md` - what each mode owns and what it must not touch
+
+After you have read the above, scaffold a project (see [Quick start](#quick-start)) and use the command catalog below.
+
 ## Quick command entry
 
 If you use the harness through an LLM, start here:
@@ -109,17 +121,32 @@ Typical usage:
 - `execution-update`
 - `release-finalization`
 
-Each working project should contain:
+Each working project must contain:
 
+**Workflow contracts** (copied from `core/` and `modes/` during scaffold):
 - `.workflow/llm-contract.md`
 - `.workflow/agent-delegation.md`
 - `.workflow/skills-policy.md`
 - `.workflow/tooling-policy.md`
 - `.workflow/context-policy.md`
 - `.workflow/research-policy.md`
-- `.workflow/tools/`
 - `.workflow/active-mode.md`
 - `.workflow/modes/*.md`
+- `.workflow/overrides/` *(empty directory for project-specific rule overrides)*
+
+**Command catalog** (initialized from `templates/workflow/`):
+- `.workflow/command-catalog.md`
+- `.workflow/command-cheatsheet.md`
+- `.workflow/consistency-backlog.md`
+- `.workflow/team.md`
+
+**Runtime helpers** (copied from `scripts/`):
+- `.workflow/tools/` — validation and sync scripts
+
+**Runtime state** (auto-created during sessions):
+- `.workflow/run-state/` — LLM session checkpoints
+
+**Templates** (copied from `templates/`):
 - `.workflow/templates/intake/`
 - `.workflow/templates/requirements/`
 - `.workflow/templates/prototypes/`
@@ -129,23 +156,36 @@ Each working project should contain:
 - `.workflow/templates/execution/`
 - `.workflow/templates/planning/`
 - `.workflow/templates/testing/`
-- `.workflow/command-cheatsheet.md`
-- `.workflow/overrides/*.md`
-- `baseline/current/`
-- `releases/`
-- `planning/intake/`
+
+**Knowledge base directories**:
+- `baseline/current/` — canonical deployed-system description
+- `baseline/versions/` — previous deployed baselines
+- `features/` — one subdirectory per feature (change delta)
+- `context/` — source materials, current-system docs, change requests
+- `planning/` — quarter plans and intake notes
+- `planning/intake/` — feature preflight notes before scaffolding
+- `releases/` — immutable release packages
+
+**Root**:
+- `AGENTS.md` — LLM session bootstrap and harness rules
 
 The active mode defines what the assistant is allowed to change without an explicit mode switch.
 
 ## Repo layout
 
-- `core/` - permanent workflow contracts, including the CLI-neutral LLM contract
-- `modes/` - mode-specific rules
-- `templates/` - markdown, baseline and release templates
-- `scripts/` - scaffolding and validation helpers
-- `adapters/cli/` - shell helpers for mode switching and session bootstrap
+- `core/` - permanent workflow contracts and the conceptual model
+  - `llm-contract.md`, `agent-delegation.md`, `context-policy.md`, `research-policy.md`, `skills-policy.md`, `tooling-policy.md` - CLI-neutral policies copied into every project as `.workflow/*.md`
+  - `workflow.md`, `entity-model.md`, `naming.md`, `guardrails.md` - conceptual reference (layers, entities, naming conventions, mode boundaries)
+- `modes/` - mode-specific rules (`planning`, `requirements`, `scope-prototype`, `delivery-prototype`, `execution-update`, `release-finalization`)
+- `prompts/` - role-oriented prompt snippets that pair with each mode
+- `templates/` - markdown templates copied or referenced by scaffolded projects
+  - workflow scaffolding: `baseline/`, `domain/`, `releases/`, `workflow/`
+  - role artifacts: `intake/`, `requirements/`, `prototypes/`, `context/`, `research/`, `handoff/`, `execution/`, `planning/`, `testing/`
+- `scripts/` - scaffolding and validation helpers (`scaffold-project.sh`, `scaffold-quarter.sh`, `scaffold-feature.sh`, `scaffold-slice.sh`, `validate-*.py`, `sync-*.py`, `expand-plantuml-includes.py`, `find-stale-terms.py`)
+- `adapters/cli/` - shell helpers for mode switching and session bootstrap (`switch-mode.sh`, `start-session.sh`)
 - `adapters/vscodium/` - VSCodium tasks, snippets, and suggested settings
 - `examples/demo-project/` - small sample layout
+- `AGENTS.md` - LLM session bootstrap rules (mirrored into each scaffolded project)
 
 ## Quick start
 
@@ -155,17 +195,25 @@ The active mode defines what the assistant is allowed to change without an expli
 bash scripts/scaffold-project.sh /path/to/project
 ```
 
-2. Switch mode in that project:
+This copies all `.workflow/` contracts, mode files, template directories, CLI helpers, and validation tools into the target directory. It also creates empty `baseline/current/`, `context/`, `features/`, `planning/intake/`, and `releases/` directories, and places `AGENTS.md` in the project root.
+
+2. Add team and workflow configuration:
+
+Edit `.workflow/team.md` (from template `templates/workflow/team.template.md`) to list resources with roles, lanes, and capacity before running any planning or actual-progress sync.
+
+Edit `.workflow/command-catalog.md` and `.workflow/command-cheatsheet.md` if you need project-specific command overrides (default content copied from `templates/workflow/`).
+
+3. Switch mode in that project:
 
 ```bash
 bash adapters/cli/switch-mode.sh /path/to/project planning
 ```
 
-3. Start a session by telling the LLM where the project lives and which mode is active.
+4. Start a session by telling the LLM where the project lives and which mode is active.
 
 Project-local runtime helpers will be available under `.workflow/tools/`, so a standalone project can validate itself without depending on the harness repo being opened as the workspace root.
 
-4. Add features and slices as needed:
+5. Add features and slices as needed:
 
 ```bash
 bash scripts/scaffold-quarter.sh /path/to/project 2026-Q2
@@ -216,7 +264,17 @@ Standalone projects include validation helpers under `.workflow/tools/`:
 python .workflow/tools/validate-structure.py .
 python .workflow/tools/validate-links.py .
 python .workflow/tools/validate-context.py .
+python .workflow/tools/find-stale-terms.py .
 ```
+
+After gantt edits:
+
+```bash
+python .workflow/tools/sync-quarter-gantt.py planning/2026-Q2/gantt
+python .workflow/tools/sync-actual-progress-overlay.py planning/2026-Q2/gantt
+```
+
+Use `python .workflow/tools/expand-plantuml-includes.py` to flatten PlantUML includes for renderers that do not follow `!include`.
 
 ## Prototype standard
 
