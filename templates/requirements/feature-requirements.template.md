@@ -47,9 +47,9 @@ Planning story: `planning/stories/STORY-<FEATURE>-NNN.md`
 
 **Критерии приемки**
 
-1. 
-2. 
-3. 
+| Acceptance ID | Критерий |
+|---|---|
+| AC-<FEATURE>-<SLICE>-001 |  |
 
 **USE CASES**
 
@@ -59,6 +59,8 @@ Planning story: `planning/stories/STORY-<FEATURE>-NNN.md`
 - **осн. сценарий 2**
 
 ### Функциональные требования
+
+Каждое проверяемое правило получает стабильный `REQ-*` ID, который используется в task candidates, implementation plan и test coverage.
 
 #### Реализация для FRONTEND
 
@@ -105,6 +107,14 @@ Planning story: `planning/stories/STORY-<FEATURE>-NNN.md`
 
 - 
 
+## Доработки затронутых фич
+
+Все обязательные cross-feature изменения входят в scope и HLE текущей фичи.
+
+| Impact ID | Затронутая фича | Причина | Требуемая доработка | Срез/компонент | FE/BE/QA влияние | Критерий завершения | Planning/task coverage | Статус синхронизации |
+|---|---|---|---|---|---|---|---|---|
+| IMP-<FEATURE>-001 |  |  |  |  |  | AC-<ID> | STORY-/CAND-/TEST- | pending |
+
 ### Доп. пояснения
 
 - Этот документ является главным feature-level документом для контроля требований.
@@ -112,5 +122,6 @@ Planning story: `planning/stories/STORY-<FEATURE>-NNN.md`
 - Если детализация slice выявила новый scope, сначала обнови этот root document, а потом синхронизируй slice artifacts.
 - Подробности по FE/BE не дублируй без необходимости: выноси их в slice detail packs и оставляй здесь краткий управленческий контрольный слой.
 - Если у feature один slice, всё равно используй этот же шаблон без упрощения структуры.
+- Cross-feature доработки не оставляй только в `domain-impact.md`: включай их в scope текущих требований и покрывай task candidates и проверками.
 - Для каждого slice сохраняй порядок разделов и не переставляй их без явного основания в пользовательском сценарии или lifecycle.
 - Confluence-специфичные макросы `UI Expand`, раскраска текста и Jira-встраивания в Markdown не воспроизводятся буквально; в markdown-версии их заменяет явная структура разделов, ссылки на detail packs и текстовые пометки о статусе/нереализованных местах.

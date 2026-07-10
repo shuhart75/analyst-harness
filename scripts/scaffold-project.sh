@@ -2,14 +2,42 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <target-project-dir>"
+  echo "Usage: $0 <target-project-dir> [--merge|--force]"
   exit 1
 fi
 
 TARGET="$1"
+INSTALL_MODE="${2:-create}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+if [[ "$INSTALL_MODE" == "--merge" ]]; then
+  TMP_TARGET="$(mktemp -d /tmp/analyst-harness-scaffold.XXXXXX)"
+  trap 'rm -rf "$TMP_TARGET"' EXIT
+  bash "$0" "$TMP_TARGET/project"
+  mkdir -p "$TARGET"
+  mkdir -p "$TARGET/.workflow" "$TARGET/.vscode"
+  cp -an "$TMP_TARGET/project/.workflow/." "$TARGET/.workflow/"
+  cp -an "$TMP_TARGET/project/.vscode/." "$TARGET/.vscode/"
+  [[ -e "$TARGET/AGENTS.md" ]] || cp "$TMP_TARGET/project/AGENTS.md" "$TARGET/AGENTS.md"
+  [[ -e "$TARGET/README.md" ]] || cp "$TMP_TARGET/project/README.md" "$TARGET/README.md"
+  echo "Harness runtime merged into $TARGET without touching project knowledge directories"
+  exit 0
+fi
+
+if [[ "$INSTALL_MODE" != "create" && "$INSTALL_MODE" != "--force" ]]; then
+  echo "Unknown install mode: $INSTALL_MODE"
+  exit 1
+fi
+
+if [[ -d "$TARGET" && -n "$(find "$TARGET" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" && "$INSTALL_MODE" != "--force" ]]; then
+  echo "Target is not empty: $TARGET"
+  echo "Use --merge to add missing files or --force to overwrite managed scaffold files."
+  exit 1
+fi
+
 mkdir -p "$TARGET/.workflow/modes" "$TARGET/.workflow/overrides" "$TARGET/.workflow/tools" "$TARGET/.workflow/templates" "$TARGET/.workflow/run-state" "$TARGET/.vscode"
+mkdir -p "$TARGET/.workflow/skills" "$TARGET/.workflow/runs"
+mkdir -p "$TARGET/.workflow/evals"
 mkdir -p "$TARGET/context/source-materials/current-system/requirements" "$TARGET/context/source-materials/current-system/screenshots" "$TARGET/context/source-materials/current-system/prototypes" "$TARGET/context/source-materials/current-system/diagrams" "$TARGET/context/source-materials/change-requests"
 mkdir -p "$TARGET/context/current-system" "$TARGET/context/change-requests"
 mkdir -p "$TARGET/baseline/current/domain/state-machines" "$TARGET/baseline/current/requirements" "$TARGET/baseline/current/api" "$TARGET/baseline/current/ui" "$TARGET/baseline/current/data" "$TARGET/baseline/current/decisions" "$TARGET/baseline/versions"
@@ -22,12 +50,20 @@ cp "$ROOT_DIR/core/skills-policy.md" "$TARGET/.workflow/skills-policy.md"
 cp "$ROOT_DIR/core/tooling-policy.md" "$TARGET/.workflow/tooling-policy.md"
 cp "$ROOT_DIR/core/context-policy.md" "$TARGET/.workflow/context-policy.md"
 cp "$ROOT_DIR/core/research-policy.md" "$TARGET/.workflow/research-policy.md"
+cp "$ROOT_DIR/core/run-loop.md" "$TARGET/.workflow/run-loop.md"
 cp "$ROOT_DIR/adapters/cli/switch-mode.sh" "$TARGET/.workflow/tools/switch-mode.sh"
 cp "$ROOT_DIR/adapters/cli/start-session.sh" "$TARGET/.workflow/tools/start-session.sh"
 cp "$ROOT_DIR/scripts/validate-structure.py" "$TARGET/.workflow/tools/validate-structure.py"
 cp "$ROOT_DIR/scripts/validate-links.py" "$TARGET/.workflow/tools/validate-links.py"
 cp "$ROOT_DIR/scripts/validate-context.py" "$TARGET/.workflow/tools/validate-context.py"
+cp "$ROOT_DIR/scripts/validate-workflow.py" "$TARGET/.workflow/tools/validate-workflow.py"
+cp "$ROOT_DIR/scripts/validate-planning.py" "$TARGET/.workflow/tools/validate-planning.py"
+cp "$ROOT_DIR/scripts/validate-trace.py" "$TARGET/.workflow/tools/validate-trace.py"
+cp "$ROOT_DIR/scripts/harnessctl.py" "$TARGET/.workflow/tools/harnessctl.py"
+cp "$ROOT_DIR/scripts/evaluate-harness.py" "$TARGET/.workflow/tools/evaluate-harness.py"
 cp "$ROOT_DIR/scripts/sync-quarter-gantt.py" "$TARGET/.workflow/tools/sync-quarter-gantt.py"
+cp "$ROOT_DIR/scripts/sync-planning-gantt.py" "$TARGET/.workflow/tools/sync-planning-gantt.py"
+cp "$ROOT_DIR/scripts/calibrate-planning.py" "$TARGET/.workflow/tools/calibrate-planning.py"
 cp "$ROOT_DIR/scripts/sync-actual-progress-overlay.py" "$TARGET/.workflow/tools/sync-actual-progress-overlay.py"
 cp "$ROOT_DIR/scripts/find-stale-terms.py" "$TARGET/.workflow/tools/find-stale-terms.py"
 cp "$ROOT_DIR/scripts/expand-plantuml-includes.py" "$TARGET/.workflow/tools/expand-plantuml-includes.py"
@@ -38,12 +74,14 @@ chmod +x "$TARGET/.workflow/tools/expand-plantuml-includes.py"
 cp "$ROOT_DIR/adapters/vscodium/settings.json" "$TARGET/.vscode/settings.json"
 cp "$ROOT_DIR/adapters/vscodium/tasks.json" "$TARGET/.vscode/tasks.json"
 cp "$ROOT_DIR/adapters/vscodium/snippets.code-snippets" "$TARGET/.vscode/workflow.code-snippets"
-for template_dir in context execution handoff intake planning prototypes requirements research testing; do
+for template_dir in context evals execution handoff intake planning prototypes requirements research runs testing; do
   if [[ -d "$ROOT_DIR/templates/$template_dir" ]]; then
     mkdir -p "$TARGET/.workflow/templates/$template_dir"
     cp -R "$ROOT_DIR/templates/$template_dir/." "$TARGET/.workflow/templates/$template_dir/"
   fi
 done
+
+cp -R "$ROOT_DIR/skills/." "$TARGET/.workflow/skills/"
 
 for mode in planning requirements scope-prototype delivery-prototype execution-update release-finalization; do
   cp "$ROOT_DIR/modes/${mode}.md" "$TARGET/.workflow/modes/${mode}.md"
@@ -117,6 +155,11 @@ cp "$ROOT_DIR/templates/workflow/command-catalog.template.md" "$TARGET/.workflow
 cp "$ROOT_DIR/templates/workflow/command-cheatsheet.template.md" "$TARGET/.workflow/command-cheatsheet.md"
 cp "$ROOT_DIR/templates/workflow/consistency-backlog.template.md" "$TARGET/.workflow/consistency-backlog.md"
 cp "$ROOT_DIR/templates/workflow/team.template.md" "$TARGET/.workflow/team.md"
+cp "$ROOT_DIR/templates/workflow/code-repos.template.json" "$TARGET/.workflow/code-repos.json"
+cp "$ROOT_DIR/templates/evals/golden-scenarios.template.json" "$TARGET/.workflow/evals/golden-scenarios.json"
+if [[ ! -e "$TARGET/README.md" ]]; then
+  cp "$ROOT_DIR/templates/workflow/project-readme.template.md" "$TARGET/README.md"
+fi
 
 cat > "$TARGET/baseline/current/VERSION.md" <<EOF2
 # Baseline Version
@@ -219,5 +262,7 @@ Store feature preflight notes here before creating a new \`features/<slug>/\` st
 - Use `.workflow/templates/intake/feature-intake.template.md`.
 - Do not scaffold a new feature until the intake result is reviewed.
 EOF2
+
+python3 "$ROOT_DIR/scripts/harnessctl.py" manifest "$TARGET" --source "$ROOT_DIR" >/dev/null
 
 echo "Project scaffold created at $TARGET"

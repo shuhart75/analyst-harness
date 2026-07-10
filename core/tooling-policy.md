@@ -13,6 +13,7 @@ Prefer the simplest tool that preserves auditability.
 After structural or canonical changes, run available validators.
 After gantt-related changes, regenerate the gantt. For actual-progress, the regeneration must also refresh the standalone Confluence export without includes.
 After release promotion, validate both structure and links again.
+Before broad workflow work, run `harnessctl doctor`. Before approving a plan, run workflow, planning, link, context, and trace checks.
 
 ## Editing discipline
 
@@ -56,3 +57,4 @@ When such capabilities exist, use them as optional accelerators, not as the only
 - `features/*/slices/*/implementation-handoff.md` and `execution/implementation-plan.md` are development aids and must reference requirements.
 - `features/*/slices/*/testing/test-plan.md` is a QA aid and should include coverage back to requirements.
 - `.workflow/run-state/current.md` may be used as a resumable checkpoint for long-running work.
+- `.workflow/runs/*/run.json` stores executable loop state and verification evidence.

@@ -8,6 +8,7 @@ Track real work after planning.
 
 - `features/*/slices/*/execution/tasks.md`
 - `features/*/slices/*/execution/tasks/*.md`
+- `features/*/slices/*/execution/task-candidates.md`
 - `features/*/planning/actualization.md`
 - `features/*/execution-context.md`
 - `.workflow/team.md`
@@ -26,6 +27,7 @@ Track real work after planning.
 - actualization state: `virtual` / `mixed` / `materialized`
 - milestones and factual notes in actual-progress gantt
 - execution context notes that explain current fact state and plan-vs-fact decisions
+- confirmed or proposed task candidates discovered after planning approval
 
 ## Actual-progress scheduling rules
 
@@ -37,6 +39,7 @@ Track real work after planning.
 - If executor is empty, `TBD_*`, or a non-roster lane, let the generator auto-assign by role/task prefix/summary. Valid explicit lanes such as `B2` are preserved, with dates shifted if needed to avoid overload.
 - Actual started or completed tasks keep their actual dates, even when those dates are in the past.
 - Keep `PLAN ...` story bars visible; they are the commander-plan baseline, not a replacement for the execution task layer.
+- Never rewrite approved quarter or commander plans to absorb later scope. Render later work as task candidates or actual tasks.
 - Regenerate actual-progress through `.workflow/tools/sync-quarter-gantt.py`; it also refreshes `actual-progress-confluence.puml`.
 
 ## Small-context execution rules

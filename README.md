@@ -46,6 +46,8 @@
 - `execution-update` - актуализация факта выполнения;
 - `release-finalization` - финализация релиза и промоушен в baseline.
 
+Утверждённые квартальный и командирский планы являются неизменяемым baseline. Позднее обнаруженный scope отображается через task candidates и actual-progress.
+
 ## Команды по ролям
 
 Работать здесь удобнее через LLM: человек называет команду, а LLM сама переключает режим и при необходимости запускает нужные скрипты.
@@ -204,6 +206,253 @@ rm -rf .git
 
 При необходимости LLM сама вызовет соответствующие scaffold-скрипты из репозитория `analyst-harness`.
 
+## Исполняемый harness
+
+Внутренний CLI не заменяет ролевые команды, а делает правила проверяемыми:
+
+```bash
+python .workflow/tools/harnessctl.py doctor .
+python .workflow/tools/harnessctl.py session-brief . --feature <feature> --slice <slice>
+python .workflow/tools/harnessctl.py run-init . planning --feature <feature>
+```
+
+Черновые квартальный и командирский планы генерируются из ролевых stories:
+
+```bash
+python .workflow/tools/sync-planning-gantt.py . 2026-Q3
+```
+
+После перевода `planning/<quarter>/plan-state.md` в `approved` эти планы больше не регенерируются. Новая фактическая работа появляется в actual-progress.
+
+### Версия и управляемые файлы
+
+Текущая версия harness хранится в `VERSION`. При scaffold в проект создаётся `.workflow/harness.json`, где фиксируются:
+
+- schema version;
+- версия и commit harness;
+- признак dirty source checkout;
+- hashes установленных managed-файлов;
+- список project-owned путей.
+
+Managed-файлы включают контракты, режимы, внутренние skills, шаблоны и инструменты. Они обновляются только через `harnessctl upgrade`. Project-owned файлы принадлежат конкретному проекту и не перезаписываются обновлением:
+
+- `.workflow/active-mode.md`;
+- `.workflow/team.md`;
+- `.workflow/code-repos.json`;
+- `.workflow/evals/`;
+- `.workflow/overrides/`;
+- `.workflow/run-state/`;
+- `.workflow/runs/`;
+- `README.md` проекта.
+
+Проверить различия перед обновлением:
+
+```bash
+python /path/to/analyst-harness/scripts/harnessctl.py diff /path/to/project \
+  --source /path/to/analyst-harness
+```
+
+Выполнить conflict-safe обновление:
+
+```bash
+python /path/to/analyst-harness/scripts/harnessctl.py upgrade /path/to/project \
+  --source /path/to/analyst-harness --apply
+```
+
+Если managed-файл был изменён локально, upgrade сообщает `CONFLICT` и ничего не перезаписывает. Проектное отличие нужно либо перенести в harness, либо оформить в `.workflow/overrides/`.
+
+### Безопасный scaffold
+
+Scaffold-команды не перезаписывают существующие знания по умолчанию:
+
+```bash
+bash scripts/scaffold-project.sh /path/to/project
+bash scripts/scaffold-project.sh /path/to/project --merge
+bash scripts/scaffold-feature.sh /path/to/project feature-slug --merge
+bash scripts/scaffold-slice.sh /path/to/project feature-slug slice-slug --merge
+```
+
+- обычный запуск требует пустой target;
+- `--merge` добавляет только отсутствующие harness-файлы;
+- `--force` является явной операцией перезаписи scaffold-файлов;
+- project merge не создаёт placeholder-файлы внутри существующих `baseline/`, `features/`, `planning/` и `context/`.
+
+## Подробная модель планирования
+
+### Фича и planning stories
+
+Фича является законченной пользовательской или системной ценностью квартала. Planning story — не функциональный срез, а ролевой поток работ внутри фичи.
+
+На одну фичу допускается максимум четыре planning stories:
+
+- `STORY-<FEATURE>-AN`;
+- `STORY-<FEATURE>-BE`;
+- `STORY-<FEATURE>-FE`;
+- `STORY-<FEATURE>-QA`.
+
+Если работа конкретной роли не нужна, соответствующая story отсутствует. Функциональная декомпозиция выполняется позднее в requirements mode через slices.
+
+### Оценка и длительность
+
+Для каждой role story сохраняются:
+
+- analyst anchor effort;
+- team effort;
+- явно согласованный effort;
+- max parallelism;
+- efficiency;
+- зависимости;
+- ограничение `not before`.
+
+Итоговая оценка не вычисляется усреднением. Она считается принятой только после явного согласования.
+
+Длительность рассчитывается так:
+
+```text
+ceil(agreed effort / effective parallel capacity)
+```
+
+Default efficiency:
+
+- `AN = 0.80`;
+- `BE = 0.70`;
+- `FE = 0.65`;
+- `QA = 0.80`.
+
+Role efficiency может быть переопределена в story, а персональный коэффициент — в `.workflow/team.md`.
+
+### Ресурсы и приоритет
+
+- `gantt/order.txt` хранит приоритет фич сверху вниз;
+- готовая работа более приоритетной фичи первой получает подходящие ресурсы;
+- свободная роль может перейти к следующей фиче, пока в верхней фиче для неё нет готовой работы;
+- нижняя фича не должна задерживать ставшую доступной работу верхней;
+- автоматическое прерывание уже начатой работы не выполняется;
+- загрузка ресурса не превышает 100%;
+- отпуска и другие закрытые интервалы задаются в `.workflow/team.md`;
+- плановая role story может использовать несколько ресурсов до `max_parallelism`;
+- фактическая задача всегда назначается одному человеку.
+
+Стандартные зависимости: `AN -> BE`, `AN -> FE`, `BE + FE -> QA`. FE стартует не раньше трёх открытых рабочих дней после старта BE. Если BE отсутствует, FE стартует после AN либо в первое доступное окно.
+
+### Quarter и commander plan
+
+`quarter-plan` строится по согласованным effort без commander buffer. `commander-plan` использует те же scope, порядок и зависимости, но добавляет risk buffer:
+
+- минимум 20%;
+- 30% для высокого риска или внешней зависимости;
+- 40% для нескольких высоких рисков, новой интеграции или неясной модели данных;
+- 50% для критической неопределённости или неподтверждённой архитектуры;
+- более 50% требует ручного решения.
+
+Buffer влияет на длительности и даты commander plan, но не показывается руководству отдельной полосой.
+
+### Утверждение и неизменяемость
+
+План имеет состояния `draft` и `approved`. Только владелец проекта утверждает план:
+
+```bash
+python .workflow/tools/harnessctl.py plan-approve . 2026-Q3 --by <owner>
+```
+
+При утверждении сохраняются hashes master PlantUML, feature includes и baseline-колонок actualization maps. После этого:
+
+- quarter-plan и commander-plan не регенерируются;
+- baseline start/duration в actualization не меняются;
+- новый scope появляется как task candidates или actual tasks;
+- actual-progress остаётся единственным изменяемым представлением реального положения дел;
+- `validate-planning.py` обнаруживает любую правку утверждённого baseline.
+
+### Ретроспектива
+
+После квартала:
+
+```bash
+python .workflow/tools/calibrate-planning.py . 2026-Q3
+```
+
+Инструмент сравнивает role effort с длительностью фактических задач и предлагает новые efficiency/risk значения. Предложения применяются только к будущим draft-планам и никогда не переписывают историю.
+
+## Требования, влияния и task candidates
+
+Root requirements являются authored source. Slice cards, FE/BE packs, task candidates, implementation plans и QA coverage являются производными.
+
+После изменения требований выполняются два прохода:
+
+1. Обновление root requirements и всех непосредственно производных срезов.
+2. Поиск устаревших endpoint, полей, статусов, ролей, терминов, прототипов и соседних правил.
+
+Локальный необъяснённый хвост блокирует завершение. Cross-mode работа может быть отложена только конкретной записью в consistency backlog.
+
+Обязательные изменения соседних фич включаются в scope инициирующей фичи и раздел `Доработки затронутых фич`. Каждая строка должна быть покрыта `REQ-*`, task candidate и проверкой либо иметь явное `not applicable` с причиной.
+
+Task candidates создаются вместе с детальными требованиями среза:
+
+- одна роль;
+- один смыслово законченный результат;
+- отдельный commit/PR boundary;
+- ссылки на `REQ-*`/`AC-*`;
+- зависимость и обязательная verification;
+- целевой размер BE/FE/QA 1–3 дня;
+- максимум BE 5 дней, FE/QA 10 дней;
+- для AN размер не ограничивается.
+
+## Исполнительские циклы
+
+Состояние каждого цикла хранится в `.workflow/runs/<run-id>/run.json`. Общий loop:
+
+```text
+orient -> plan -> bounded action -> deterministic verify
+       -> independent review -> checkpoint -> continue/complete/escalate
+```
+
+Создание циклов:
+
+```bash
+python .workflow/tools/harnessctl.py run-init . planning --feature <feature>
+python .workflow/tools/harnessctl.py run-init . requirements --feature <feature>
+python .workflow/tools/harnessctl.py run-init . implementation --feature <feature> --slice <slice> --role BE
+python .workflow/tools/harnessctl.py run-init . qa --feature <feature> --slice <slice> --role QA
+```
+
+`implementation` и `qa` используют `.workflow/code-repos.json`. Run сохраняет hashes входных требований. Если они меняются во время работы, `run-verify` возвращает ошибку freshness и требует обновить work packet.
+
+Verifier задаётся массивом аргументов без shell-интерпретации:
+
+```json
+{
+  "name": "targeted tests",
+  "argv": ["pytest", "tests/test_slice.py"],
+  "cwd": "."
+}
+```
+
+Запуск:
+
+```bash
+python .workflow/tools/harnessctl.py run-verify .workflow/runs/<run-id>/run.json
+```
+
+Повторяющийся failure после заданного лимита переводит run в `escalated`.
+
+## Диагностика и evals
+
+`harnessctl doctor` объединяет structural, workflow, link, context, planning и trace checks. `--strict` переводит предупреждения context/trace в ошибки.
+
+Синтетические evals проверяют clean scaffold, mode mismatch, destructive scaffold и approved-plan tampering:
+
+```bash
+python scripts/evaluate-harness.py
+```
+
+Проектные golden-сценарии живут в `.workflow/evals/golden-scenarios.json`:
+
+```bash
+python .workflow/tools/evaluate-harness.py .
+```
+
+Они предназначены для низкодрейфовых доменных инвариантов, а не для копирования полного набора требований в eval-конфигурацию.
+
 ## Типовой рабочий цикл
 
 1. `новая фича` - разобрать исходные материалы и выделить дельту.
@@ -223,7 +472,8 @@ rm -rf .git
 python .workflow/tools/validate-structure.py .
 python .workflow/tools/validate-links.py .
 python .workflow/tools/validate-context.py .
-python .workflow/tools/find-stale-terms.py .
+python .workflow/tools/harnessctl.py doctor .
+python .workflow/tools/find-stale-terms.py . <старый-термин> [<ещё-термин> ...]
 ```
 
 После правок gantt:

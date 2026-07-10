@@ -13,19 +13,17 @@ Before changing artifacts, read:
 5. `.workflow/tooling-policy.md`
 6. `.workflow/context-policy.md`
 7. `.workflow/research-policy.md`
-8. `.workflow/active-mode.md`
-9. `.workflow/modes/<active-mode>.md`
-10. `.workflow/team.md` before planning resources or regenerating actual-progress
-11. relevant `.workflow/overrides/*.md`
-12. `.workflow/templates/intake/` when the user brings a candidate new feature
-13. `.workflow/templates/requirements/` when working in requirements mode
-14. `.workflow/templates/prototypes/` when working in prototype modes
-15. `.workflow/templates/context/` when creating or refreshing feature/slice context
-16. `.workflow/templates/research/` when role-based research is needed
-17. `baseline/current/` for the canonical deployed state when it exists
-18. relevant `features/<feature>/context-summary.md` and `artifact-map.md` when present
-19. relevant `features/<feature>/feature.md`, root requirements, root prototype, slice artifacts, planning stories, execution tasks and gantt includes
-20. relevant `releases/` artifacts when finalizing a delivered change
+8. `.workflow/run-loop.md`
+9. `.workflow/harness.json`
+10. `.workflow/run-state/session-brief.md` when present
+11. `.workflow/active-mode.md`
+12. `.workflow/modes/<active-mode>.md`
+13. `.workflow/team.md` before planning resources or regenerating actual-progress
+14. relevant `.workflow/overrides/*.md`
+15. relevant templates for the current action
+16. `baseline/current/` for the canonical deployed state when it exists
+17. relevant feature/slice source artifacts
+18. relevant `releases/` artifacts when finalizing a delivered change
 
 If the user points to a folder with current-system docs/screenshots/change requests, inspect that folder first and keep source references in the produced artifacts.
 
@@ -108,6 +106,12 @@ If the user asks for work outside the active mode, either switch mode explicitly
 
 - `quarter-plan` and `commander-plan` are built from planning stories.
 - Planning story estimates must be stored in `features/<feature>/planning/estimates.md` with explicit `AN / FE / BE / QA` role splits and an agreed total.
+- A feature is the quarter-level outcome. Planning stories are role workstreams, with at most one story per `AN`, `BE`, `FE`, and `QA`.
+- Approved quarter and commander plans are immutable. Later scope belongs to task candidates and actual-progress.
+- Planning maximizes team utilization without exceeding 100 percent and honors personal closed intervals.
+- Default efficiency is `AN=0.80`, `BE=0.70`, `FE=0.65`, `QA=0.80`; story and personal overrides are explicit.
+- FE starts no earlier than three open days after BE starts. If BE is absent, FE starts after AN or at the first available window.
+- Commander risk buffer is at least 20 percent and remains internal rather than a separate management-facing bar.
 - `commander-plan` is the quarter plan with management buffer, normally 20-30%.
 - `actual-progress` must show two useful layers:
   - `PLAN <TYPE> <summary>` bars from commander-plan planning stories;

@@ -13,10 +13,13 @@ When working inside a project that uses this harness, read in this order:
 5. `.workflow/tooling-policy.md`
 6. `.workflow/context-policy.md`
 7. `.workflow/research-policy.md`
-8. `.workflow/active-mode.md`
-9. `.workflow/modes/<active-mode>.md`
-10. `.workflow/team.md` before planning resources or regenerating actual-progress
-11. relevant files under `.workflow/overrides/`
+8. `.workflow/run-loop.md`
+9. `.workflow/harness.json`
+10. `.workflow/run-state/session-brief.md` when present
+11. `.workflow/active-mode.md`
+12. `.workflow/modes/<active-mode>.md`
+13. `.workflow/team.md` before planning resources or regenerating actual-progress
+14. relevant files under `.workflow/overrides/`
 
 ## Primary workflow rule
 
@@ -72,3 +75,10 @@ Context summaries, checkpoints and research files are internal harness operation
 - Use `.workflow/context-policy.md` to decide when to create or refresh context summaries and checkpoints.
 - Use `.workflow/research-policy.md` to run role-based research for large features, slices, prototypes, development handoff, implementation planning and QA checks.
 - Treat `.research/`, context summaries and external memory as auxiliary. Accepted findings must be transferred into the authoritative planning, requirements, prototype, execution, release or baseline artifacts.
+
+## Executable harness
+
+- Run `.workflow/tools/harnessctl.py doctor <project>` before broad workflow changes.
+- Use `.workflow/tools/harnessctl.py session-brief <project>` for progressive context disclosure.
+- Approved quarter and commander plans are immutable planning baselines.
+- Route later scope into task candidates and actual-progress instead of rewriting an approved plan.

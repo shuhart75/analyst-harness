@@ -2,7 +2,7 @@
 
 ## Goal
 
-Shape a feature for quarter-level planning and HLE.
+Shape prioritized quarter features, role workstreams, HLE, capacity schedule, and immutable planning baselines.
 
 The planning mode starts with feature intake when the user brings a candidate new feature from an external folder or an unstructured initiative.
 
@@ -26,6 +26,8 @@ The planning mode starts with feature intake when the user brings a candidate ne
 - `features/*/domain-impact.md` for preliminary DDD impact
 - `planning/*/gantt/quarter-plan.puml`
 - `planning/*/gantt/commander-plan.puml`
+- `planning/*/plan-state.md`
+- `planning/*/retrospective.md`
 
 ## Allowed changes
 
@@ -37,12 +39,36 @@ The planning mode starts with feature intake when the user brings a candidate ne
 - quarter and commander gantt
 - planning context, assumptions, risk register and story map
 
+## Planning story model
+
+- A feature is the finished user or system outcome planned for the quarter.
+- A feature has at most four planning stories: one each for `AN`, `BE`, `FE`, and `QA`.
+- A missing role means no story for that role.
+- Functional decomposition belongs to requirements and slices, not additional planning stories.
+
 ## Estimation rules
 
-- `features/<feature>/planning/estimates.md` must not contain only one undifferentiated story estimate.
-- For every planning story, store estimates by role in the format `AN / FE / BE / QA`.
-- Keep `Agreed total, дн` as a control sum of the agreed role estimates.
-- QA may be `0` only when testing was explicitly not estimated or is tracked outside the feature; do not omit the QA column.
+- Keep analyst anchor, team, and final agreed effort. Never average them automatically.
+- Store effort, max parallelism, role efficiency, dependencies, and not-before constraints per role story.
+- Default efficiency: `AN=0.80`, `BE=0.70`, `FE=0.65`, `QA=0.80`.
+- Duration is `ceil(effort / effective parallel capacity)`.
+- Personal coefficients and closed intervals come from `.workflow/team.md`.
+
+## Priority and capacity
+
+- Feature order in `gantt/order.txt` is top-to-bottom priority.
+- Higher-priority ready work receives suitable free resources first.
+- Idle roles may pipeline into the next feature, but lower-priority work must not delay higher-priority work when it becomes ready.
+- Use all available capacity where possible without exceeding 100 percent.
+- Planning work may use several people up to `max_parallelism`; actual tasks use one person per task.
+- FE starts no earlier than three open days after BE starts. Without BE, FE starts after AN or at the first available planning window.
+
+## Risk buffer
+
+- Commander buffer is at least 20 percent.
+- Suggest 30 percent for a high risk or external dependency, 40 percent for several high risks/new integration/unclear data, and 50 percent for critical uncertainty.
+- More than 50 percent requires a manual decision.
+- The buffer changes commander dates but is not rendered as a separate management-facing bar.
 
 ## Gantt planning rules
 
@@ -56,6 +82,12 @@ The planning mode starts with feature intake when the user brings a candidate ne
 ## Current-state actualization boundary
 
 Planning mode owns quarter and commander baselines. It does not own current execution state.
+
+- `draft` plans may be regenerated.
+- Only the project owner may set a plan to `approved`.
+- Approved quarter and commander plans are immutable.
+- Scope discovered after approval is represented in actual-progress through task candidates and actual tasks.
+- Quarter retrospective compares the immutable plan with actual execution and proposes future efficiency/risk calibration.
 
 - `спланируй квартал`, `собери командирский план`, HLE and planning stories may update quarter-plan and commander-plan.
 - `обнови реальный прогресс`, `обновляем прогресс`, task statuses, actual dates, execution resources and actual-progress gantt belong to `execution-update`.

@@ -3,8 +3,9 @@ from pathlib import Path
 import sys
 
 
-args = [arg for arg in sys.argv[1:] if arg != "--strict-features"]
+args = [arg for arg in sys.argv[1:] if arg not in {"--strict-features", "--warnings-as-errors"}]
 strict_features = "--strict-features" in sys.argv[1:]
+warnings_as_errors = "--warnings-as-errors" in sys.argv[1:]
 ROOT = Path(args[0]) if args else Path(".")
 
 required_workflow = [
@@ -17,7 +18,9 @@ required_workflow = [
     ".workflow/templates/research/research-summary.template.md",
     ".workflow/templates/handoff/slice-implementation-handoff.template.md",
     ".workflow/templates/execution/implementation-plan.template.md",
+    ".workflow/templates/execution/task-candidates.template.md",
     ".workflow/templates/testing/slice-test-plan.template.md",
+    ".workflow/templates/runs/run.template.json",
 ]
 
 required_research_templates = [
@@ -93,5 +96,7 @@ if warnings:
     print("Context warnings:")
     for item in warnings[:200]:
         print(f"- {item}")
+    if warnings_as_errors:
+        sys.exit(1)
 else:
     print("Context OK")

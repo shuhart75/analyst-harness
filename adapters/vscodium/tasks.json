@@ -40,6 +40,29 @@
       "label": "Workflow: Validate Links",
       "type": "shell",
       "command": "python3 ${workspaceFolder}/.workflow/tools/validate-links.py ${workspaceFolder}"
+    },
+    {
+      "label": "Workflow: Doctor",
+      "type": "shell",
+      "command": "python3 ${workspaceFolder}/.workflow/tools/harnessctl.py doctor ${workspaceFolder}"
+    },
+    {
+      "label": "Workflow: Session Brief",
+      "type": "shell",
+      "command": "python3 ${workspaceFolder}/.workflow/tools/harnessctl.py session-brief ${workspaceFolder}"
+    },
+    {
+      "label": "Workflow: Generate Draft Plan",
+      "type": "shell",
+      "command": "python3 ${workspaceFolder}/.workflow/tools/sync-planning-gantt.py ${workspaceFolder} ${input:quarterId}"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "quarterId",
+      "type": "promptString",
+      "description": "Quarter id",
+      "default": "2026-Q3"
     }
   ]
 }

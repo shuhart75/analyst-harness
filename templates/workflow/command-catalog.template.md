@@ -110,6 +110,8 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `промоуть в baseline` | `release-finalization` | Promote release outputs into canonical baseline. |
 | `откати решение DEC-*` | `release-finalization` | Start rollback flow for a known decision. |
 | `проверь workflow` | any | Run validations and workflow checks. |
+| `утверди квартальный план` | `planning` | Only the project owner marks the current draft plan approved and immutable. |
+| `предложи реальные задачи по срезам` | `requirements` | Derive small role-specific task candidates from detailed slice requirements. |
 
 ## Role-Oriented Command Map
 
@@ -199,8 +201,12 @@ Treat these as equivalent user phrasings.
 | `новая фича` | Run feature intake/preflight and separate baseline coverage from the new delta before scaffolding. | `planning/intake/*.md`, `baseline/current/*`, `features/*`, source folders |
 | `спланируй квартал` | Build or update quarter planning structure and gantt. | `planning/<quarter>/gantt/*`, `features/*/planning/*` |
 | `разложи фичу на planning stories` | Create/update planning stories with Summary, Description and role-split estimates. | `features/<feature>/planning/stories/*.md`, `estimates.md` |
-| `подготовь HLE` | Prepare story-level decomposition and person-day estimates split by `AN / FE / BE / QA` for team discussion. | planning stories, `estimates.md`, scope prototype notes |
-| `спланируй фичу` | Prepare feature planning context, planning stories, assumptions, risks and story/slice mapping. | `planning-context.md`, `assumptions.md`, `risk-register.md`, `story-map.md`, planning stories |
+| `подготовь HLE` | Create at most one role story per `AN`, `BE`, `FE`, `QA`; preserve analyst, team and explicitly agreed effort plus parallelism and efficiency. | role planning stories, `estimates.md`, scope prototype notes |
+| `спланируй фичу` | Prepare feature planning context, role stories, assumptions, risks and source/delta/slice mapping. | `planning-context.md`, `assumptions.md`, `risk-register.md`, `story-map.md`, role stories |
+| `собери квартальный план` | Schedule draft role stories by priority, dependencies, team capacity, closed intervals and efficiency. | quarter-plan includes and PlantUML |
+| `собери командирский план` | Schedule the same draft scope with approved hidden risk buffer of at least 20 percent. | commander-plan includes and PlantUML |
+| `утверди квартальный план` | After all checks, let only the project owner mark plan-state as approved. Approved quarter and commander plans are immutable. | `planning/<quarter>/plan-state.md` |
+| `сравни квартальный план с фактом` | Compare immutable planning baselines with task candidates and actual tasks, then propose future calibration. | `planning/<quarter>/retrospective.md` |
 | `собери командирский план` | Produce buffered management plan from quarter plan. | `commander-plan.puml`, includes |
 | `сравни план и факт` | Compare quarter/commander baseline with actual-progress. | gantt files, execution tasks |
 
@@ -217,6 +223,7 @@ Treat these as equivalent user phrasings.
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |
+| `предложи реальные задачи по срезам` | Derive independently committable task candidates with requirement and verification links. | `slices/*/execution/task-candidates.md` |
 | `зафиксируй доменное решение` | Add Decision ID and impact record for a domain/business rule decision. | `domain-impact.md`, consistency backlog |
 
 ### Scope Prototype
@@ -250,11 +257,11 @@ Treat these as equivalent user phrasings.
 | `возьми срез в разработку` | Prepare small-window slice context and implementation handoff for a ready slice. | `context-summary.md`, `implementation-handoff.md` |
 | `разбери срез по коду` | Run bounded code research for a ready slice. | `.research/*.yaml`, `.research/summary.md`, handoff updates |
 | `предложи план реализации` | Draft implementation tasks tied to requirements and verification. | `execution/implementation-plan.md` |
-| `начни реализацию` | Start work from the approved implementation plan and stop if requirements or checks are unclear. | changed code, verification notes, plan status |
+| `начни реализацию` | Start an `implementation` run from a confirmed candidate and stop if requirements or checks are unclear. | changed code, verification notes, run status |
 | `продолжи реализацию` | Resume from the latest checkpoint, implementation plan and verification state. | changed code, updated verification notes |
 | `проверь реализацию среза` | Compare implementation state against requirements, prototype and verification. | implementation review notes, verification results |
 | `подготовь к ревью` | Summarize changed code, checks, residual risks and requirement links for review. | review summary, verification summary |
-| `подготовь проверки по срезу` | Draft QA checks and coverage for a ready slice. | `testing/test-plan.md` |
+| `подготовь проверки по срезу` | Start a `qa` run and draft QA checks and coverage for a ready slice. | `testing/test-plan.md`, run state |
 | `собери негативные сценарии` | Add negative and edge scenarios tied to requirements. | `testing/test-plan.md` |
 | `сверь проверки с требованиями` | Ensure every accepted check traces to requirements and assumptions are marked. | coverage matrix |
 | `проверь прототип по срезу` | Compare slice prototype with requirements and checks; route gaps back to source artifacts. | prototype review notes, gaps |
@@ -279,4 +286,5 @@ Treat these as equivalent user phrasings.
 | `проверь ссылки` | Run markdown link validation if available. |
 | `пересобери гант` | Run gantt sync script for the active quarter. |
 | `проверь workflow` | Run structure, links and relevant generated-artifact checks. |
+| `проверь harness doctor` | Run executable workflow, planning, context, trace and managed-file checks. |
 | `проверь контекст` | Run context/research/handoff/test-plan validation if available. |

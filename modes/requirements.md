@@ -44,6 +44,7 @@ Selection rules:
 - `features/*/artifact-map.md`
 - `features/*/slices/*/context-summary.md`
 - optional `features/*/.research/*` and `features/*/slices/*/.research/*`
+- `features/*/slices/*/execution/task-candidates.md`
 
 ## Source-of-truth rule
 
@@ -98,6 +99,28 @@ If the change affects domain rules, lifecycle, roles, API semantics, data model,
 - list affected requirements and prototypes;
 - update `.workflow/consistency-backlog.md` when propagation is deferred;
 - do not silently mutate `baseline/current/` unless the active task explicitly includes baseline update.
+
+Mandatory cross-feature work is part of the initiating feature scope and HLE. Record it in a dedicated `Доработки затронутых фич` section in root requirements, not only in `domain-impact.md`.
+
+Each impact row must trace to requirements, task candidates, and verification or be explicitly marked `not applicable` with a reason.
+
+## Task candidate derivation
+
+When detailed slice requirements are prepared, derive small independently committable task candidates:
+
+- one role and one coherent technical outcome per candidate;
+- BE/FE/QA target size 1-3 person-days;
+- maximum 5 days for BE and 10 days for FE or QA;
+- AN has no target or maximum;
+- every candidate references requirements and verification;
+- candidates remain proposals until confirmed and appear only in actual-progress after plan approval.
+
+## Tail cleanup gate
+
+- First update root requirements and directly derived slice artifacts.
+- Then search for superseded terms, fields, statuses, routes, rules, and prototype behavior.
+- Local unexplained tails block completion.
+- Cross-mode propagation may be deferred only through a concrete consistency backlog item.
 
 ## Small-context requirements rules
 

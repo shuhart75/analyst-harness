@@ -21,10 +21,17 @@ FIND_STALE_TERMS_TOOL="$PROJECT_ROOT/.workflow/tools/find-stale-terms.py"
 EXPAND_PLANTUML_INCLUDES_TOOL="$PROJECT_ROOT/.workflow/tools/expand-plantuml-includes.py"
 BASELINE_DIR="$PROJECT_ROOT/baseline/current"
 ACTIVE_FILE="$PROJECT_ROOT/.workflow/active-mode.md"
+HARNESSCTL="$PROJECT_ROOT/.workflow/tools/harnessctl.py"
 
 if [[ ! -f "$ACTIVE_FILE" ]]; then
   echo "Missing $ACTIVE_FILE"
   exit 1
+fi
+
+if [[ -f "$HARNESSCTL" ]]; then
+  python3 "$HARNESSCTL" session-brief "$PROJECT_ROOT" >/dev/null
+  echo "Generated progressive session brief:"
+  echo "- $PROJECT_ROOT/.workflow/run-state/session-brief.md"
 fi
 
 echo "Read these files first:"

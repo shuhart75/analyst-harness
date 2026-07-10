@@ -25,7 +25,10 @@
 - `domain-impact.md`
 
 ## Planning stories
-- `STORY-XXX-001`
+- `STORY-<FEATURE>-AN` — only when analyst work is required
+- `STORY-<FEATURE>-BE` — only when backend work is required
+- `STORY-<FEATURE>-FE` — only when frontend work is required
+- `STORY-<FEATURE>-QA` — only when QA work is required
 
 ## Риски и зависимости
 

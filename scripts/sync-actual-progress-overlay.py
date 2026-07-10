@@ -85,7 +85,7 @@ ROLE_ALIASES = {
     },
 }
 
-NOT_STARTED_STATUSES = {"planned", "todo", "open", "backlog"}
+NOT_STARTED_STATUSES = {"proposed", "planned", "todo", "open", "backlog"}
 FE_AFTER_BE_OPEN_DAYS = 3
 
 
@@ -468,6 +468,28 @@ def load_tasks(feature_dir: Path) -> dict[str, Task]:
                 status=status,
                 progress=progress,
                 related_stories=split_list(row.get("Related Stories", "")),
+            )
+    for path in sorted(feature_dir.glob("slices/*/execution/task-candidates.md")):
+        rows = first_table_with(path, "Candidate ID")
+        for row in rows:
+            task_id = clean_cell(row.get("Candidate ID", ""))
+            if not task_id:
+                continue
+            status = clean_cell(row.get("Status", "proposed"))
+            tasks[task_id] = Task(
+                task_id=task_id,
+                summary=clean_cell(row.get("Summary", task_id)),
+                kind="candidate",
+                role=clean_cell(row.get("Role", "")),
+                estimate=parse_int(row.get("Estimate (дн)", ""), 1),
+                executor="",
+                planned_start="",
+                planned_finish="",
+                actual_start="",
+                actual_finish="",
+                status=status,
+                progress=0,
+                related_stories=split_list(row.get("Related Story", "")),
             )
     return tasks
 

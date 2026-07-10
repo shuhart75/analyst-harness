@@ -145,6 +145,19 @@ def preamble_files(gantt_dir: Path, view_slug: str) -> list[Path]:
     return [path for path in candidates if path.exists()]
 
 
+def feature_order(gantt_dir: Path) -> dict[str, int]:
+    order_file = gantt_dir / "order.txt"
+    if not order_file.exists():
+        return {}
+    order: dict[str, int] = {}
+    for raw_line in order_file.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        order.setdefault(line, len(order))
+    return order
+
+
 def header_lines(
     gantt_dir: Path,
     title: str,
@@ -233,12 +246,19 @@ def main() -> int:
     gantt_dir = Path(sys.argv[1])
     quarter_start = parse_quarter_start(gantt_dir)
     closed_days = read_closed_days(gantt_dir)
+    order = feature_order(gantt_dir)
     sync_actual_progress_overlays(gantt_dir)
 
     for slug, title in VIEWS:
         include_dir = gantt_dir / "includes" / slug
         include_dir.mkdir(parents=True, exist_ok=True)
-        include_files = sorted(include_dir.glob("FEATURE-*.puml"))
+        include_files = sorted(
+            include_dir.glob("FEATURE-*.puml"),
+            key=lambda path: (
+                order.get(feature_slug(path), len(order)),
+                feature_slug(path),
+            ),
+        )
         preambles = preamble_files(gantt_dir, slug)
         start = view_start(quarter_start, preambles + include_files)
         lines = header_lines(
