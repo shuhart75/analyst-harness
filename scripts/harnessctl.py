@@ -126,6 +126,7 @@ def managed_sources(root: Path) -> dict[str, Path]:
         "validate-workflow.py",
         "validate-planning.py",
         "validate-trace.py",
+        "validate-language.py",
         "sync-quarter-gantt.py",
         "sync-planning-gantt.py",
         "calibrate-planning.py",
@@ -186,6 +187,7 @@ def write_manifest(project: Path, source: Path) -> Path:
             ".workflow/active-mode.md",
             ".workflow/team.md",
             ".workflow/code-repos.json",
+            ".workflow/language-policy.json",
             ".workflow/evals/",
             ".workflow/consistency-backlog.md",
             ".workflow/overrides/",
@@ -283,6 +285,16 @@ def doctor_command(args: argparse.Namespace) -> int:
         diff_args = argparse.Namespace(project=str(project), source=args.source)
         codes.append(diff_command(diff_args))
     return 1 if any(codes) else 0
+
+
+def language_check_command(args: argparse.Namespace) -> int:
+    project = Path(args.project).resolve()
+    extra: list[str] = []
+    if args.feature:
+        extra.extend(["--feature", args.feature])
+    if args.all:
+        extra.append("--all")
+    return run_tool(project, "validate-language.py", extra)
 
 
 def session_brief_command(args: argparse.Namespace) -> int:
@@ -549,6 +561,12 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--source")
     doctor.add_argument("--strict", action="store_true")
     doctor.set_defaults(func=doctor_command)
+
+    language = sub.add_parser("language-check")
+    language.add_argument("project")
+    language.add_argument("--feature")
+    language.add_argument("--all", action="store_true")
+    language.set_defaults(func=language_check_command)
 
     brief = sub.add_parser("session-brief")
     brief.add_argument("project")

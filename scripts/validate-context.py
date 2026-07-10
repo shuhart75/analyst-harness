@@ -77,14 +77,14 @@ if strict_features and features_dir.exists():
                 plan = slice_dir / "execution/implementation-plan.md"
                 if plan.exists():
                     text = plan.read_text(encoding="utf-8", errors="ignore")
-                    if "Source Requirement" not in text:
-                        warnings.append(f"{plan.relative_to(ROOT)} has no Source Requirement column")
+                    if "Source Requirement" not in text and "Исходное требование" not in text:
+                        warnings.append(f"{plan.relative_to(ROOT)} has no requirement reference column")
 
                 test_plan = slice_dir / "testing/test-plan.md"
                 if test_plan.exists():
                     text = test_plan.read_text(encoding="utf-8", errors="ignore")
-                    if "Coverage Matrix" not in text:
-                        warnings.append(f"{test_plan.relative_to(ROOT)} has no Coverage Matrix section")
+                    if "Coverage Matrix" not in text and "Матрица покрытия" not in text:
+                        warnings.append(f"{test_plan.relative_to(ROOT)} has no coverage matrix section")
 
 if missing:
     print("Missing context workflow files:")

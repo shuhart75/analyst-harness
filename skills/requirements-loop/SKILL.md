@@ -8,4 +8,4 @@ Writes: root requirements, slices, FE/BE packs, cross-feature impact section, ta
 
 Rules: root requirements are authored; slice packs are derived; local stale tails block completion.
 
-Validation: context, trace, links, stale-term sweep, and explicit coverage of every cross-feature impact.
+Validation: context, trace, links, stale-term sweep, Russian-language check, and explicit coverage of every cross-feature impact.

@@ -77,17 +77,34 @@ def validate_task_candidates(path: Path, root: Path, errors: list[str], warnings
     if len(rows) < 2:
         return
     header = rows[0]
-    required = {"Candidate ID", "Role", "Estimate (дн)", "Source Requirements", "Verification"}
-    if not required.issubset(set(header)):
+    english = {"Candidate ID", "Role", "Estimate (дн)", "Source Requirements", "Verification"}
+    russian = {"Идентификатор", "Роль", "Оценка (дн)", "Исходные требования", "Проверка"}
+    if english.issubset(set(header)):
+        columns = {
+            "id": "Candidate ID",
+            "role": "Role",
+            "estimate": "Estimate (дн)",
+            "requirements": "Source Requirements",
+            "verification": "Verification",
+        }
+    elif russian.issubset(set(header)):
+        columns = {
+            "id": "Идентификатор",
+            "role": "Роль",
+            "estimate": "Оценка (дн)",
+            "requirements": "Исходные требования",
+            "verification": "Проверка",
+        }
+    else:
         errors.append(f"{display}: task candidate table misses required columns")
         return
-    indexes = {name: header.index(name) for name in required}
+    indexes = {name: header.index(column) for name, column in columns.items()}
     for row in rows[1:]:
         if len(row) < len(header):
             continue
-        role = row[indexes["Role"]].upper()
+        role = row[indexes["role"]].upper()
         try:
-            estimate = float(row[indexes["Estimate (дн)"]])
+            estimate = float(row[indexes["estimate"]])
         except ValueError:
             errors.append(f"{display}: invalid task estimate")
             continue
@@ -98,9 +115,9 @@ def validate_task_candidates(path: Path, root: Path, errors: list[str], warnings
             errors.append(f"{display}: {role} task exceeds {limit} days")
         elif role != "AN" and not 1 <= estimate <= 3:
             warnings.append(f"{display}: {role} task is outside target size 1-3 days")
-        if not row[indexes["Source Requirements"]]:
+        if not row[indexes["requirements"]]:
             errors.append(f"{display}: candidate has no requirement reference")
-        if not row[indexes["Verification"]]:
+        if not row[indexes["verification"]]:
             errors.append(f"{display}: candidate has no verification")
 
 

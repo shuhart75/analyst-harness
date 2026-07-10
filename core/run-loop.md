@@ -39,7 +39,7 @@ A failed check does not advance the run. Repeated failure reaches the configured
 ## Requirement Impact Invariants
 
 - Cross-feature work caused by the current feature is part of the initiating feature scope and HLE.
-- Current requirements contain a dedicated `Доработки затронутых фич` section.
+- Current requirements contain a dedicated `Доработки затронутых функциональностей` section.
 - Every impact row is covered by requirements, task candidates, and checks or explicitly marked `not applicable` with a reason.
 - Local stale tails block completion. Cross-mode propagation may be deferred only through a concrete consistency backlog record.
 

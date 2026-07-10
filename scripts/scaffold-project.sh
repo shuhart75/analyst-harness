@@ -59,6 +59,7 @@ cp "$ROOT_DIR/scripts/validate-context.py" "$TARGET/.workflow/tools/validate-con
 cp "$ROOT_DIR/scripts/validate-workflow.py" "$TARGET/.workflow/tools/validate-workflow.py"
 cp "$ROOT_DIR/scripts/validate-planning.py" "$TARGET/.workflow/tools/validate-planning.py"
 cp "$ROOT_DIR/scripts/validate-trace.py" "$TARGET/.workflow/tools/validate-trace.py"
+cp "$ROOT_DIR/scripts/validate-language.py" "$TARGET/.workflow/tools/validate-language.py"
 cp "$ROOT_DIR/scripts/harnessctl.py" "$TARGET/.workflow/tools/harnessctl.py"
 cp "$ROOT_DIR/scripts/evaluate-harness.py" "$TARGET/.workflow/tools/evaluate-harness.py"
 cp "$ROOT_DIR/scripts/sync-quarter-gantt.py" "$TARGET/.workflow/tools/sync-quarter-gantt.py"
@@ -156,6 +157,7 @@ cp "$ROOT_DIR/templates/workflow/command-cheatsheet.template.md" "$TARGET/.workf
 cp "$ROOT_DIR/templates/workflow/consistency-backlog.template.md" "$TARGET/.workflow/consistency-backlog.md"
 cp "$ROOT_DIR/templates/workflow/team.template.md" "$TARGET/.workflow/team.md"
 cp "$ROOT_DIR/templates/workflow/code-repos.template.json" "$TARGET/.workflow/code-repos.json"
+cp "$ROOT_DIR/templates/workflow/language-policy.template.json" "$TARGET/.workflow/language-policy.json"
 cp "$ROOT_DIR/templates/evals/golden-scenarios.template.json" "$TARGET/.workflow/evals/golden-scenarios.json"
 if [[ ! -e "$TARGET/README.md" ]]; then
   cp "$ROOT_DIR/templates/workflow/project-readme.template.md" "$TARGET/README.md"
@@ -220,7 +222,7 @@ EOF2
 cat > "$TARGET/baseline/current/requirements/README.md" <<'EOF2'
 # Canonical Requirements
 
-Store release-promoted current-state requirements here.
+Здесь хранятся требования текущего состояния, перенесённые из завершённых релизов.
 EOF2
 
 cat > "$TARGET/baseline/current/api/README.md" <<'EOF2'

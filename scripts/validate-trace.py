@@ -9,8 +9,29 @@ from pathlib import Path
 
 ID_RE = re.compile(r"\b(?:REQ|AC|DEC|STORY|TASK|CAND|TEST|IMPL)-[A-Z0-9][A-Z0-9-]*\b")
 HEADING_ID_RE = re.compile(r"^#{1,6}\s+((?:REQ|AC|DEC|STORY|TASK|CAND|TEST|IMPL)-[A-Z0-9][A-Z0-9-]*)\b", re.MULTILINE)
-REFERENCE_COLUMNS = {"Source Requirements", "Requirement / Criterion", "Related Stories"}
-DEFINITION_COLUMNS = {"Requirement ID", "Acceptance ID", "Decision ID", "Story ID", "Candidate ID", "Test ID", "ID"}
+REFERENCE_COLUMNS = {
+    "Source Requirements",
+    "Requirement / Criterion",
+    "Related Stories",
+    "Исходные требования",
+    "Исходное требование",
+    "Требование / критерий",
+    "Связанные плановые истории",
+}
+DEFINITION_COLUMNS = {
+    "Requirement ID",
+    "Acceptance ID",
+    "Decision ID",
+    "Story ID",
+    "Candidate ID",
+    "Test ID",
+    "ID",
+    "Идентификатор требования",
+    "Идентификатор критерия",
+    "Идентификатор решения",
+    "Идентификатор влияния",
+    "Идентификатор",
+}
 
 
 def markdown_rows(path: Path) -> list[list[str]]:

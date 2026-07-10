@@ -57,6 +57,21 @@ class HarnessTests(unittest.TestCase):
             self.assertTrue((project / ".workflow/tools/harnessctl.py").exists())
             self.assertFalse((project / "baseline/current/domain/aggregates.md").exists())
 
+    def test_language_check_ignores_code_and_rejects_prose_anglicism(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            requirements = project / "features/demo/requirements.md"
+            requirements.parent.mkdir(parents=True)
+            requirements.write_text("# Требования\n\nScope работ. Код: `scope`.\n", encoding="utf-8")
+            result = run(
+                sys.executable,
+                str(project / ".workflow/tools/validate-language.py"),
+                str(project),
+                "--all",
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(result.stdout.count("'scope'"), 1)
+
     def test_run_escalates_after_iteration_limit(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))

@@ -1,28 +1,28 @@
-# Implementation Plan — <feature-slug>/<slice-slug>
+# План реализации — <feature-slug>/<slice-slug>
 
-Status: draft
-Updated: <YYYY-MM-DD>
-Planning story: `<story-id>`
-Handoff: `../implementation-handoff.md`
+Статус: черновик
+Обновлено: <YYYY-MM-DD>
+Плановая история: `<story-id>`
+Передача в разработку: `../implementation-handoff.md`
 
-## Rules
+## Правила
 
-- This plan is an execution aid. It does not replace planning stories.
-- Every task must reference a requirement, prototype state, or acceptance check.
-- A task is not complete until its verification is recorded.
+- План является вспомогательным материалом реализации и не заменяет плановые истории.
+- Каждая задача должна ссылаться на требование, состояние прототипа или критерий приёмки.
+- Задача не считается завершённой, пока не зафиксирован результат проверки.
 
-## Tasks
+## Задачи
 
-| ID | Task | Source Requirement | Verification | Status |
+| Идентификатор | Задача | Исходное требование | Проверка | Статус |
 |---|---|---|---|---|
-| IMPL-001 |  |  |  | todo |
+| IMPL-001 |  |  |  | к выполнению |
 
-## Verification Log
+## Журнал проверок
 
-| Command / Check | Result | Notes |
+| Команда / проверка | Результат | Примечания |
 |---|---|---|
 |  |  |  |
 
-## Open Questions
+## Открытые вопросы
 
 - 

@@ -82,3 +82,10 @@ Context summaries, checkpoints and research files are internal harness operation
 - Use `.workflow/tools/harnessctl.py session-brief <project>` for progressive context disclosure.
 - Approved quarter and commander plans are immutable planning baselines.
 - Route later scope into task candidates and actual-progress instead of rewriting an approved plan.
+
+## Requirements language
+
+- Write requirement prose in Russian.
+- Keep English only for exact code, paths, API/database identifiers, enum values, and fixed external-system names.
+- Prefer a Russian explanation before an unavoidable special term.
+- Run `.workflow/tools/validate-language.py` for changed requirements before completion.

@@ -100,20 +100,28 @@ If the change affects domain rules, lifecycle, roles, API semantics, data model,
 - update `.workflow/consistency-backlog.md` when propagation is deferred;
 - do not silently mutate `baseline/current/` unless the active task explicitly includes baseline update.
 
-Mandatory cross-feature work is part of the initiating feature scope and HLE. Record it in a dedicated `Доработки затронутых фич` section in root requirements, not only in `domain-impact.md`.
+Обязательные доработки соседних функциональностей входят в объём работ и верхнеуровневую оценку инициирующей функциональности. Фиксируй их в отдельном разделе `Доработки затронутых функциональностей` корневых требований, а не только в `domain-impact.md`.
 
-Each impact row must trace to requirements, task candidates, and verification or be explicitly marked `not applicable` with a reason.
+Каждая строка влияния должна быть связана с требованиями, черновиками задач реализации и проверками либо явно помечена как неприменимая с указанием причины.
 
-## Task candidate derivation
+## Формирование черновиков задач реализации
 
-When detailed slice requirements are prepared, derive small independently committable task candidates:
+При подготовке детальных требований среза формируй небольшие, независимо реализуемые черновики задач:
 
 - one role and one coherent technical outcome per candidate;
 - BE/FE/QA target size 1-3 person-days;
 - maximum 5 days for BE and 10 days for FE or QA;
 - AN has no target or maximum;
 - every candidate references requirements and verification;
-- candidates remain proposals until confirmed and appear only in actual-progress after plan approval.
+- до подтверждения черновики не являются фактическими задачами и после утверждения плана отображаются только на диаграмме фактического выполнения.
+
+## Языковой контроль
+
+- Требования пишутся на русском языке.
+- Английская форма допускается только для точного кода, пути, API/БД-идентификатора, значения перечисления или закреплённого названия внешней системы.
+- В обычном тексте используй русские формулировки и избегай англицизмов, даже если они короче.
+- Перед завершением прохода запусти `.workflow/tools/validate-language.py` для изменённой функциональности.
+- Языковой контроль является частью обязательного второго прохода и выполняется до фиксации результата.
 
 ## Tail cleanup gate
 

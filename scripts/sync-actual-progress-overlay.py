@@ -85,7 +85,7 @@ ROLE_ALIASES = {
     },
 }
 
-NOT_STARTED_STATUSES = {"proposed", "planned", "todo", "open", "backlog"}
+NOT_STARTED_STATUSES = {"proposed", "предложен", "planned", "todo", "open", "backlog"}
 FE_AFTER_BE_OPEN_DAYS = 3
 
 
@@ -471,17 +471,21 @@ def load_tasks(feature_dir: Path) -> dict[str, Task]:
             )
     for path in sorted(feature_dir.glob("slices/*/execution/task-candidates.md")):
         rows = first_table_with(path, "Candidate ID")
+        russian = False
+        if not rows:
+            rows = first_table_with(path, "Идентификатор")
+            russian = True
         for row in rows:
-            task_id = clean_cell(row.get("Candidate ID", ""))
+            task_id = clean_cell(row.get("Идентификатор" if russian else "Candidate ID", ""))
             if not task_id:
                 continue
-            status = clean_cell(row.get("Status", "proposed"))
+            status = clean_cell(row.get("Статус" if russian else "Status", "proposed"))
             tasks[task_id] = Task(
                 task_id=task_id,
-                summary=clean_cell(row.get("Summary", task_id)),
+                summary=clean_cell(row.get("Краткое описание" if russian else "Summary", task_id)),
                 kind="candidate",
-                role=clean_cell(row.get("Role", "")),
-                estimate=parse_int(row.get("Estimate (дн)", ""), 1),
+                role=clean_cell(row.get("Роль" if russian else "Role", "")),
+                estimate=parse_int(row.get("Оценка (дн)" if russian else "Estimate (дн)", ""), 1),
                 executor="",
                 planned_start="",
                 planned_finish="",
@@ -489,7 +493,7 @@ def load_tasks(feature_dir: Path) -> dict[str, Task]:
                 actual_finish="",
                 status=status,
                 progress=0,
-                related_stories=split_list(row.get("Related Story", "")),
+                related_stories=split_list(row.get("Связанная плановая история" if russian else "Related Story", "")),
             )
     return tasks
 

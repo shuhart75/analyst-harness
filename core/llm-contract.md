@@ -169,6 +169,9 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 - Requirement diagrams must be PlantUML; do not introduce Mermaid blocks.
 - Derive slice cards and FE/BE detail packs from the corresponding sections of the root feature requirements.
 - If a slice artifact exposes a missing rule or contradiction, update `features/<feature>/requirements.md` first and only then re-derive the slice artifact.
+- Requirement prose must be written in Russian. Avoid English words and transliterated anglicisms when a clear Russian formulation exists.
+- English is allowed only for exact code, file paths, API/database identifiers, enum values, and fixed external-system names.
+- Run the project language validator for changed requirement files before presenting the work as complete.
 - Keep business requirements, system requirements, acceptance criteria, API contracts and examples traceable to source materials.
 
 ## Fast consistency sweep for requirement edits

@@ -110,6 +110,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `промоуть в baseline` | `release-finalization` | Promote release outputs into canonical baseline. |
 | `откати решение DEC-*` | `release-finalization` | Start rollback flow for a known decision. |
 | `проверь workflow` | any | Run validations and workflow checks. |
+| `проверь русский язык требований` | `requirements` | Check changed requirement prose and suggest Russian replacements for avoidable anglicisms. |
 | `утверди квартальный план` | `planning` | Only the project owner marks the current draft plan approved and immutable. |
 | `предложи реальные задачи по срезам` | `requirements` | Derive small role-specific task candidates from detailed slice requirements. |
 
@@ -220,6 +221,7 @@ Treat these as equivalent user phrasings.
 | `актуализируй требования` | Update living requirements and propagate consistency impact. | requirements, `domain-impact.md`, consistency backlog |
 | `проверь хвосты требований` | Run a quick feature-local cleanup for stale old wording, endpoints, fields, statuses or option names after a requirements edit. | current feature requirements, slice packs, `domain-impact.md`, local backlog items |
 | `проверь консистентность требований` | Run a consistency sweep across affected features and baseline. | requirements, `baseline/current/*`, `.workflow/consistency-backlog.md` |
+| `проверь русский язык требований` | Run the language validator for changed requirements; keep English only for exact technical identifiers and fixed special terms. | changed root/slice requirement files |
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |

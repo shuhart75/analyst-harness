@@ -31,6 +31,7 @@ Before broad workflow work, run `harnessctl doctor`. Before approving a plan, ru
 - If the project provides `.workflow/tools/find-stale-terms.py`, use it as the fast default helper for local tail cleanup; otherwise use the platform's normal text search.
 - If the user asks for a PlantUML file "without includes" or Confluence-ready code, expand `!include` directives with `.workflow/tools/expand-plantuml-includes.py` when available instead of editing generated gantt sources by hand.
 - Use `.workflow/tools/validate-context.py` after adding or materially changing context, research, handoff, implementation-plan or test-plan conventions.
+- Use `.workflow/tools/validate-language.py` after changing requirements. Treat avoidable anglicisms as a completion blocker, not as optional editorial cleanup.
 
 ## CLI-neutrality
 

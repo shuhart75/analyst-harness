@@ -1,43 +1,43 @@
-# Implementation Handoff — <feature-slug>/<slice-slug>
+# Передача среза в разработку — <feature-slug>/<slice-slug>
 
-Status: draft
-Updated: <YYYY-MM-DD>
-Source requirements: `features/<feature-slug>/requirements.md`
+Статус: черновик
+Обновлено: <YYYY-MM-DD>
+Исходные требования: `features/<feature-slug>/requirements.md`
 
-## Slice Goal
+## Цель среза
 
-- User/system outcome:
-- Included:
-- Out of scope:
+- Пользовательский или системный результат:
+- Входит:
+- Не входит:
 
-## Required Inputs
+## Обязательные входные материалы
 
-| Artifact | Path | Required |
+| Материал | Путь | Обязателен |
 |---|---|---|
-| Slice card | `features/<feature-slug>/slices/<slice-slug>/slice.md` | yes |
-| Frontend requirements | `features/<feature-slug>/slices/<slice-slug>/requirements/frontend.md` | yes |
-| Backend requirements | `features/<feature-slug>/slices/<slice-slug>/requirements/backend.md` | yes |
-| Prototype | `features/<feature-slug>/slices/<slice-slug>/delivery-prototype/` | if UI affected |
-| Research summary | `features/<feature-slug>/slices/<slice-slug>/.research/summary.md` | if available |
+| Карточка среза | `features/<feature-slug>/slices/<slice-slug>/slice.md` | да |
+| Требования клиентской части | `features/<feature-slug>/slices/<slice-slug>/requirements/frontend.md` | да |
+| Требования серверной части | `features/<feature-slug>/slices/<slice-slug>/requirements/backend.md` | да |
+| Прототип | `features/<feature-slug>/slices/<slice-slug>/delivery-prototype/` | если затронут интерфейс |
+| Сводка исследования | `features/<feature-slug>/slices/<slice-slug>/.research/summary.md` | если есть |
 
-## Technical Reading
+## Техническая оценка
 
-- Likely modules:
-- API/data/integration touchpoints:
-- Migration notes:
-- Configuration notes:
+- Предполагаемые модули:
+- Точки изменения API, данных и интеграций:
+- Миграции:
+- Настройки:
 
-## Implementation Risks
+## Риски реализации
 
 - 
 
-## Required Verification
+## Обязательные проверки
 
-- Build:
-- Tests:
-- Static analysis:
-- Manual checks:
+- Сборка:
+- Тесты:
+- Статический анализ:
+- Ручные проверки:
 
-## Open Questions
+## Открытые вопросы
 
 - 

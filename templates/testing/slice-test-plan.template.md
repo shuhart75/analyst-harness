@@ -1,36 +1,36 @@
-# Test Plan — <feature-slug>/<slice-slug>
+# План проверок — <feature-slug>/<slice-slug>
 
-Status: draft
-Updated: <YYYY-MM-DD>
-Source requirements: `features/<feature-slug>/requirements.md`
+Статус: черновик
+Обновлено: <YYYY-MM-DD>
+Исходные требования: `features/<feature-slug>/requirements.md`
 
-## Scope
+## Объём проверок
 
-- Included:
-- Out of scope:
+- Входит:
+- Не входит:
 
-## Coverage Matrix
+## Матрица покрытия
 
-| Requirement / Criterion | Checks | Status |
+| Требование / критерий | Проверки | Статус |
 |---|---|---|
-|  |  | draft |
+|  |  | черновик |
 
-## User Checks
-
-- 
-
-## Backend / Integration Checks
+## Пользовательские проверки
 
 - 
 
-## Negative And Edge Scenarios
+## Проверки серверной части и интеграций
 
 - 
 
-## Test Data
+## Отрицательные и граничные сценарии
 
 - 
 
-## Assumptions And Questions
+## Тестовые данные
+
+- 
+
+## Допущения и вопросы
 
 - 
