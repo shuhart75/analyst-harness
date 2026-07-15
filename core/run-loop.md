@@ -47,6 +47,7 @@ A failed check does not advance the run. Repeated failure reaches the configured
 
 - Task candidates are generated while detailed requirements are prepared. The preferred handoff form is `features/<feature>/tasks/index.md` plus one file per task in `features/<feature>/tasks/`.
 - Each task has one role and one independently committable technical result.
+- Each task file is a self-contained development packet and the primary input for the implementation plan. Links to requirements and slices are traceability links, not instructions to go elsewhere for missing details.
 - Target size for `BE`, `FE`, and `QA` is 1-3 person-days.
 - Maximum size is 5 days for BE and 10 days for FE or QA. AN has no target or maximum.
 - Candidates become actual tasks only after confirmation. Actual-progress uses one person per task.

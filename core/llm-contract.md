@@ -96,7 +96,7 @@ If the user asks for work outside the active mode, either switch mode explicitly
 - `planning story` is a planning/HLE unit. It has Summary, Description, estimates split by `AN / FE / BE / QA`, and may not match implementation tasks 1:1.
 - `implementation task` is an execution tracking unit. It should match Jira naming where possible and includes estimate, dates, executor, status and progress.
 - `requirement pack` is grouped by feature and, when useful, by slice and then FE/BE.
-- `developer task pack` lives under `features/<feature>/tasks/` and is the preferred handoff unit for development. It is derived from root requirements and may reference one slice, several slices, or no slice when slice decomposition would add no value.
+- `developer task pack` lives under `features/<feature>/tasks/` and is the preferred handoff unit for development. Each task file must be a self-contained working packet for a developer and an LLM implementation plan: it is derived from root requirements, may reference slices for traceability, and must include the rules, data, checks, boundaries and exclusions needed to plan implementation without opening root requirements or slice files.
 - `features/<feature>/requirements.md` is the primary control page and authored source for requirements; each slice must have its own ordered section there.
 - `slice card` and slice FE/BE packs are derived artifacts cut from the root feature requirements, not parallel independent sources. Slices help with analytical completeness, prototypes and QA, but a developer may work from a feature-level task pack instead of a slice.
 - `common feature prototype` lives in `features/<feature>/prototype.html`; the user iterates on it first as the visual source of truth.
@@ -170,7 +170,8 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 - Requirement diagrams must be PlantUML; do not introduce Mermaid blocks.
 - Derive slice cards and FE/BE detail packs from the corresponding sections of the root feature requirements.
 - When the user asks to split requirements into development tasks, create or update `features/<feature>/tasks/index.md` and one file per task under `features/<feature>/tasks/`. Do not put these handoff tasks under an individual slice.
-- Development tasks must be independently implementable, role-specific and linked back to source requirements, checks and related slices when slices exist.
+- Development tasks must be independently implementable, role-specific, linked back to source requirements, checks and related slices when slices exist, and detailed enough to be the primary input for an implementation plan.
+- Requirement and slice links in a development task are traceability links, not a substitute for the task content. If a rule, table, API contract, state transition, validation, SQL example or acceptance condition is necessary for implementation, include it in the task file.
 - Splitting requirements into development tasks does not change planning stories, quarter plans, commander plans or actual-progress by itself.
 - If a slice artifact exposes a missing rule or contradiction, update `features/<feature>/requirements.md` first and only then re-derive the slice artifact.
 - Requirement prose must be written in Russian. Avoid English words and transliterated anglicisms when a clear Russian formulation exists.

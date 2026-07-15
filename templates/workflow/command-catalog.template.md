@@ -85,7 +85,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `актуализируй требования` | `requirements` | Update requirements and propagate impact. |
 | `разложи требования на срезы` | `requirements` | Decompose root feature requirements into testable slices. |
 | `подготовь детальные требования по срезам` | `requirements` | Derive slice cards and interface/backend detail packs from root requirements. |
-| `разложи требования на задачи разработки` | `requirements` | Create feature-level developer task packs under `features/<feature>/tasks/` without changing planning or actual-progress. |
+| `разложи требования на задачи разработки` | `requirements` | Create self-contained feature-level developer task packs under `features/<feature>/tasks/` without changing planning or actual-progress. |
 | `проверь хвосты требований` | `requirements` | Run a quick feature-local sweep for stale old variants after a requirement edit. |
 | `проверь консистентность требований` | `requirements` | Run a consistency sweep across affected artifacts. |
 | `актуализируй прототипы` | `delivery-prototype` | Update prototypes listed in impact/backlog. |
@@ -188,7 +188,7 @@ Treat these as equivalent user phrasings.
 | `делаем требования` | `requirements` | Switch mode, select new readable or old detailed format, read baseline/current and author the root feature requirements before deriving slices. |
 | `разложи требования на срезы` | `requirements` | Switch mode if needed, refresh context, decompose root requirements into slices, then update root requirements first if decomposition exposes gaps. |
 | `подготовь детальные требования по срезам` | `requirements` | Switch mode if needed, refresh slice context, run completeness checks internally, then derive slice cards and detail packs. |
-| `разложи требования на задачи разработки` | `requirements` | Switch mode if needed, refresh feature context, read root requirements and slices when useful, then create `features/<feature>/tasks/index.md` and one file per developer task; do not change planning or actual-progress. |
+| `разложи требования на задачи разработки` | `requirements` | Switch mode if needed, refresh feature context, read root requirements and slices when useful, then create `features/<feature>/tasks/index.md` and one self-contained file per developer task; do not change planning or actual-progress. |
 | `делаем презентационный прототип` | `scope-prototype` | Switch mode, inspect existing prototypes/references and choose the common feature prototype base before writing. |
 | `делаем прототип для разработки` | `delivery-prototype` | Switch mode, verify the root prototype exists and is explicitly approved in `prototype-notes.md`, otherwise stop without editing slice prototypes. |
 | `создай прототип среза для фронта` | `delivery-prototype` | Switch mode, verify root prototype approval, then derive the slice handoff prototype from root prototype and requirements. |
@@ -230,7 +230,7 @@ Treat these as equivalent user phrasings.
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |
-| `разложи требования на задачи разработки` | Create feature-level developer task packs from root requirements and slices when useful; do not update planning or plan-fact artifacts. | `features/<feature>/tasks/index.md`, `features/<feature>/tasks/*.md` |
+| `разложи требования на задачи разработки` | Create self-contained feature-level developer task packs from root requirements and slices when useful; do not update planning or plan-fact artifacts. | `features/<feature>/tasks/index.md`, `features/<feature>/tasks/*.md` |
 | `предложи реальные задачи по срезам` | Legacy wording: derive independently committable development tasks with requirement and verification links; prefer feature-level task packs. | `features/<feature>/tasks/index.md`, `features/<feature>/tasks/*.md` |
 | `зафиксируй доменное решение` | Add Decision ID and impact record for a domain/business rule decision. | `domain-impact.md`, consistency backlog |
 
@@ -262,7 +262,7 @@ Treat these as equivalent user phrasings.
 | `добавь реальные задачи вместо story X` | Materialize planning story with implementation tasks. | task registry, `actualization.md` |
 | `добавь milestone релиза` | Add release milestone to actual-progress/related gantt. | gantt preamble/include |
 | `собери puml без инклюдов` | Expand an include-based PlantUML view into a standalone export file for Confluence or external sharing. | generated gantt view, standalone export puml |
-| `возьми задачу в разработку` | Prepare small-window task context and implementation handoff for one file under `features/<feature>/tasks/`. | task file, `implementation-handoff.md`, `.research/summary.md` when needed |
+| `возьми задачу в разработку` | Use one self-contained file under `features/<feature>/tasks/` as the primary input, inspect the code, and prepare the implementation plan inside that boundary. | task file, `implementation-handoff.md`, `.research/summary.md` when needed |
 | `возьми срез в разработку` | Prepare small-window slice context and implementation handoff for a ready slice. | `context-summary.md`, `implementation-handoff.md` |
 | `разбери срез по коду` | Run bounded code research for a ready slice. | `.research/*.yaml`, `.research/summary.md`, handoff updates |
 | `предложи план реализации` | Draft implementation tasks tied to requirements and verification. | `execution/implementation-plan.md` |

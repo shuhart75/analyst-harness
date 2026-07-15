@@ -30,7 +30,9 @@ Track real work after planning.
 - milestones and factual notes in actual-progress gantt
 - execution context notes that explain current fact state and plan-vs-fact decisions
 - confirmed or proposed task candidates discovered after planning approval
-- feature-level task packs used as development handoff inputs
+- feature-level task packs used as self-contained development handoff inputs
+
+When a feature-level task pack is materialized into real work, preserve the task file as the primary implementation input. Do not shrink it into a pointer to root requirements; links stay for traceability, while rules, data, boundaries and checks stay inside the task.
 
 ## Actual-progress scheduling rules
 
