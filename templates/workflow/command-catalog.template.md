@@ -82,7 +82,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `делаем прототип для разработки` | `delivery-prototype` | Switch into slice handoff mode, but block any slice edits until the root feature prototype is explicitly approved. |
 | `обновляем прогресс` | `execution-update` | Switch into implementation tracking mode. |
 | `финализируем релиз` | `release-finalization` | Switch into release/baseline promotion mode. |
-| `актуализируй требования` | `requirements` | Update requirements and propagate impact. |
+| `актуализируй требования` | `requirements` | Update requirements and propagate impact into derived slices and developer task packs. |
 | `разложи требования на срезы` | `requirements` | Decompose root feature requirements into testable slices. |
 | `подготовь детальные требования по срезам` | `requirements` | Derive slice cards and interface/backend detail packs from root requirements. |
 | `разложи требования на задачи разработки` | `requirements` | Create self-contained feature-level developer task packs under `features/<feature>/tasks/` without changing planning or actual-progress. |
@@ -223,7 +223,7 @@ Treat these as equivalent user phrasings.
 | `давай сделаем требования` | Create or update the root feature requirement page first, then derive slice detail packs from it. | `features/*/requirements.md`, `features/*/slices/*/requirements/*.md` |
 | `делаем требования в новом формате` | Use the new readable templates: business context in root, short visual slice packs, tester checklists in every slice, PlantUML only. | `.workflow/templates/requirements/*.readable.template.md`, requirements |
 | `делаем требования в старом формате` | Use the old detailed templates and preserve the earlier Confluence-style structure. | `.workflow/templates/requirements/feature-requirements.template.md`, requirements |
-| `актуализируй требования` | Update living requirements and propagate consistency impact. | requirements, `domain-impact.md`, consistency backlog |
+| `актуализируй требования` | Update living requirements and propagate consistency impact into derived slices and developer task packs. | requirements, `features/<feature>/tasks/*`, `domain-impact.md`, consistency backlog |
 | `проверь хвосты требований` | Run a quick feature-local cleanup for stale old wording, endpoints, fields, statuses or option names after a requirements edit. | current feature requirements, slice packs, `domain-impact.md`, local backlog items |
 | `проверь консистентность требований` | Run a consistency sweep across affected features and baseline. | requirements, `baseline/current/*`, `.workflow/consistency-backlog.md` |
 | `проверь русский язык требований` | Run the language validator for changed requirements; keep English only for exact technical identifiers and fixed special terms. | changed root/slice requirement files |
