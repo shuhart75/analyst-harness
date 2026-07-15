@@ -47,6 +47,8 @@ required = [
     ".workflow/templates/requirements/slice.template.md",
     ".workflow/templates/requirements/frontend.template.md",
     ".workflow/templates/requirements/backend.template.md",
+    ".workflow/templates/requirements/developer-task-index.template.md",
+    ".workflow/templates/requirements/developer-task.template.md",
     ".workflow/templates/intake/README.md",
     ".workflow/templates/intake/feature-intake.template.md",
     ".workflow/templates/prototypes/README.md",

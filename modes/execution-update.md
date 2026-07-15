@@ -6,6 +6,8 @@ Track real work after planning.
 
 ## Main artifacts
 
+- `features/*/tasks/index.md`
+- `features/*/tasks/*.md`
 - `features/*/slices/*/execution/tasks.md`
 - `features/*/slices/*/execution/tasks/*.md`
 - `features/*/slices/*/execution/task-candidates.md`
@@ -28,6 +30,7 @@ Track real work after planning.
 - milestones and factual notes in actual-progress gantt
 - execution context notes that explain current fact state and plan-vs-fact decisions
 - confirmed or proposed task candidates discovered after planning approval
+- feature-level task packs used as development handoff inputs
 
 ## Actual-progress scheduling rules
 

@@ -85,6 +85,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `актуализируй требования` | `requirements` | Update requirements and propagate impact. |
 | `разложи требования на срезы` | `requirements` | Decompose root feature requirements into testable slices. |
 | `подготовь детальные требования по срезам` | `requirements` | Derive slice cards and interface/backend detail packs from root requirements. |
+| `разложи требования на задачи разработки` | `requirements` | Create feature-level developer task packs under `features/<feature>/tasks/` without changing planning or actual-progress. |
 | `проверь хвосты требований` | `requirements` | Run a quick feature-local sweep for stale old variants after a requirement edit. |
 | `проверь консистентность требований` | `requirements` | Run a consistency sweep across affected artifacts. |
 | `актуализируй прототипы` | `delivery-prototype` | Update prototypes listed in impact/backlog. |
@@ -112,7 +113,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `проверь workflow` | any | Run validations and workflow checks. |
 | `проверь русский язык требований` | `requirements` | Check changed requirement prose and suggest Russian replacements for avoidable anglicisms. |
 | `утверди квартальный план` | `planning` | Only the project owner marks the current draft plan approved and immutable. |
-| `предложи реальные задачи по срезам` | `requirements` | Derive small role-specific task candidates from detailed slice requirements. |
+| `предложи реальные задачи по срезам` | `requirements` | Derive small role-specific task candidates from detailed requirements; prefer feature-level `features/<feature>/tasks/`. |
 
 ## Role-Oriented Command Map
 
@@ -120,8 +121,8 @@ These are the recommended user-facing commands by role. Internal context refresh
 
 | Role | Commands | User gets |
 |---|---|---|
-| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `делаем презентационный прототип`, `общий прототип согласован`, `создай прототип среза для фронта` | Intake, planning stories, estimates, risks, root requirements, slice requirements and prototypes. |
-| Developer | `возьми срез в разработку`, `разбери срез по коду`, `предложи план реализации`, `начни реализацию`, `продолжи реализацию`, `проверь реализацию среза`, `подготовь к ревью` | Slice context, implementation handoff, code research, implementation plan, verification state and review summary. |
+| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `разложи требования на задачи разработки`, `делаем презентационный прототип`, `общий прототип согласован`, `создай прототип среза для фронта` | Intake, planning stories, estimates, risks, root requirements, slice requirements, developer task packs and prototypes. |
+| Developer | `возьми задачу в разработку`, `возьми срез в разработку`, `разбери срез по коду`, `предложи план реализации`, `начни реализацию`, `продолжи реализацию`, `проверь реализацию среза`, `подготовь к ревью` | Task context, implementation handoff, code research, implementation plan, verification state and review summary. |
 | Tester | `подготовь проверки по срезу`, `собери негативные сценарии`, `сверь проверки с требованиями`, `проверь прототип по срезу`, `проверь реализацию по срезу`, `зафиксируй найденные пробелы` | Test design draft, negative scenarios, requirement coverage and gaps routed back to source artifacts. |
 
 Ask the user only when the workflow finds ambiguity, contradiction, cross-slice or cross-feature impact, an untestable requirement, unexplained failing checks, or a required change to the source of truth.
@@ -142,12 +143,14 @@ Treat these as equivalent user phrasings.
 | `актуализируй требования` | `обнови требования`, `синхронизируй требования`, `подтяни требования`, `приведи требования в актуальное состояние` |
 | `разложи требования на срезы` | `разложи по срезам`, `нарежь требования на срезы`, `выдели срезы`, `подготовь срезы` |
 | `подготовь детальные требования по срезам` | `детализируй срезы`, `подготовь требования по каждому срезу`, `собери detail packs по срезам`, `подготовь FE/BE требования по срезам` |
+| `разложи требования на задачи разработки` | `разбей требования на задачи`, `разложи требования по задачам`, `подготовь задачи для разработчиков`, `сформируй задачи разработки`, `сделай task packs для разработки` |
 | `проверь хвосты требований` | `дочисти хвосты`, `убери хвосты в требованиях`, `проверь старые упоминания`, `проверь что старый вариант нигде не остался`, `сделай локальную дочистку требований` |
 | `проверь консистентность требований` | `сделай consistency sweep`, `проверь консистентность`, `сверь требования`, `проверь что ничего не разъехалось`, `сделай сверку требований` |
 | `актуализируй прототипы` | `обнови прототипы`, `синхронизируй прототипы`, `подтяни прототипы`, `приведи макеты в актуальное состояние` |
 | `создай прототип среза для фронта` | `собери прототип среза для фронтенда`, `подготовь handoff-прототип среза`, `сделай макет среза для фронта`, `создай slice prototype` |
 | `обнови реальный прогресс` | `обнови actual progress`, `обнови actual-progress`, `зафиксируй прогресс`, `синхронизируй прогресс`, `обнови фактический прогресс`, `обнови план-факт` |
 | `собери puml без инклюдов` | `собери puml для Confluence`, `собери PlantUML без include`, `разверни include в puml`, `дай standalone puml`, `собери гант для конфлюенса` |
+| `возьми задачу в разработку` | `подготовь задачу к разработке`, `начинаем разработку задачи`, `возьми task pack в разработку` |
 | `возьми срез в разработку` | `подготовь срез к разработке`, `подготовь срез для разработки`, `начинаем разработку среза` |
 | `разбери срез по коду` | `найди где реализовывать срез`, `сопоставь срез с кодом`, `разбери код под срез` |
 | `предложи план реализации` | `собери план реализации среза`, `распиши реализацию среза`, `разложи реализацию по шагам` |
@@ -185,11 +188,13 @@ Treat these as equivalent user phrasings.
 | `делаем требования` | `requirements` | Switch mode, select new readable or old detailed format, read baseline/current and author the root feature requirements before deriving slices. |
 | `разложи требования на срезы` | `requirements` | Switch mode if needed, refresh context, decompose root requirements into slices, then update root requirements first if decomposition exposes gaps. |
 | `подготовь детальные требования по срезам` | `requirements` | Switch mode if needed, refresh slice context, run completeness checks internally, then derive slice cards and detail packs. |
+| `разложи требования на задачи разработки` | `requirements` | Switch mode if needed, refresh feature context, read root requirements and slices when useful, then create `features/<feature>/tasks/index.md` and one file per developer task; do not change planning or actual-progress. |
 | `делаем презентационный прототип` | `scope-prototype` | Switch mode, inspect existing prototypes/references and choose the common feature prototype base before writing. |
 | `делаем прототип для разработки` | `delivery-prototype` | Switch mode, verify the root prototype exists and is explicitly approved in `prototype-notes.md`, otherwise stop without editing slice prototypes. |
 | `создай прототип среза для фронта` | `delivery-prototype` | Switch mode, verify root prototype approval, then derive the slice handoff prototype from root prototype and requirements. |
 | `обновляем прогресс` | `execution-update` | Switch mode, read planning actualization, execution tasks and team roster. |
-| `возьми срез в разработку` | `execution-update` | Switch mode, read slice requirements/prototypes, gather context and prepare handoff. |
+| `возьми задачу в разработку` | `execution-update` | Switch mode, read the concrete file under `features/<feature>/tasks/`, gather context and prepare handoff without broadening scope. |
+| `возьми срез в разработку` | `execution-update` | Switch mode, read slice requirements/prototypes or linked feature-level tasks, gather context and prepare handoff. |
 | `подготовь проверки по срезу` | `execution-update` | Switch mode, read slice requirements/prototypes and draft QA coverage. |
 | `финализируем релиз` | `release-finalization` | Switch mode, read releases, domain-impact files, consistency backlog. |
 
@@ -225,7 +230,8 @@ Treat these as equivalent user phrasings.
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |
-| `предложи реальные задачи по срезам` | Derive independently committable task candidates with requirement and verification links. | `slices/*/execution/task-candidates.md` |
+| `разложи требования на задачи разработки` | Create feature-level developer task packs from root requirements and slices when useful; do not update planning or plan-fact artifacts. | `features/<feature>/tasks/index.md`, `features/<feature>/tasks/*.md` |
+| `предложи реальные задачи по срезам` | Legacy wording: derive independently committable development tasks with requirement and verification links; prefer feature-level task packs. | `features/<feature>/tasks/index.md`, `features/<feature>/tasks/*.md` |
 | `зафиксируй доменное решение` | Add Decision ID and impact record for a domain/business rule decision. | `domain-impact.md`, consistency backlog |
 
 ### Scope Prototype
@@ -256,6 +262,7 @@ Treat these as equivalent user phrasings.
 | `добавь реальные задачи вместо story X` | Materialize planning story with implementation tasks. | task registry, `actualization.md` |
 | `добавь milestone релиза` | Add release milestone to actual-progress/related gantt. | gantt preamble/include |
 | `собери puml без инклюдов` | Expand an include-based PlantUML view into a standalone export file for Confluence or external sharing. | generated gantt view, standalone export puml |
+| `возьми задачу в разработку` | Prepare small-window task context and implementation handoff for one file under `features/<feature>/tasks/`. | task file, `implementation-handoff.md`, `.research/summary.md` when needed |
 | `возьми срез в разработку` | Prepare small-window slice context and implementation handoff for a ready slice. | `context-summary.md`, `implementation-handoff.md` |
 | `разбери срез по коду` | Run bounded code research for a ready slice. | `.research/*.yaml`, `.research/summary.md`, handoff updates |
 | `предложи план реализации` | Draft implementation tasks tied to requirements and verification. | `execution/implementation-plan.md` |

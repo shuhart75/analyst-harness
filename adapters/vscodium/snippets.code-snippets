@@ -106,6 +106,23 @@
       "- спорные места вернуть в root requirements, а не оставлять только в детализации."
     ]
   },
+  "Workflow: Developer Tasks Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-dev-tasks",
+    "body": [
+      "разложи требования на задачи разработки",
+      "",
+      "Feature: ${1:feature-slug}",
+      "Root requirements: ${2:features/${1:feature-slug}/requirements.md}",
+      "",
+      "Нужно:",
+      "- создать или обновить `features/${1:feature-slug}/tasks/index.md`; ",
+      "- создать по одному файлу на каждую задачу в `features/${1:feature-slug}/tasks/`; ",
+      "- одна задача = одна роль, один технический результат, одна граница отдельного изменения;",
+      "- ссылаться на требования, проверки и связанные срезы, если они есть;",
+      "- не менять planning stories, quarter-plan, commander-plan и actual-progress без отдельной команды."
+    ]
+  },
   "Workflow: Scope Prototype Prompt": {
     "scope": "markdown,plaintext",
     "prefix": "wf-scope-proto",
@@ -195,6 +212,24 @@
       "- подготовить implementation-handoff;",
       "- если кодовая база доступна, разобрать срез по коду в границах затронутого модуля;",
       "- не менять требования без отдельного вопроса."
+    ]
+  },
+  "Workflow: Developer Task Prompt": {
+    "scope": "markdown,plaintext",
+    "prefix": "wf-dev-task",
+    "body": [
+      "возьми задачу в разработку",
+      "",
+      "Requirements repo: ${1:/path/to/requirements/repo}",
+      "Code repo: ${2:/path/to/code/repo}",
+      "Task file: ${3:features/<feature>/tasks/<task>.md}",
+      "",
+      "Нужно:",
+      "- работать строго по одному указанному файлу задачи;",
+      "- прочитать связанные требования, проверки и срезы только по ссылкам из задачи;",
+      "- разобрать код в границах задачи;",
+      "- подготовить план реализации и проверки;",
+      "- код пока не менять, если я явно не попросил начать реализацию."
     ]
   },
   "Workflow: Slice Implementation Plan Prompt": {

@@ -19,6 +19,8 @@ required_workflow = [
     ".workflow/templates/handoff/slice-implementation-handoff.template.md",
     ".workflow/templates/execution/implementation-plan.template.md",
     ".workflow/templates/execution/task-candidates.template.md",
+    ".workflow/templates/requirements/developer-task-index.template.md",
+    ".workflow/templates/requirements/developer-task.template.md",
     ".workflow/templates/testing/slice-test-plan.template.md",
     ".workflow/templates/runs/run.template.json",
 ]

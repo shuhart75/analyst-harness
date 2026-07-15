@@ -19,7 +19,7 @@ A failed check does not advance the run. Repeated failure reaches the configured
 ## Run Kinds
 
 - `planning`: intake, delta, role stories, estimates, dependencies, capacity schedule, review, approval.
-- `requirements`: root requirements, slices, detailed packs, cross-feature impact, task candidates, tail cleanup.
+- `requirements`: root requirements, slices, detailed packs, feature-level developer task packs, cross-feature impact, task candidates, tail cleanup.
 - `implementation`: code research, implementation plan, one small change, deterministic checks, review.
 - `qa`: coverage, test design, execution, failure classification, routing gaps to their owner.
 
@@ -45,8 +45,10 @@ A failed check does not advance the run. Repeated failure reaches the configured
 
 ## Task Candidate Invariants
 
-- Task candidates are generated while detailed slice requirements are prepared.
+- Task candidates are generated while detailed requirements are prepared. The preferred handoff form is `features/<feature>/tasks/index.md` plus one file per task in `features/<feature>/tasks/`.
 - Each task has one role and one independently committable technical result.
 - Target size for `BE`, `FE`, and `QA` is 1-3 person-days.
 - Maximum size is 5 days for BE and 10 days for FE or QA. AN has no target or maximum.
 - Candidates become actual tasks only after confirmation. Actual-progress uses one person per task.
+- Slices remain useful for analytical completeness and prototypes, but task candidates do not have to be stored inside a slice.
+- Creating feature-level development task files does not update planning baselines or actual-progress until the user asks to materialize them as execution tasks.
