@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,66 @@ class HarnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
             result = run(sys.executable, str(project / ".workflow/tools/harnessctl.py"), "doctor", str(project))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_scaffold_contains_per_item_developer_handoff_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            contract = project / ".workflow/developer-handoff.md"
+            receipt = project / ".workflow/templates/handoff/developer-receipt.template.json"
+            manifest = project / ".workflow/templates/handoff/developer-manifest.template.json"
+            self.assertTrue(contract.exists())
+            self.assertTrue(receipt.exists())
+            self.assertTrue(manifest.exists())
+            self.assertIn("implemented-with-deviation", contract.read_text(encoding="utf-8"))
+            self.assertEqual(json.loads(receipt.read_text(encoding="utf-8"))["schema_version"], 3)
+            self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["reconciliation_policy"]["mode"], "per-item-continuation")
+
+    def test_handoff_validator_accepts_per_item_package(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "package"
+            package.mkdir()
+            request = package / "request.md"
+            request.write_text("# Request\n\nREQ-DEMO-001\n\nSCN-DEMO-001\n", encoding="utf-8")
+            request_hash = hashlib.sha256(request.read_bytes()).hexdigest()
+            receipt = {
+                "schema_version": 3,
+                "package_id": "demo",
+                "package_revision": 1,
+                "request_id": "demo",
+                "request_version": 1,
+                "request_sha256": request_hash,
+                "status": "pending",
+                "allowed_statuses": ["pending", "no-change-required", "proposal-created", "proposal-created-with-blocked-items", "blocked", "rejected-package"],
+                "allowed_coverage_statuses": ["pending", "implemented-as-required", "implemented-with-deviation", "partially-implemented", "not-implemented", "blocked-product-decision", "blocked-dependency", "not-applicable"],
+                "allowed_actions": ["pending", "no-change", "include-in-proposal", "return-product-question", "wait-for-dependency", "not-applicable"],
+                "requirement_coverage": [{"requirement": "REQ-DEMO-001", "status": "pending", "action": "pending"}],
+                "scenario_coverage": [{"scenario": "SCN-DEMO-001", "status": "pending", "action": "pending"}],
+                "remaining_delta": [],
+                "baseline_feedback": [],
+                "requirements_feedback": [],
+            }
+            receipt_path = package / "receipt.template.json"
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            manifest = {
+                "schema_version": 5,
+                "package_id": "demo",
+                "package_revision": 1,
+                "request": {"id": "demo", "version": 1},
+                "payload": [
+                    {"path": "request.md", "sha256": request_hash},
+                    {"path": "receipt.template.json", "sha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest()},
+                ],
+                "requirements": ["REQ-DEMO-001"],
+                "scenarios": ["SCN-DEMO-001"],
+                "reconciliation_policy": {"mode": "per-item-continuation"},
+                "allowed_package_statuses": receipt["allowed_statuses"],
+                "allowed_coverage_statuses": receipt["allowed_coverage_statuses"],
+                "allowed_actions": receipt["allowed_actions"],
+            }
+            (package / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            result = run(sys.executable, str(ROOT / "scripts/validate-handoff.py"), str(package))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_active_mode_mismatch_is_rejected(self) -> None:

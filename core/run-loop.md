@@ -54,3 +54,13 @@ A failed check does not advance the run. Repeated failure reaches the configured
 - Candidates become actual tasks only after confirmation. Actual-progress uses one person per task.
 - Slices remain useful for analytical completeness and prototypes, but task candidates do not have to be stored inside a slice.
 - Creating feature-level development task files does not update planning baselines or actual-progress until the user asks to materialize them as execution tasks.
+
+## Developer Handoff Invariants
+
+- Reconcile every requirement and scenario independently against one recorded code revision.
+- Existing, differently named, or partially implemented behavior is evidence, not a package-level failure.
+- Record the observed behavior and continue with the unambiguous remaining delta.
+- Block only requirements that need a product decision or an unavailable external dependency; continue all independent requirements.
+- Create proposal and specification deltas for all unblocked remaining work, then stop before design, tasks, and code until explicit approval.
+- Return baseline and requirement feedback in the receipt so the analyst side can update its source of truth.
+- The canonical states and receipt contract are defined in `.workflow/developer-handoff.md`.

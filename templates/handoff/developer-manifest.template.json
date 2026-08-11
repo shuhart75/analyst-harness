@@ -1,0 +1,67 @@
+{
+  "schema_version": 5,
+  "package_id": "<package-id>",
+  "package_revision": 1,
+  "package_kind": "external-requirements-to-openspec",
+  "request": {
+    "id": "<request-id>",
+    "version": 1,
+    "title": "<Название>",
+    "role": "<BE|FE>",
+    "estimate_person_days": 1,
+    "suggested_change_id": "<change-id>"
+  },
+  "target": {
+    "repository": "<repository>",
+    "contour": "<contour>",
+    "sdd_root": "<path>"
+  },
+  "payload": [
+    {
+      "path": "request.md",
+      "sha256": "<sha256>",
+      "purpose": "Самодостаточные требования"
+    }
+  ],
+  "requirements": [
+    "REQ-<ID>-001"
+  ],
+  "scenarios": [
+    "SCN-<ID>-001"
+  ],
+  "reconciliation_policy": {
+    "mode": "per-item-continuation",
+    "existing_behavior": "record-and-continue",
+    "implemented_deviation": "record-observed-behavior-use-no-change-when-result-is-met-otherwise-continue-with-unambiguous-delta",
+    "blocked_scope": "affected-items-only",
+    "proposal_scope": "all-unblocked-remaining-delta",
+    "analyst_feedback": "baseline-and-requirements-feedback-in-receipt",
+    "stop_after": "proposal-specs-and-receipt"
+  },
+  "allowed_package_statuses": [
+    "pending",
+    "no-change-required",
+    "proposal-created",
+    "proposal-created-with-blocked-items",
+    "blocked",
+    "rejected-package"
+  ],
+  "allowed_coverage_statuses": [
+    "pending",
+    "implemented-as-required",
+    "implemented-with-deviation",
+    "partially-implemented",
+    "not-implemented",
+    "blocked-product-decision",
+    "blocked-dependency",
+    "not-applicable"
+  ],
+  "allowed_actions": [
+    "pending",
+    "no-change",
+    "include-in-proposal",
+    "return-product-question",
+    "wait-for-dependency",
+    "not-applicable"
+  ]
+}
