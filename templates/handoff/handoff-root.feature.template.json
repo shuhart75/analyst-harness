@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "package_kind": "feature-delivery",
+  "package_id": "<package-id>",
+  "feature": "<feature-slug>",
+  "source_requirements": {
+    "path": "features/<feature-slug>/requirements.md"
+  },
+  "status": "draft",
+  "active_revision": null,
+  "next_sdd_action": {
+    "action": "wait",
+    "reason": "Нет отправленной редакции",
+    "revision": null,
+    "revision_state": null,
+    "claimed_by": null,
+    "package_path": null,
+    "transport_path": null,
+    "returns_path": null
+  },
+  "allowed_revision_states": [
+    "draft",
+    "ready",
+    "sent",
+    "in-progress",
+    "paused",
+    "superseded",
+    "archived",
+    "cancelled"
+  ],
+  "allowed_sdd_actions": [
+    "wait",
+    "process",
+    "continue",
+    "stop-and-report",
+    "no-action"
+  ],
+  "revisions": []
+}

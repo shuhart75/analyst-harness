@@ -8,18 +8,19 @@ When working inside a project that uses this harness, read in this order:
 
 1. `AGENTS.md`
 2. `.workflow/llm-contract.md`
-3. `.workflow/agent-delegation.md`
-4. `.workflow/skills-policy.md`
-5. `.workflow/tooling-policy.md`
-6. `.workflow/context-policy.md`
-7. `.workflow/research-policy.md`
-8. `.workflow/run-loop.md`
-9. `.workflow/harness.json`
-10. `.workflow/run-state/session-brief.md` when present
-11. `.workflow/active-mode.md`
-12. `.workflow/modes/<active-mode>.md`
-13. `.workflow/team.md` before planning resources or regenerating actual-progress
-14. relevant files under `.workflow/overrides/`
+3. `.workflow/requirements-profile.md` before authoring or substantially rewriting requirements
+4. `.workflow/agent-delegation.md`
+5. `.workflow/skills-policy.md`
+6. `.workflow/tooling-policy.md`
+7. `.workflow/context-policy.md`
+8. `.workflow/research-policy.md`
+9. `.workflow/run-loop.md`
+10. `.workflow/harness.json`
+11. `.workflow/run-state/session-brief.md` when present
+12. `.workflow/active-mode.md`
+13. `.workflow/modes/<active-mode>.md`
+14. `.workflow/team.md` before planning resources or regenerating actual-progress
+15. relevant files under `.workflow/overrides/`
 
 ## Primary workflow rule
 
@@ -45,6 +46,15 @@ Work should be grouped by:
 - `feature`
 - then `slice`
 - then FE/BE requirement packs and execution artifacts
+
+## Developer handoff
+
+- For new work, send one `feature-delivery` package containing root requirements and slices; do not pre-author the final Jira decomposition under `features/<feature>/tasks/`.
+- Developers own confirmed `DEV-BE-*` and `DEV-FE-*` cards after inspecting their local SDD and code.
+- A confirmed decomposition snapshot is delivered to the analyst in the background and never blocks implementation.
+- Keep decomposition state, implementation receipts and slice test receipts independent.
+- QA works by slice; development cards and implementation receipts are supporting context.
+- Preserve already sent input revisions and confirmed decomposition snapshots as immutable history.
 
 ## Prototype stack
 
@@ -89,3 +99,4 @@ Context summaries, checkpoints and research files are internal harness operation
 - Keep English only for exact code, paths, API/database identifiers, enum values, and fixed external-system names.
 - Prefer a Russian explanation before an unavoidable special term.
 - Run `.workflow/tools/validate-language.py` for changed requirements before completion.
+- Run `.workflow/tools/validate-requirements-profile.py` for changed root documents that use the profile marker.

@@ -16,6 +16,8 @@ Produce or update living requirement packs from canonical baseline, source mater
 
 Use `.workflow/templates/requirements/` as the active project-local template source. Do not write requirement packs freeform when these templates exist.
 
+The common quality and structure contract is `.workflow/requirements-profile.md`. It is based on ISO/IEC/IEEE 29148:2018 but does not claim full standards conformance. Both root formats implement the same profile; they differ only in presentation density and the amount of technical detail.
+
 ## Requirement format selection
 
 Before generating or substantially rewriting requirements, choose one format:
@@ -44,9 +46,9 @@ Selection rules:
 - `features/*/artifact-map.md`
 - `features/*/slices/*/context-summary.md`
 - optional `features/*/.research/*` and `features/*/slices/*/.research/*`
-- `features/*/tasks/index.md`
-- `features/*/tasks/*.md`
 - `features/*/slices/*/execution/task-candidates.md`
+- `features/*/handoffs/*/handoff.json`
+- `features/*/handoffs/*/revisions/*/package/*`
 
 ## Source-of-truth rule
 
@@ -64,6 +66,10 @@ Selection rules:
 5. Do not invent slice scope that is absent from the root feature document without editing the root feature document first.
 
 The root feature document must follow the selected root template. The old detailed root template is `.workflow/templates/requirements/feature-requirements.template.md`; the new readable root template is `.workflow/templates/requirements/feature-requirements.readable.template.md`.
+
+For every new root document, keep the profile marker `Профиль требований: **АС КОДА / ISO/IEC/IEEE 29148:2018**`. Existing legacy documents remain valid until a substantial rewrite or explicit migration. A profiled document must contain the mandatory sections, atomic normative `REQ-*`, explicit `SCN-*`, verification methods, cross-feature impacts, dependencies, completion criteria and traceability defined by `.workflow/requirements-profile.md`.
+
+Only the user-owner may change a requirements document to `утверждён`. An approved document must record the approver and approval date. A developer receipt results in a new analytical decision or document revision; it never rewrites the historical meaning of an already transmitted revision.
 
 ## Tail cleanup rule
 
@@ -104,49 +110,21 @@ If the change affects domain rules, lifecycle, roles, API semantics, data model,
 
 Обязательные доработки соседних функциональностей входят в объём работ и верхнеуровневую оценку инициирующей функциональности. Фиксируй их в отдельном разделе `Доработки затронутых функциональностей` корневых требований, а не только в `domain-impact.md`.
 
-Каждая строка влияния должна быть связана с требованиями, черновиками задач реализации и проверками либо явно помечена как неприменимая с указанием причины.
+Каждая строка влияния должна быть связана с требованиями, включена во входной пакет и связана с проверками либо явно помечена как неприменимая с указанием причины.
 
-## Формирование задач разработки
+## Передача на техническую декомпозицию
 
-По командам `разложи требования на задачи разработки`, `разбей требования на задачи`, `разложи требования по задачам` и близким формулировкам создавай пакеты задач разработки на уровне функциональности:
+Аналитик не определяет окончательную разбивку будущих задач Jira. После завершения корневых требований и срезов по команде пользователя создай общий пакет командой `handoffctl init-feature`, затем добавь новую неизменяемую редакцию командой `handoffctl add-revision`.
 
-- основной каталог: `features/<feature>/tasks/`;
-- индекс задач: `features/<feature>/tasks/index.md`;
-- отдельные файлы задач: `features/<feature>/tasks/<role>-<short-name>.md`;
-- шаблоны: `.workflow/templates/requirements/developer-task-index.template.md` и `.workflow/templates/requirements/developer-task.template.md`.
+Пакет автоматически включает:
 
-Срезы остаются полезной аналитической декомпозицией пользовательских сценариев, прототипов и проверяемых частей требований, но не являются обязательной единицей передачи в разработку. Одна задача разработки может ссылаться на один срез, несколько срезов или только на разделы корневых требований, если отдельный срез для неё избыточен.
+- `features/<feature>/requirements.md`;
+- все `features/<feature>/slices/*/slice.md`;
+- полные списки `REQ-*`, `SCN-*`, `IMP-*`;
+- контрольные суммы файлов;
+- правила разработческой декомпозиции и последующего тестирования.
 
-Правила формирования:
-
-- одна роль и один законченный технический результат на задачу;
-- целевой размер BE/FE/QA: 1-3 человеко-дня;
-- максимум 5 дней для BE и 10 дней для FE или QA;
-- для AN целевой и максимальный размер не задаётся;
-- индекс `tasks/index.md` может быть краткой навигацией по задачам, но не заменяет файлы задач;
-- каждая задача ссылается на исходные требования, связанные срезы при наличии, проверку и границу отдельного изменения;
-- каждый файл задачи должен быть самодостаточным рабочим пакетом для разработчика и языковой модели с доступом к кодовому репозиторию;
-- файл задачи должен содержать все правила, данные, ограничения, критерии приёмки, проверки, зависимости и исключения, необходимые для подготовки плана реализации без чтения корневых требований или срезов;
-- перед выпуском задачи явно разделяй ожидаемую дельту внутри задачи, уже поставленные предварительные условия и внешние зависимости;
-- задача должна быть замкнута относительно целевой ветки кода: всё необходимое уже поставлено либо входит в её границу; нижестоящую задачу с незакрытой внешней зависимостью нельзя передавать как самостоятельное изменение;
-- ссылки на требования и срезы нужны для трассируемости и проверки свежести, но не могут заменять содержание задачи;
-- если для самодостаточной задачи приходится копировать таблицу, правила заполнения, алгоритм, пример SQL, контракт API или перечень состояний из требований, копируй их в задачу в сокращённом, но достаточном для реализации виде;
-- вычисляемые поля, преобразования статусов и переходы состояний описывай явной таблицей соответствий с исходными и целевыми значениями;
-- перед началом реализации языковая модель должна строить план от конкретного файла задачи, затем сверять его с фактическим кодом; если код выявляет противоречие или недостающие правила, возвращать правку в требования и пересобирать задачу;
-- до отдельной команды материализации задачи не являются фактическими Jira-задачами и не попадают в план-факт; для отображения на диаграмме фактического выполнения пользователь должен отдельно перейти к актуализации реального прогресса.
-
-## Синхронизация задач разработки с требованиями
-
-При любой правке `features/<feature>/requirements.md`, карточек срезов или детальных FE/BE-пакетов обязательно проверь `features/<feature>/tasks/`, если каталог существует или если требования уже готовятся к передаче в разработку.
-
-Правила синхронизации:
-
-- если изменилось правило, поле, API, сценарий, ограничение, критерий приёмки, проверка, зависимость или граница реализации, обнови затронутые `tasks/*.md` в том же проходе;
-- если изменение требований добавляет новый самостоятельный технический результат, добавь новую задачу в `tasks/index.md` и отдельный файл задачи;
-- если изменение требований убирает или объединяет объём работ, обнови, объедини или пометь соответствующую задачу как отменённую/заменённую;
-- если задачи не затронуты, явно зафиксируй это в разделе синхронизации `tasks/index.md` или в финальном ответе, когда каталога задач ещё нет;
-- нельзя завершать изменение требований как готовое, если существующие task-файлы ссылаются на устаревшие правила или не содержат новых правил, нужных разработчику;
-- если синхронизацию нельзя выполнить в текущем режиме или без бизнес-решения, запиши конкретный пункт в `.workflow/consistency-backlog.md`.
+Подтверждённые карточки создаются разработчиками в возвратах пакета. При изменении уже переданных требований не переписывай карточки разработчиков: создай новую входную редакцию и явно измени состояние прежней. Получение декомпозиции не меняет утверждённые планы; её материализация относится к `execution-update`.
 
 ## Языковой контроль
 
@@ -154,6 +132,7 @@ If the change affects domain rules, lifecycle, roles, API semantics, data model,
 - Английская форма допускается только для точного кода, пути, API/БД-идентификатора, значения перечисления или закреплённого названия внешней системы.
 - В обычном тексте используй русские формулировки и избегай англицизмов, даже если они короче.
 - Перед завершением прохода запусти `.workflow/tools/validate-language.py` для изменённой функциональности.
+- Запусти `.workflow/tools/validate-requirements-profile.py` для изменённой функциональности. Документы прежнего формата без маркера профиля пропускаются до их осознанного перевода.
 - Языковой контроль является частью обязательного второго прохода и выполняется до фиксации результата.
 
 ## Tail cleanup gate

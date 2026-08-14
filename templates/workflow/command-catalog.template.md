@@ -82,10 +82,16 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `делаем прототип для разработки` | `delivery-prototype` | Switch into slice handoff mode, but block any slice edits until the root feature prototype is explicitly approved. |
 | `обновляем прогресс` | `execution-update` | Switch into implementation tracking mode. |
 | `финализируем релиз` | `release-finalization` | Switch into release/baseline promotion mode. |
-| `актуализируй требования` | `requirements` | Update requirements and propagate impact into derived slices and developer task packs. |
+| `актуализируй требования` | `requirements` | Обновить требования и распространить влияние на производные срезы. |
 | `разложи требования на срезы` | `requirements` | Decompose root feature requirements into testable slices. |
 | `подготовь детальные требования по срезам` | `requirements` | Derive slice cards and interface/backend detail packs from root requirements. |
-| `разложи требования на задачи разработки` | `requirements` | Create self-contained feature-level developer task packs under `features/<feature>/tasks/` without changing planning or actual-progress. |
+| `подготовь пакет функциональности для технической декомпозиции` | `requirements` | Создать общий пакет функциональности и неизменяемую редакцию требований со срезами. |
+| `сформируй транспорт пакета` | `requirements` | Validate one immutable revision and build `revisions/NNN.zip` beside it. |
+| `отправь редакцию пакета` | `requirements` | Mark exactly one revision as authorized for SDD processing and supersede older unclaimed revisions. |
+| `приостанови редакцию пакета` | `requirements` | Set SDD action to wait or stop-and-report without rewriting the revision. |
+| `покажи состояние пакета` | `requirements` | Read `handoff.json` and report the single current SDD action. |
+| `покажи подтверждённую декомпозицию` | `execution-update` | Прочитать актуальный неизменяемый снимок карточек, полученный от разработки. |
+| `обнови фактический план по подтверждённой декомпозиции` | `execution-update` | По решению аналитика материализовать выбранные карточки в фактическом слое. |
 | `проверь хвосты требований` | `requirements` | Run a quick feature-local sweep for stale old variants after a requirement edit. |
 | `проверь консистентность требований` | `requirements` | Run a consistency sweep across affected artifacts. |
 | `актуализируй прототипы` | `delivery-prototype` | Update prototypes listed in impact/backlog. |
@@ -93,13 +99,14 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `создай прототип среза для фронта` | `delivery-prototype` | Create or update a slice-level frontend handoff prototype after root prototype approval. |
 | `обнови реальный прогресс` | `execution-update` | Update tasks, actual-progress gantt and Confluence export. |
 | `собери puml без инклюдов` | `execution-update` | Create a standalone PlantUML export from an include-based gantt view. |
-| `возьми срез в разработку` | `execution-update` | Prepare slice development context and handoff without changing planning baselines. |
-| `разбери срез по коду` | `execution-update` | Use bounded research to map a ready slice onto code areas and risks. |
-| `предложи план реализации` | `execution-update` | Draft an implementation plan tied to slice requirements and checks. |
-| `начни реализацию` | `execution-update` | Start implementation from the approved implementation plan and required checks. |
-| `продолжи реализацию` | `execution-update` | Resume implementation from the current checkpoint, plan and verification state. |
-| `проверь реализацию среза` | `execution-update` | Compare implementation state against slice requirements, prototype and checks. |
-| `подготовь к ревью` | `execution-update` | Summarize implementation changes, checks, risks and review notes for a ready slice. |
+| `подготовь декомпозицию серверной части` | `execution-update` | Исследовать серверный контур и создать или обновить предложенные `DEV-BE-*`. |
+| `подготовь декомпозицию клиентской части` | `execution-update` | Исследовать клиентский контур и создать или обновить предложенные `DEV-FE-*`. |
+| `проверь декомпозицию` | `execution-update` | Проверить карточки, размеры, зависимости и покрытие без содержательных решений. |
+| `декомпозиция подтверждена разработкой` | `execution-update` | Создать снимок для аналитика и разрешить сразу продолжить разработку. |
+| `подготовь список для Jira` | `execution-update` | Показать подтверждённые карточки; оценка и ключ Jira необязательны. |
+| `свяжи DEV-* с <ключ Jira>` | `execution-update` | Записать необязательную связь карточки с Jira. |
+| `возьми DEV-* в разработку` | `execution-update` | Реализовать подтверждённую карточку и вернуть отдельную квитанцию. |
+| `возьми срез <id> в тестирование` | `execution-update` | Проверить срез и вернуть независимую квитанцию тестирования. |
 | `подготовь проверки по срезу` | `execution-update` | Draft QA checks and coverage for a ready slice. |
 | `собери негативные сценарии` | `execution-update` | Draft negative and edge scenarios tied to slice requirements. |
 | `сверь проверки с требованиями` | `execution-update` | Build or update a requirement-to-check coverage matrix. |
@@ -113,7 +120,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `проверь workflow` | any | Run validations and workflow checks. |
 | `проверь русский язык требований` | `requirements` | Check changed requirement prose and suggest Russian replacements for avoidable anglicisms. |
 | `утверди квартальный план` | `planning` | Only the project owner marks the current draft plan approved and immutable. |
-| `предложи реальные задачи по срезам` | `requirements` | Derive small role-specific task candidates from detailed requirements; prefer feature-level `features/<feature>/tasks/`. |
+| `предложи реальные задачи по срезам` | `execution-update` | Прежняя формулировка: материализовать выбранные подтверждённые карточки в фактическом слое. |
 
 ## Role-Oriented Command Map
 
@@ -121,9 +128,9 @@ These are the recommended user-facing commands by role. Internal context refresh
 
 | Role | Commands | User gets |
 |---|---|---|
-| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `разложи требования на задачи разработки`, `делаем презентационный прототип`, `общий прототип согласован`, `создай прототип среза для фронта` | Intake, planning stories, estimates, risks, root requirements, slice requirements, developer task packs and prototypes. |
-| Developer | `возьми задачу в разработку`, `возьми срез в разработку`, `разбери срез по коду`, `предложи план реализации`, `начни реализацию`, `продолжи реализацию`, `проверь реализацию среза`, `подготовь к ревью` | Task context, implementation handoff, code research, implementation plan, verification state and review summary. |
-| Tester | `подготовь проверки по срезу`, `собери негативные сценарии`, `сверь проверки с требованиями`, `проверь прототип по срезу`, `проверь реализацию по срезу`, `зафиксируй найденные пробелы` | Test design draft, negative scenarios, requirement coverage and gaps routed back to source artifacts. |
+| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `подготовь пакет функциональности для технической декомпозиции`, `обнови фактический план по подтверждённой декомпозиции` | Планы, требования, срезы, входные редакции и фактическое выполнение. |
+| Developer | `подготовь декомпозицию серверной части`, `подготовь декомпозицию клиентской части`, `проверь декомпозицию`, `декомпозиция подтверждена разработкой`, `подготовь список для Jira`, `возьми DEV-* в разработку` | Карточки будущих задач Jira, снимок декомпозиции и квитанции реализации. |
+| Tester | `возьми срез <id> в тестирование`, `подготовь проверки по срезу`, `собери негативные сценарии`, `сверь проверки с требованиями`, `зафиксируй найденные пробелы` | Проверки среза, покрытие и независимая квитанция тестирования. |
 
 Ask the user only when the workflow finds ambiguity, contradiction, cross-slice or cross-feature impact, an untestable requirement, unexplained failing checks, or a required change to the source of truth.
 
@@ -143,15 +150,15 @@ Treat these as equivalent user phrasings.
 | `актуализируй требования` | `обнови требования`, `синхронизируй требования`, `подтяни требования`, `приведи требования в актуальное состояние` |
 | `разложи требования на срезы` | `разложи по срезам`, `нарежь требования на срезы`, `выдели срезы`, `подготовь срезы` |
 | `подготовь детальные требования по срезам` | `детализируй срезы`, `подготовь требования по каждому срезу`, `собери detail packs по срезам`, `подготовь FE/BE требования по срезам` |
-| `разложи требования на задачи разработки` | `разбей требования на задачи`, `разложи требования по задачам`, `подготовь задачи для разработчиков`, `сформируй задачи разработки`, `сделай task packs для разработки` |
+| `подготовь пакет функциональности для технической декомпозиции` | `собери пакет функциональности`, `передай функциональность на декомпозицию` |
 | `проверь хвосты требований` | `дочисти хвосты`, `убери хвосты в требованиях`, `проверь старые упоминания`, `проверь что старый вариант нигде не остался`, `сделай локальную дочистку требований` |
 | `проверь консистентность требований` | `сделай consistency sweep`, `проверь консистентность`, `сверь требования`, `проверь что ничего не разъехалось`, `сделай сверку требований` |
 | `актуализируй прототипы` | `обнови прототипы`, `синхронизируй прототипы`, `подтяни прототипы`, `приведи макеты в актуальное состояние` |
 | `создай прототип среза для фронта` | `собери прототип среза для фронтенда`, `подготовь handoff-прототип среза`, `сделай макет среза для фронта`, `создай slice prototype` |
 | `обнови реальный прогресс` | `обнови actual progress`, `обнови actual-progress`, `зафиксируй прогресс`, `синхронизируй прогресс`, `обнови фактический прогресс`, `обнови план-факт` |
 | `собери puml без инклюдов` | `собери puml для Confluence`, `собери PlantUML без include`, `разверни include в puml`, `дай standalone puml`, `собери гант для конфлюенса` |
-| `возьми задачу в разработку` | `подготовь задачу к разработке`, `начинаем разработку задачи`, `возьми task pack в разработку` |
-| `возьми срез в разработку` | `подготовь срез к разработке`, `подготовь срез для разработки`, `начинаем разработку среза` |
+| `возьми DEV-* в разработку` | `начни реализацию DEV-*`, `реализуй DEV-*` |
+| `возьми срез <id> в тестирование` | `начни проверку среза <id>`, `проверь срез <id>` |
 | `разбери срез по коду` | `найди где реализовывать срез`, `сопоставь срез с кодом`, `разбери код под срез` |
 | `предложи план реализации` | `собери план реализации среза`, `распиши реализацию среза`, `разложи реализацию по шагам` |
 | `начни реализацию` | `начинай реализацию`, `приступай к реализации`, `выполни первую задачу реализации`, `стартуй реализацию среза` |
@@ -188,13 +195,22 @@ Treat these as equivalent user phrasings.
 | `делаем требования` | `requirements` | Switch mode, select new readable or old detailed format, read baseline/current and author the root feature requirements before deriving slices. |
 | `разложи требования на срезы` | `requirements` | Switch mode if needed, refresh context, decompose root requirements into slices, then update root requirements first if decomposition exposes gaps. |
 | `подготовь детальные требования по срезам` | `requirements` | Switch mode if needed, refresh slice context, run completeness checks internally, then derive slice cards and detail packs. |
-| `разложи требования на задачи разработки` | `requirements` | Switch mode if needed, refresh feature context, read root requirements and slices when useful, then create `features/<feature>/tasks/index.md` and one self-contained file per developer task; do not change planning or actual-progress. |
+| `подготовь пакет функциональности для технической декомпозиции` | `requirements` | Переключить режим, проверить корневые требования и срезы, создать общий пакет функциональности и новую входную редакцию. |
+| `сформируй транспорт пакета` | `requirements` | Validate the revision package, record file hashes and build the adjacent deterministic ZIP. |
+| `отправь редакцию пакета` | `requirements` | Mark the revision as sent and expose it through `next_sdd_action`; do not edit the revision afterward. |
+| `приостанови редакцию пакета` | `requirements` | Change only the root lifecycle manifest; use stop-and-report when an already claimed revision must return partial fact. |
+| `покажи подтверждённую декомпозицию` | `execution-update` | Найти актуальный снимок декомпозиции и показать карточки, оценки и необязательные связи Jira. |
+| `обнови фактический план по подтверждённой декомпозиции` | `execution-update` | Материализовать выбранные аналитиком карточки, не меняя утверждённый план. |
 | `делаем презентационный прототип` | `scope-prototype` | Switch mode, inspect existing prototypes/references and choose the common feature prototype base before writing. |
 | `делаем прототип для разработки` | `delivery-prototype` | Switch mode, verify the root prototype exists and is explicitly approved in `prototype-notes.md`, otherwise stop without editing slice prototypes. |
 | `создай прототип среза для фронта` | `delivery-prototype` | Switch mode, verify root prototype approval, then derive the slice handoff prototype from root prototype and requirements. |
 | `обновляем прогресс` | `execution-update` | Switch mode, read planning actualization, execution tasks and team roster. |
-| `возьми задачу в разработку` | `execution-update` | Switch mode, read the concrete file under `features/<feature>/tasks/`, gather context and prepare handoff without broadening scope. |
-| `возьми срез в разработку` | `execution-update` | Switch mode, read slice requirements/prototypes or linked feature-level tasks, gather context and prepare handoff. |
+| `подготовь декомпозицию серверной части` | `execution-update` | Прочитать `handoff.json`, исследовать серверный контур и подготовить `DEV-BE-*`; пути пользователь не указывает. |
+| `подготовь декомпозицию клиентской части` | `execution-update` | Прочитать `handoff.json`, исследовать клиентский контур и подготовить `DEV-FE-*`; пути пользователь не указывает. |
+| `проверь декомпозицию` | `execution-update` | Проверить структуру, покрытие, размеры и зависимости текущих карточек. |
+| `декомпозиция подтверждена разработкой` | `execution-update` | Подтвердить действующие карточки, создать снимок для аналитика и сохранить `next_sdd_action = continue`. |
+| `возьми DEV-* в разработку` | `execution-update` | Найти подтверждённую карточку, сверить её с текущим кодом, выполнить доступную работу и зарегистрировать квитанцию. |
+| `возьми срез <id> в тестирование` | `execution-update` | Найти срез активной редакции, связанные карточки и квитанции реализации, выполнить проверку и зарегистрировать квитанцию среза. |
 | `подготовь проверки по срезу` | `execution-update` | Switch mode, read slice requirements/prototypes and draft QA coverage. |
 | `финализируем релиз` | `release-finalization` | Switch mode, read releases, domain-impact files, consistency backlog. |
 
@@ -223,15 +239,21 @@ Treat these as equivalent user phrasings.
 | `давай сделаем требования` | Create or update the root feature requirement page first, then derive slice detail packs from it. | `features/*/requirements.md`, `features/*/slices/*/requirements/*.md` |
 | `делаем требования в новом формате` | Use the new readable templates: business context in root, short visual slice packs, tester checklists in every slice, PlantUML only. | `.workflow/templates/requirements/*.readable.template.md`, requirements |
 | `делаем требования в старом формате` | Use the old detailed templates and preserve the earlier Confluence-style structure. | `.workflow/templates/requirements/feature-requirements.template.md`, requirements |
-| `актуализируй требования` | Update living requirements and propagate consistency impact into derived slices and developer task packs. | requirements, `features/<feature>/tasks/*`, `domain-impact.md`, consistency backlog |
+| `актуализируй требования` | Обновить требования и распространить влияние на производные срезы. Уже отправленную редакцию и карточки разработчиков не переписывать. | requirements, slices, `domain-impact.md`, consistency backlog |
 | `проверь хвосты требований` | Run a quick feature-local cleanup for stale old wording, endpoints, fields, statuses or option names after a requirements edit. | current feature requirements, slice packs, `domain-impact.md`, local backlog items |
 | `проверь консистентность требований` | Run a consistency sweep across affected features and baseline. | requirements, `baseline/current/*`, `.workflow/consistency-backlog.md` |
 | `проверь русский язык требований` | Run the language validator for changed requirements; keep English only for exact technical identifiers and fixed special terms. | changed root/slice requirement files |
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |
-| `разложи требования на задачи разработки` | Create self-contained feature-level developer task packs from root requirements and slices when useful; do not update planning or plan-fact artifacts. | `features/<feature>/tasks/index.md`, `features/<feature>/tasks/*.md` |
-| `предложи реальные задачи по срезам` | Legacy wording: derive independently committable development tasks with requirement and verification links; prefer feature-level task packs. | `features/<feature>/tasks/index.md`, `features/<feature>/tasks/*.md` |
+| `подготовь пакет функциональности для технической декомпозиции` | Создать общий пакет по всей функциональности без заранее утверждённых технических задач. | `features/<feature>/handoffs/<package-id>/*` |
+| `сформируй транспорт пакета` | Validate one revision and create its deterministic transport ZIP beside the revision directory. | `revisions/NNN/package/*`, `revisions/NNN.zip`, `handoff.json` |
+| `отправь редакцию пакета` | Authorize exactly one revision for SDD and make prior unclaimed revisions no longer actionable. | `handoff.json` |
+| `приостанови редакцию пакета` | Tell SDD to wait or stop and report current fact, without mutating the input revision. | `handoff.json` |
+| `покажи состояние пакета` | Show active revision, expected receipt and exact next SDD action. | `handoff.json` |
+| `покажи подтверждённую декомпозицию` | Показать актуальный снимок карточек, который уже фоново доступен аналитику. | `returns/decomposition-snapshots/*` |
+| `обнови фактический план по подтверждённой декомпозиции` | По решению аналитика перенести выбранные карточки в фактический слой; разработку не блокировать. | task candidates, execution tasks, actual-progress |
+| `предложи реальные задачи по срезам` | Прежняя формулировка: материализовать выбранные карточки подтверждённого снимка. | task candidates, execution tasks |
 | `зафиксируй доменное решение` | Add Decision ID and impact record for a domain/business rule decision. | `domain-impact.md`, consistency backlog |
 
 ### Scope Prototype
@@ -262,14 +284,14 @@ Treat these as equivalent user phrasings.
 | `добавь реальные задачи вместо story X` | Materialize planning story with implementation tasks. | task registry, `actualization.md` |
 | `добавь milestone релиза` | Add release milestone to actual-progress/related gantt. | gantt preamble/include |
 | `собери puml без инклюдов` | Expand an include-based PlantUML view into a standalone export file for Confluence or external sharing. | generated gantt view, standalone export puml |
-| `возьми задачу в разработку` | Use one self-contained file under `features/<feature>/tasks/` as the primary input, inspect the code, and prepare the implementation plan inside that boundary. | task file, `implementation-handoff.md`, `.research/summary.md` when needed |
-| `возьми срез в разработку` | Prepare small-window slice context and implementation handoff for a ready slice. | `context-summary.md`, `implementation-handoff.md` |
-| `разбери срез по коду` | Run bounded code research for a ready slice. | `.research/*.yaml`, `.research/summary.md`, handoff updates |
-| `предложи план реализации` | Draft implementation tasks tied to requirements and verification. | `execution/implementation-plan.md` |
-| `начни реализацию` | Start an `implementation` run from a confirmed candidate and stop if requirements or checks are unclear. | changed code, verification notes, run status |
-| `продолжи реализацию` | Resume from the latest checkpoint, implementation plan and verification state. | changed code, updated verification notes |
-| `проверь реализацию среза` | Compare implementation state against requirements, prototype and verification. | implementation review notes, verification results |
-| `подготовь к ревью` | Summarize changed code, checks, residual risks and requirement links for review. | review summary, verification summary |
+| `подготовь декомпозицию серверной части` | Исследовать серверную SDD и код, затем создать или обновить `DEV-BE-*`. | `returns/development-tasks/*` |
+| `подготовь декомпозицию клиентской части` | Исследовать клиентскую SDD и код, затем создать или обновить `DEV-FE-*`. | `returns/development-tasks/*` |
+| `проверь декомпозицию` | Проверить карточки, зависимости, размеры и полное распределение `REQ-*`, `SCN-*`, `IMP-*`. | `returns/development-tasks/index.md`, decomposition receipt |
+| `декомпозиция подтверждена разработкой` | Создать неизменяемый снимок для аналитика без ожидания ответа. | `returns/decomposition-snapshots/*`, `handoff.json` |
+| `подготовь список для Jira` | Показать подтверждённые карточки; оценки и ключи Jira необязательны. | confirmed decomposition snapshot |
+| `свяжи DEV-* с <ключ Jira>` | Добавить необязательную внешнюю связь, не меняя технический объём карточки. | development task card, decomposition receipt |
+| `возьми DEV-* в разработку` | Реализовать подтверждённую карточку и зафиксировать фактический результат независимо от других карточек. | code, tests, `returns/implementation-results/*` |
+| `возьми срез <id> в тестирование` | Проверить срез, используя карточки и квитанции реализации как контекст. | `returns/test-results/*` |
 | `подготовь проверки по срезу` | Start a `qa` run and draft QA checks and coverage for a ready slice. | `testing/test-plan.md`, run state |
 | `собери негативные сценарии` | Add negative and edge scenarios tied to requirements. | `testing/test-plan.md` |
 | `сверь проверки с требованиями` | Ensure every accepted check traces to requirements and assumptions are marked. | coverage matrix |
@@ -297,3 +319,4 @@ Treat these as equivalent user phrasings.
 | `проверь workflow` | Run structure, links and relevant generated-artifact checks. |
 | `проверь harness doctor` | Run executable workflow, planning, context, trace and managed-file checks. |
 | `проверь контекст` | Run context/research/handoff/test-plan validation if available. |
+| `проверь профиль требований` | Проверить обязательную структуру, нормативные `REQ-*`, сценарии и трассировку нового профиля требований. |

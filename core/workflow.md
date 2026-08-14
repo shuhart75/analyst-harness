@@ -25,6 +25,10 @@
 - `requirement pack`
 - `scope prototype`
 - `delivery prototype`
+- `feature delivery package`
+- `development card`
+- `implementation receipt`
+- `slice test receipt`
 - `implementation task`
 - `release package`
 - `domain impact note`

@@ -96,9 +96,10 @@ If the user asks for work outside the active mode, either switch mode explicitly
 - `planning story` is a planning/HLE unit. It has Summary, Description, estimates split by `AN / FE / BE / QA`, and may not match implementation tasks 1:1.
 - `implementation task` is an execution tracking unit. It should match Jira naming where possible and includes estimate, dates, executor, status and progress.
 - `requirement pack` is grouped by feature and, when useful, by slice and then FE/BE.
-- `developer task pack` lives under `features/<feature>/tasks/` and is the preferred handoff unit for development. Each task file must be a self-contained working packet for a developer and an LLM implementation plan: it is derived from root requirements, may reference slices for traceability, and must include the rules, data, checks, boundaries and exclusions needed to plan implementation without opening root requirements or slice files.
+- `feature delivery package` lives under `features/<feature>/handoffs/<package-id>/` and is the preferred shared unit for development and testing. The immutable input contains root requirements and slices; developers return their technical decomposition inside the same package.
+- `development task card` is created and confirmed by developers under `returns/development-tasks/`. It describes one future Jira task and one contour, is self-contained, and may have an estimate or Jira key, but neither is required.
 - `features/<feature>/requirements.md` is the primary control page and authored source for requirements; each slice must have its own ordered section there.
-- `slice card` and slice FE/BE packs are derived artifacts cut from the root feature requirements, not parallel independent sources. Slices help with analytical completeness, prototypes and QA, but a developer may work from a feature-level task pack instead of a slice.
+- `slice card` and slice FE/BE packs are derived artifacts cut from the root feature requirements, not parallel independent sources. Slices remain the primary testing units; development cards and implementation receipts provide supporting context.
 - `common feature prototype` lives in `features/<feature>/prototype.html`; the user iterates on it first as the visual source of truth.
 - `delivery prototype` is a slice-level schematic handoff artifact derived from the confirmed common feature prototype and root requirements.
 - `release package` captures the final delivered state before promotion into a new baseline.
@@ -149,7 +150,7 @@ If the user asks for work outside the active mode, either switch mode explicitly
 Store story/task links in markdown, not as visual PlantUML dependencies.
 
 - Use `features/<feature>/planning/actualization.md` for story-to-task mapping.
-- Use `features/<feature>/tasks/index.md` and `features/<feature>/tasks/*.md` as development handoff inputs. Use `features/<feature>/slices/*/execution/task-candidates.md` and `slices/*/execution/tasks.md` for execution candidates and execution facts when the project has materialized them.
+- Use confirmed decomposition snapshots under `features/<feature>/handoffs/*/revisions/*/returns/decomposition-snapshots/` as developer-owned task information. The analyst may materialize selected cards into `features/<feature>/slices/*/execution/task-candidates.md` or `slices/*/execution/tasks.md` for actual-progress.
 - Many-to-many mapping is valid: one task may replace multiple stories, and one story may be replaced by multiple tasks.
 - If the user says "replace story X by tasks A/B", update `actualization.md` and the tasks' `Related Stories`.
 - If mapping is obvious from semantics, role and naming, use `mapping_mode = inferred`; if the user stated it explicitly, use `explicit`.
@@ -160,6 +161,7 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 ## Requirements rules
 
 - Requirements are living markdown artifacts until release fixation.
+- `.workflow/requirements-profile.md` is the shared root-document contract based on ISO/IEC/IEEE 29148:2018. It adapts the standard and does not claim full conformity.
 - Write requirements by the project-local template in `.workflow/templates/requirements/`, not freeform.
 - Start from `features/<feature>/requirements.md` as the primary feature-level requirement page and only place where feature requirements are authored from scratch.
 - Build that page by the selected project-local requirements format:
@@ -169,16 +171,17 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 - Do not mix new and old requirement formats inside one feature unless the user explicitly asks for a migration or comparison.
 - Requirement diagrams must be PlantUML; do not introduce Mermaid blocks.
 - Derive slice cards and FE/BE detail packs from the corresponding sections of the root feature requirements.
-- When the user asks to split requirements into development tasks, create or update `features/<feature>/tasks/index.md` and one file per task under `features/<feature>/tasks/`. Do not put these handoff tasks under an individual slice.
-- Development tasks must be independently implementable, role-specific, linked back to source requirements, checks and related slices when slices exist, and detailed enough to be the primary input for an implementation plan.
-- Requirement and slice links in a development task are traceability links, not a substitute for the task content. If a rule, table, API contract, state transition, validation, SQL example or acceptance condition is necessary for implementation, include it in the task file.
-- Whenever root requirements, slice cards, or FE/BE requirement packs change, check `features/<feature>/tasks/` if it exists or if the feature is being prepared for development. Update affected task files in the same pass, or explicitly record that tasks are not affected. Do not complete a requirements change while existing task files still contain stale rules or miss new implementation-relevant rules.
-- Splitting requirements into development tasks does not change planning stories, quarter plans, commander plans or actual-progress by itself.
+- When requirements are ready for technical decomposition, create a new immutable feature-package revision containing the root requirements and slices. Do not invent the final Jira breakdown in the analytical requirements pass.
+- Developer SDD creates self-contained cards in the package return area after targeted code research. Cards must be role-specific, linked to full requirements, checks and related slices, and detailed enough to be the primary implementation input.
+- When transmitted requirements change, do not rewrite a confirmed developer decomposition. Create a new input-package revision; the developer side may return a new decomposition snapshot.
+- Receiving a decomposition snapshot does not change planning stories or approved plans. The analyst decides separately which cards to materialize into actual-progress.
 - If a slice artifact exposes a missing rule or contradiction, update `features/<feature>/requirements.md` first and only then re-derive the slice artifact.
 - Requirement prose must be written in Russian. Avoid English words and transliterated anglicisms when a clear Russian formulation exists.
 - English is allowed only for exact code, file paths, API/database identifiers, enum values, and fixed external-system names.
 - Run the project language validator for changed requirement files before presenting the work as complete.
+- Run `.workflow/tools/validate-requirements-profile.py` for changed profiled root documents. Do not force legacy documents into the profile during an unrelated edit.
 - Keep business requirements, system requirements, acceptance criteria, API contracts and examples traceable to source materials.
+- Only the user-owner may mark requirements as approved. Record the approver and date, and create a new revision for later semantic changes.
 
 ## Fast consistency sweep for requirement edits
 

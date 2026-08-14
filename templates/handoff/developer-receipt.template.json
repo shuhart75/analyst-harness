@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "package_id": "<package-id>",
   "package_revision": 1,
   "request_id": "<request-id>",
@@ -8,7 +8,14 @@
   "target_repository": "<repository>",
   "target_contour": "<contour>",
   "received_at": null,
-  "reviewed_source": {
+  "completed_at": null,
+  "source_before": {
+    "commit": null,
+    "branch": null,
+    "working_tree_state": "unknown",
+    "relevant_uncommitted_paths": []
+  },
+  "source_after": {
     "commit": null,
     "branch": null,
     "working_tree_state": "unknown",
@@ -18,23 +25,52 @@
   "status_reason": null,
   "allowed_statuses": [
     "pending",
+    "delivered",
+    "delivered-with-deviations",
+    "partially-delivered",
     "no-change-required",
-    "proposal-created",
-    "proposal-created-with-blocked-items",
-    "blocked",
+    "not-delivered",
     "rejected-package"
   ],
-  "sdd_change_ids": [],
-  "generated_artifacts": [],
+  "allowed_coverage_statuses": [
+    "pending",
+    "already-implemented",
+    "implemented-as-required",
+    "implemented-with-deviation",
+    "implemented-with-scope-change",
+    "partially-implemented",
+    "not-implemented",
+    "deferred",
+    "blocked-dependency",
+    "blocked-input-ambiguity",
+    "not-applicable"
+  ],
+  "allowed_follow_up_recommendations": [
+    "pending",
+    "no-action",
+    "promote-to-baseline",
+    "update-requirement",
+    "keep-open",
+    "defer",
+    "move-to-other-change",
+    "cancel",
+    "investigate"
+  ],
+  "commits": [],
+  "generated_or_changed_artifacts": [],
   "requirement_coverage": [
     {
       "requirement": "REQ-<ID>-001",
       "status": "pending",
-      "observed_behavior": null,
-      "comparison": "pending",
-      "remaining_delta": null,
-      "action": "pending",
+      "behavior_before": null,
+      "delivered_behavior": null,
+      "deviation_from_input": null,
+      "remaining_work": null,
+      "follow_up_recommendation": "pending",
+      "suggested_destination": null,
       "evidence": [],
+      "commit_sha256": [],
+      "verification": [],
       "note": null
     }
   ],
@@ -42,22 +78,25 @@
     {
       "scenario": "SCN-<ID>-001",
       "status": "pending",
-      "observed_behavior": null,
-      "action": "pending",
-      "covered_by": [],
+      "behavior_before": null,
+      "delivered_behavior": null,
+      "deviation_from_input": null,
+      "remaining_work": null,
+      "follow_up_recommendation": "pending",
+      "suggested_destination": null,
+      "covered_by": [
+        "REQ-<ID>-001"
+      ],
       "evidence": [],
+      "commit_sha256": [],
+      "verification": [],
       "note": null
     }
   ],
-  "remaining_delta": [],
+  "additional_deliveries": [],
+  "remaining_work": [],
   "baseline_feedback": [],
   "requirements_feedback": [],
   "verification": [],
-  "stop_gate": {
-    "proposal_and_specs_created": false,
-    "design_created": false,
-    "tasks_created": false,
-    "code_modified": false
-  },
   "notes": null
 }

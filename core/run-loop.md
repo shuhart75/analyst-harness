@@ -19,7 +19,7 @@ A failed check does not advance the run. Repeated failure reaches the configured
 ## Run Kinds
 
 - `planning`: intake, delta, role stories, estimates, dependencies, capacity schedule, review, approval.
-- `requirements`: root requirements, slices, detailed packs, feature-level developer task packs, cross-feature impact, task candidates, tail cleanup.
+- `requirements`: root requirements, slices, detailed packs, cross-feature impact and tail cleanup.
 - `implementation`: code research, implementation plan, one small change, deterministic checks, review.
 - `qa`: coverage, test design, execution, failure classification, routing gaps to their owner.
 
@@ -43,24 +43,24 @@ A failed check does not advance the run. Repeated failure reaches the configured
 - Every impact row is covered by requirements, task candidates, and checks or explicitly marked `not applicable` with a reason.
 - Local stale tails block completion. Cross-mode propagation may be deferred only through a concrete consistency backlog record.
 
-## Task Candidate Invariants
+## Technical Decomposition Invariants
 
-- Task candidates are generated while detailed requirements are prepared. The preferred handoff form is `features/<feature>/tasks/index.md` plus one file per task in `features/<feature>/tasks/`.
-- Each task has one role and one independently committable technical result.
-- Each task file is a self-contained development packet and the primary input for the implementation plan. Links to requirements and slices are traceability links, not instructions to go elsewhere for missing details.
-- Requirements changes have a task-sync gate: existing feature-level task packs must be updated, marked not affected, or recorded in the consistency backlog before the requirements run can be considered complete.
-- Target size for `BE`, `FE`, and `QA` is 1-3 person-days.
-- Maximum size is 5 days for BE and 10 days for FE or QA. AN has no target or maximum.
-- Candidates become actual tasks only after confirmation. Actual-progress uses one person per task.
-- Slices remain useful for analytical completeness and prototypes, but task candidates do not have to be stored inside a slice.
-- Creating feature-level development task files does not update planning baselines or actual-progress until the user asks to materialize them as execution tasks.
+- Analysts transmit one immutable feature requirements package with slices; developers define the future Jira decomposition after targeted code research.
+- Each active development card has one contour and one independently implementable technical result.
+- Each card is self-contained and is the primary input for the implementation plan. Links provide traceability rather than missing instructions.
+- Estimate and Jira key are optional developer metadata. Their absence never blocks decomposition confirmation or implementation.
+- Target size is 1-3 days for one executor. Maximum size is 5 days for backend and 10 days for frontend; an explicitly estimated excess requires a reason.
+- Confirmation creates a background snapshot for the analyst and immediately permits development without analyst approval.
+- The analyst decides separately whether to materialize returned cards into actual-progress. Approved planning baselines remain immutable.
+- Slices remain the primary QA units and use development cards and implementation receipts as supporting context.
 
 ## Developer Handoff Invariants
 
 - Reconcile every requirement and scenario independently against one recorded code revision.
 - Existing, differently named, or partially implemented behavior is evidence, not a package-level failure.
-- Record the observed behavior and continue with the unambiguous remaining delta.
-- Block only requirements that need a product decision or an unavailable external dependency; continue all independent requirements.
-- Create proposal and specification deltas for all unblocked remaining work, then stop before design, tasks, and code until explicit approval.
-- Return baseline and requirement feedback in the receipt so the analyst side can update its source of truth.
+- Treat the input package as an immutable comparison point; never rewrite it to match the implementation.
+- Let the developer-side workflow choose the technical approach, order, design artifacts and commit split.
+- Continue all independent work and complete implementation, verification and commits that are feasible in the code repository.
+- Report every input item, remaining work and any additional delivery in the receipt without hiding scope differences.
+- Return baseline and requirement feedback in receipts; analyst review may happen later and never gates development or testing.
 - The canonical states and receipt contract are defined in `.workflow/developer-handoff.md`.

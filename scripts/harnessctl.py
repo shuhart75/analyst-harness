@@ -108,6 +108,8 @@ def managed_sources(root: Path) -> dict[str, Path]:
         ".workflow/context-policy.md": root / "core/context-policy.md",
         ".workflow/research-policy.md": root / "core/research-policy.md",
         ".workflow/run-loop.md": root / "core/run-loop.md",
+        ".workflow/developer-handoff.md": root / "core/developer-handoff.md",
+        ".workflow/requirements-profile.md": root / "core/requirements-profile.md",
         ".workflow/tools/switch-mode.sh": root / "adapters/cli/switch-mode.sh",
         ".workflow/tools/start-session.sh": root / "adapters/cli/start-session.sh",
         ".vscode/settings.json": root / "adapters/vscodium/settings.json",
@@ -127,6 +129,7 @@ def managed_sources(root: Path) -> dict[str, Path]:
         "validate-planning.py",
         "validate-trace.py",
         "validate-language.py",
+        "validate-requirements-profile.py",
         "sync-quarter-gantt.py",
         "sync-planning-gantt.py",
         "calibrate-planning.py",
@@ -134,6 +137,8 @@ def managed_sources(root: Path) -> dict[str, Path]:
         "find-stale-terms.py",
         "expand-plantuml-includes.py",
         "evaluate-harness.py",
+        "validate-handoff.py",
+        "handoffctl.py",
     ):
         result[f".workflow/tools/{script}"] = root / "scripts" / script
     for dirname in (
@@ -278,12 +283,21 @@ def doctor_command(args: argparse.Namespace) -> int:
         run_tool(project, "validate-workflow.py"),
         run_tool(project, "validate-links.py"),
         run_tool(project, "validate-context.py", ["--strict-features"] if args.strict else []),
+        run_tool(project, "validate-requirements-profile.py"),
         run_tool(project, "validate-planning.py"),
         run_tool(project, "validate-trace.py", ["--strict"] if args.strict else []),
     ]
     if args.source:
         diff_args = argparse.Namespace(project=str(project), source=args.source)
         codes.append(diff_command(diff_args))
+    handoff_tool = project / ".workflow/tools/handoffctl.py"
+    for manifest in sorted(project.glob("features/*/handoffs/*/handoff.json")):
+        codes.append(
+            subprocess.run(
+                [sys.executable, str(handoff_tool), "validate", str(manifest.parent)],
+                check=False,
+            ).returncode
+        )
     return 1 if any(codes) else 0
 
 
@@ -295,6 +309,12 @@ def language_check_command(args: argparse.Namespace) -> int:
     if args.all:
         extra.append("--all")
     return run_tool(project, "validate-language.py", extra)
+
+
+def requirements_check_command(args: argparse.Namespace) -> int:
+    project = Path(args.project).resolve()
+    extra = ["--feature", args.feature] if args.feature else []
+    return run_tool(project, "validate-requirements-profile.py", extra)
 
 
 def session_brief_command(args: argparse.Namespace) -> int:
@@ -567,6 +587,11 @@ def build_parser() -> argparse.ArgumentParser:
     language.add_argument("--feature")
     language.add_argument("--all", action="store_true")
     language.set_defaults(func=language_check_command)
+
+    requirements = sub.add_parser("requirements-check")
+    requirements.add_argument("project")
+    requirements.add_argument("--feature")
+    requirements.set_defaults(func=requirements_check_command)
 
     brief = sub.add_parser("session-brief")
     brief.add_argument("project")

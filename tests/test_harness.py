@@ -23,6 +23,63 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return project
 
+    def write_pending_handoff_package(self, package: Path, package_id: str = "demo", revision: int = 1) -> None:
+        package.mkdir(parents=True, exist_ok=True)
+        request = package / "request.md"
+        request.write_text("# Задание\n\nREQ-DEMO-001\n\nSCN-DEMO-001\n", encoding="utf-8")
+        request_hash = hashlib.sha256(request.read_bytes()).hexdigest()
+        statuses = ["pending", "delivered", "delivered-with-deviations", "partially-delivered", "no-change-required", "not-delivered", "rejected-package"]
+        coverage_statuses = ["pending", "already-implemented", "implemented-as-required", "implemented-with-deviation", "implemented-with-scope-change", "partially-implemented", "not-implemented", "deferred", "blocked-dependency", "blocked-input-ambiguity", "not-applicable"]
+        recommendations = ["pending", "no-action", "promote-to-baseline", "update-requirement", "keep-open", "defer", "move-to-other-change", "cancel", "investigate"]
+        receipt = {
+            "schema_version": 4,
+            "package_id": package_id,
+            "package_revision": revision,
+            "request_id": package_id,
+            "request_version": revision,
+            "request_sha256": request_hash,
+            "target_repository": "coda",
+            "target_contour": "backend",
+            "received_at": None,
+            "completed_at": None,
+            "source_before": {"commit": None, "branch": None, "working_tree_state": "unknown", "relevant_uncommitted_paths": []},
+            "source_after": {"commit": None, "branch": None, "working_tree_state": "unknown", "relevant_uncommitted_paths": []},
+            "status": "pending",
+            "allowed_statuses": statuses,
+            "allowed_coverage_statuses": coverage_statuses,
+            "allowed_follow_up_recommendations": recommendations,
+            "commits": [],
+            "generated_or_changed_artifacts": [],
+            "requirement_coverage": [{"requirement": "REQ-DEMO-001", "status": "pending", "behavior_before": None, "delivered_behavior": None, "deviation_from_input": None, "remaining_work": None, "follow_up_recommendation": "pending", "suggested_destination": None, "evidence": [], "commit_sha256": [], "verification": []}],
+            "scenario_coverage": [{"scenario": "SCN-DEMO-001", "status": "pending", "behavior_before": None, "delivered_behavior": None, "deviation_from_input": None, "remaining_work": None, "follow_up_recommendation": "pending", "suggested_destination": None, "covered_by": ["REQ-DEMO-001"], "evidence": [], "commit_sha256": [], "verification": []}],
+            "additional_deliveries": [],
+            "remaining_work": [],
+            "baseline_feedback": [],
+            "requirements_feedback": [],
+            "verification": [],
+        }
+        receipt_path = package / "receipt.template.json"
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        manifest = {
+            "schema_version": 6,
+            "package_id": package_id,
+            "package_revision": revision,
+            "request": {"id": package_id, "version": revision},
+            "target": {"repository": "coda", "contour": "backend"},
+            "payload": [
+                {"path": "request.md", "sha256": request_hash},
+                {"path": "receipt.template.json", "sha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest()},
+            ],
+            "requirements": ["REQ-DEMO-001"],
+            "scenarios": ["SCN-DEMO-001"],
+            "scenario_requirement_map": {"SCN-DEMO-001": ["REQ-DEMO-001"]},
+            "delivery_policy": {"input": "immutable-comparison-point", "feedback": "receipt-then-analyst-review"},
+            "allowed_package_statuses": statuses,
+            "allowed_coverage_statuses": coverage_statuses,
+            "allowed_follow_up_recommendations": recommendations,
+        }
+        (package / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
     def test_clean_scaffold_passes_doctor(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
@@ -38,55 +95,166 @@ class HarnessTests(unittest.TestCase):
             self.assertTrue(contract.exists())
             self.assertTrue(receipt.exists())
             self.assertTrue(manifest.exists())
-            self.assertIn("implemented-with-deviation", contract.read_text(encoding="utf-8"))
-            self.assertEqual(json.loads(receipt.read_text(encoding="utf-8"))["schema_version"], 3)
-            self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["reconciliation_policy"]["mode"], "per-item-continuation")
+            self.assertIn("delivered-with-deviations", contract.read_text(encoding="utf-8"))
+            self.assertEqual(json.loads(receipt.read_text(encoding="utf-8"))["schema_version"], 4)
+            self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["delivery_policy"]["input"], "immutable-comparison-point")
+            self.assertTrue((project / ".workflow/tools/handoffctl.py").exists())
+
+    def test_scaffold_contains_feature_delivery_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            templates = project / ".workflow/templates/handoff"
+            required = (
+                "handoff-root.feature.template.json",
+                "handoff-root-feature-readme.template.md",
+                "feature-package-readme.template.md",
+                "feature-request.template.md",
+                "feature-manifest.template.json",
+                "development-tasks-instruction.template.md",
+                "development-tasks-index.template.md",
+                "development-task-card.template.md",
+                "decomposition-receipt.template.json",
+                "implementation-receipt.template.json",
+                "test-receipt.template.json",
+            )
+            for name in required:
+                self.assertTrue((templates / name).is_file(), name)
+            root_manifest = json.loads((templates / "handoff-root.feature.template.json").read_text(encoding="utf-8"))
+            self.assertEqual(root_manifest["schema_version"], 2)
+            self.assertEqual(root_manifest["package_kind"], "feature-delivery")
+            contract = (project / ".workflow/developer-handoff.md").read_text(encoding="utf-8")
+            self.assertIn("returns/decomposition-snapshots/", contract)
+            self.assertIn("returns/implementation-results/", contract)
+            self.assertIn("returns/test-results/", contract)
+            commands = (project / ".workflow/command-cheatsheet.md").read_text(encoding="utf-8")
+            self.assertIn("подготовь пакет функциональности для технической декомпозиции", commands)
+            self.assertIn("декомпозиция подтверждена разработкой", commands)
+            self.assertIn("возьми срез <id> в тестирование", commands)
+            self.assertNotIn("features/<feature>/tasks/", commands)
+
+    def test_scaffold_contains_requirements_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            self.assertTrue((project / ".workflow/requirements-profile.md").exists())
+            self.assertTrue((project / ".workflow/tools/validate-requirements-profile.py").exists())
+            readable = (project / ".workflow/templates/requirements/feature-requirements.readable.template.md").read_text(encoding="utf-8")
+            detailed = (project / ".workflow/templates/requirements/feature-requirements.template.md").read_text(encoding="utf-8")
+            for text in (readable, detailed):
+                self.assertIn("ISO/IEC/IEEE 29148:2018", text)
+                self.assertIn("## Нефункциональные требования", text)
+                self.assertIn("## Трассировка", text)
+
+    def test_requirements_profile_validator_checks_opted_in_documents(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            requirements = project / "features/demo/requirements.md"
+            requirements.parent.mkdir(parents=True)
+            sections = [
+                "Назначение и границы",
+                "Текущее состояние",
+                "Участники и внешние системы",
+                "Термины и данные",
+                "Нефункциональные требования",
+                "Доработки затронутых функциональностей",
+                "Зависимости и предположения",
+                "Критерии завершённости",
+                "Открытые вопросы",
+            ]
+            body = "\n\n".join(f"## {title}\n\nЗаполнено." for title in sections)
+            requirements.write_text(
+                "# Требования\n\n"
+                "Статус: **черновик**\n"
+                "Редакция: `1`\n"
+                "Профиль требований: **АС КОДА / ISO/IEC/IEEE 29148:2018**\n\n"
+                f"{body}\n\n"
+                "## Функциональные требования\n\n"
+                "| Идентификатор | Нормативное требование | Обоснование | Источник | Приоритет | Проверка |\n"
+                "|---|---|---|---|---|---|\n"
+                "| REQ-DEMO-001 | Система должна сохранить результат. | Цель | Решение | обязательный | TEST-DEMO-001 |\n\n"
+                "## Сценарии\n\n"
+                "| Идентификатор | Начальные условия | Действие | Результат | Ошибки | Требования |\n"
+                "|---|---|---|---|---|---|\n"
+                "| SCN-DEMO-001 | Есть данные | Сохранение | Данные сохранены | Ошибка показана | REQ-DEMO-001 |\n\n"
+                "## Трассировка\n\n"
+                "| Идентификатор | Источник | Срез | Задача | Проверка | Пакет | Квитанция |\n"
+                "|---|---|---|---|---|---|---|\n"
+                "| REQ-DEMO-001 | Решение | core | не сформирована | TEST-DEMO-001 | не сформирована | не получена |\n"
+                "| SCN-DEMO-001 | Решение | core | не сформирована | TEST-DEMO-001 | не сформирована | не получена |\n",
+                encoding="utf-8",
+            )
+            tool = project / ".workflow/tools/validate-requirements-profile.py"
+            result = run(sys.executable, str(tool), str(project), "--feature", "demo")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            requirements.write_text(requirements.read_text(encoding="utf-8").replace("Система должна сохранить", "Система может сохранить"), encoding="utf-8")
+            result = run(sys.executable, str(tool), str(project), "--feature", "demo")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("явную нормативную форму", result.stdout)
 
     def test_handoff_validator_accepts_per_item_package(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             package = root / "package"
-            package.mkdir()
-            request = package / "request.md"
-            request.write_text("# Request\n\nREQ-DEMO-001\n\nSCN-DEMO-001\n", encoding="utf-8")
-            request_hash = hashlib.sha256(request.read_bytes()).hexdigest()
-            receipt = {
-                "schema_version": 3,
-                "package_id": "demo",
-                "package_revision": 1,
-                "request_id": "demo",
-                "request_version": 1,
-                "request_sha256": request_hash,
-                "status": "pending",
-                "allowed_statuses": ["pending", "no-change-required", "proposal-created", "proposal-created-with-blocked-items", "blocked", "rejected-package"],
-                "allowed_coverage_statuses": ["pending", "implemented-as-required", "implemented-with-deviation", "partially-implemented", "not-implemented", "blocked-product-decision", "blocked-dependency", "not-applicable"],
-                "allowed_actions": ["pending", "no-change", "include-in-proposal", "return-product-question", "wait-for-dependency", "not-applicable"],
-                "requirement_coverage": [{"requirement": "REQ-DEMO-001", "status": "pending", "action": "pending"}],
-                "scenario_coverage": [{"scenario": "SCN-DEMO-001", "status": "pending", "action": "pending"}],
-                "remaining_delta": [],
-                "baseline_feedback": [],
-                "requirements_feedback": [],
-            }
-            receipt_path = package / "receipt.template.json"
-            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
-            manifest = {
-                "schema_version": 5,
-                "package_id": "demo",
-                "package_revision": 1,
-                "request": {"id": "demo", "version": 1},
-                "payload": [
-                    {"path": "request.md", "sha256": request_hash},
-                    {"path": "receipt.template.json", "sha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest()},
-                ],
-                "requirements": ["REQ-DEMO-001"],
-                "scenarios": ["SCN-DEMO-001"],
-                "reconciliation_policy": {"mode": "per-item-continuation"},
-                "allowed_package_statuses": receipt["allowed_statuses"],
-                "allowed_coverage_statuses": receipt["allowed_coverage_statuses"],
-                "allowed_actions": receipt["allowed_actions"],
-            }
-            (package / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            self.write_pending_handoff_package(package)
             result = run(sys.executable, str(ROOT / "scripts/validate-handoff.py"), str(package))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_handoff_root_supersedes_unclaimed_revision_and_detects_package_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            tool = project / ".workflow/tools/handoffctl.py"
+            result = run(sys.executable, str(tool), "init", str(project), "demo", "demo-be-change", "--role", "BE", "--source-task-id", "CAND-DEMO-BE-001", "--source-task-path", "features/demo/tasks/be-change.md")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            root = project / "features/demo/handoffs/demo-be-change"
+            for revision in (1, 2):
+                result = run(sys.executable, str(tool), "add-revision", str(root), str(revision), "--replaces", str(revision - 1) if revision > 1 else "") if revision > 1 else run(sys.executable, str(tool), "add-revision", str(root), str(revision))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.write_pending_handoff_package(root / f"revisions/{revision:03d}/package", "demo-be-change", revision)
+                result = run(sys.executable, str(tool), "transport", str(root), str(revision))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                result = run(sys.executable, str(tool), "set-state", str(root), str(revision), "sent")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            manifest = json.loads((root / "handoff.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["active_revision"], 2)
+            self.assertEqual(manifest["next_sdd_action"]["action"], "process")
+            self.assertEqual(manifest["revisions"][0]["state"], "superseded")
+            self.assertEqual(manifest["revisions"][0]["receipt"]["expectation"], "not-expected")
+            result = run(sys.executable, str(tool), "validate", str(root))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            control_tool = root / ".control/handoffctl.py"
+            result = run(sys.executable, str(control_tool), "claim", str(root), "2", "--by", "test-session")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            manifest = json.loads((root / "handoff.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["next_sdd_action"]["action"], "continue")
+            self.assertEqual(manifest["next_sdd_action"]["claimed_by"], "test-session")
+            request = root / "revisions/002/package/request.md"
+            request.write_text(request.read_text(encoding="utf-8") + "\nизменение\n", encoding="utf-8")
+            result = run(sys.executable, str(tool), "validate", str(root))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("immutable revision", result.stdout)
+
+    def test_handoff_validator_accepts_delivery_deviation_and_additional_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            package = Path(temp) / "package"
+            self.write_pending_handoff_package(package)
+            receipt_path = package / "receipt.json"
+            receipt = json.loads((package / "receipt.template.json").read_text(encoding="utf-8"))
+            commit = "0123456789abcdef0123456789abcdef01234567"
+            evidence = [{"path": "src/main/Demo.java", "symbol": "Demo", "observation": "Поведение подтверждено кодом и тестом"}]
+            receipt.update({
+                "received_at": "2026-08-13T10:00:00Z",
+                "completed_at": "2026-08-13T12:00:00Z",
+                "source_before": {"commit": commit, "branch": "develop", "working_tree_state": "clean", "relevant_uncommitted_paths": []},
+                "source_after": {"commit": commit, "branch": "develop", "working_tree_state": "clean", "relevant_uncommitted_paths": []},
+                "status": "delivered-with-deviations",
+                "commits": [{"sha256": commit, "summary": "Реализовать результат", "item_ids": ["REQ-DEMO-001", "SCN-DEMO-001", "ADD-DEMO-001"]}],
+                "generated_or_changed_artifacts": ["src/main/Demo.java"],
+                "additional_deliveries": [{"id": "ADD-DEMO-001", "title": "Дополнительное правило", "reason": "Уместно реализовать вместе с основной записью", "delivered_behavior": "Добавлено конечное правило", "follow_up_recommendation": "update-requirement", "suggested_destination": "demo", "evidence": evidence, "commit_sha256": [commit], "verification": ["unit-test"]}],
+                "verification": [{"type": "tests", "status": "passed", "detail": "Тесты прошли"}],
+            })
+            for entry in receipt["requirement_coverage"] + receipt["scenario_coverage"]:
+                entry.update({"status": "implemented-with-deviation", "behavior_before": "Поведение отсутствовало", "delivered_behavior": "Требуемый результат поставлен", "deviation_from_input": "Использован другой технический способ", "follow_up_recommendation": "update-requirement", "evidence": evidence, "commit_sha256": [commit], "verification": ["unit-test"]})
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            result = run(sys.executable, str(ROOT / "scripts/validate-handoff.py"), str(package), "--receipt", "receipt.json")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_active_mode_mismatch_is_rejected(self) -> None:

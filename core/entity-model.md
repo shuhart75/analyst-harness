@@ -22,6 +22,7 @@ Contains:
 - requirements
 - prototypes
 - execution tasks
+- feature delivery packages
 - domain impact note
 
 ## Planning story
@@ -54,11 +55,26 @@ A slice may contain:
 - FE requirements
 - BE requirements
 - delivery prototype
-- implementation tasks
+- test design and test receipts
+
+## Development card
+
+Developer-owned technical decomposition artifact stored in a confirmed feature-package snapshot.
+
+Contains:
+- stable `DEV-BE-*` or `DEV-FE-*` id
+- one code contour
+- independently implementable technical result
+- full linked requirements, scenarios and impacts
+- code evidence, scope, exclusions, dependencies and checks
+- optional one-executor estimate and optional Jira key
+- decomposition state only
+
+A confirmed development card is immutable. Implementation and testing states are recorded in separate receipts. The analyst may materialize a card into an implementation task for actual-progress, but the two artifacts remain distinct.
 
 ## Implementation task
 
-Execution tracking artifact with fields such as:
+Analyst-side actual execution tracking artifact with fields such as:
 - Jira key
 - summary
 - kind: `real` or `virtual`

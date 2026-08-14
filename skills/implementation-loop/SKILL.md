@@ -2,8 +2,8 @@
 
 Run kind: `implementation`
 
-Inputs: confirmed task candidate, slice requirements, prototype, work packet, code root.
+Inputs: confirmed developer card from the latest decomposition snapshot, related requirements and slices, local SDD, code root.
 
 Writes: code, tests, implementation plan, verification evidence, review summary.
 
-Rules: one bounded committable action per iteration; deterministic checks before review; requirement gaps return to requirements instead of being invented in code.
+Rules: one bounded committable action per iteration; deterministic checks before review; preserve the input package and confirmed card as comparison points; do not invent ambiguous product semantics; continue independent work; record deviations, remaining work and additional delivery in the task implementation receipt. Analyst processing is asynchronous and never gates implementation.

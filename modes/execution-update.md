@@ -6,13 +6,14 @@ Track real work after planning.
 
 ## Main artifacts
 
-- `features/*/tasks/index.md`
-- `features/*/tasks/*.md`
 - `features/*/slices/*/execution/tasks.md`
 - `features/*/slices/*/execution/tasks/*.md`
 - `features/*/slices/*/execution/task-candidates.md`
 - `features/*/planning/actualization.md`
 - `features/*/execution-context.md`
+- `features/*/handoffs/*/revisions/*/returns/decomposition-snapshots/*`
+- `features/*/handoffs/*/revisions/*/returns/implementation-results/*`
+- `features/*/handoffs/*/revisions/*/returns/test-results/*`
 - `.workflow/team.md`
 - `planning/*/gantt/actual-progress.puml`
 - `planning/*/gantt/actual-progress-confluence.puml`
@@ -30,9 +31,10 @@ Track real work after planning.
 - milestones and factual notes in actual-progress gantt
 - execution context notes that explain current fact state and plan-vs-fact decisions
 - confirmed or proposed task candidates discovered after planning approval
-- feature-level task packs used as self-contained development handoff inputs
+- confirmed developer decomposition snapshots received through feature handoff packages
+- optional materialization of selected returned cards into task candidates or actual execution tasks
 
-When a feature-level task pack is materialized into real work, preserve the task file as the primary implementation input. Do not shrink it into a pointer to root requirements; links stay for traceability, while rules, data, boundaries and checks stay inside the task.
+When a returned development card is materialized into real work, keep the confirmed package snapshot as the implementation source. The analyst may use or replace optional developer estimates and may link Jira keys, but does not edit the confirmed card or block development.
 
 ## Actual-progress scheduling rules
 
