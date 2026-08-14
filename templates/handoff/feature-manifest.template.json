@@ -12,6 +12,11 @@
   "requirements": [],
   "scenarios": [],
   "impacts": [],
+  "traceability": {
+    "mode": "atomic-identifiers",
+    "requirement_unit": "REQ-*",
+    "note": "Атомарная трассировка по устойчивым идентификаторам требований."
+  },
   "slices": [],
   "target": {
     "repository": "coda",
@@ -41,4 +46,3 @@
     "implementation_receipts": "supporting-evidence"
   }
 }
-

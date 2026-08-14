@@ -71,6 +71,43 @@ TASK_ID_RE = re.compile(r"DEV-(BE|FE)-[0-9]+")
 REQ_ID_RE = re.compile(r"\bREQ-[A-Z0-9-]+\b")
 SCN_ID_RE = re.compile(r"\bSCN-[A-Z0-9-]+\b")
 IMP_ID_RE = re.compile(r"\bIMP-[A-Z0-9-]+\b")
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+STABLE_SECTION_RE = re.compile(r"^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\s+(?:—|-)\s+(.+)$")
+SLICE_CARD_RE = re.compile(r"Карточка среза:\s*`([^`]+)`", re.IGNORECASE)
+PACKAGE_PLACEHOLDERS = (
+    "<package-id>",
+    "<revision>",
+    "<feature-slug>",
+    "<requirements-path>",
+    "<Название функциональности>",
+    "<Законченный пользовательский",
+    "<Обязательное ограничение",
+    "<Текущее состояние",
+    "<Характерный положительный",
+    "<Наблюдаемый критерий",
+    "<slices-path-or-list>",
+)
+TASK_CARD_SECTIONS = (
+    "Карточка задачи",
+    "Пользовательский или системный результат",
+    "Требования",
+    "Сценарии и влияния",
+    "Состояние кода",
+    "Состав работы",
+    "Не входит",
+    "Условия приёмки",
+    "Проверки",
+    "Открытые вопросы",
+    "Короткие команды разработчика",
+)
+INDEX_COMMANDS = (
+    "Подготовь декомпозицию серверной части.",
+    "Подготовь декомпозицию клиентской части.",
+    "Проверь декомпозицию.",
+    "Покажи непокрытые требования.",
+    "Подготовь список для Jira.",
+    "Декомпозиция подтверждена разработкой.",
+)
 
 
 def now() -> str:
@@ -127,6 +164,123 @@ def is_feature_manifest(manifest: dict[str, Any]) -> bool:
 
 def relative_path(value: Any) -> bool:
     return isinstance(value, str) and bool(value) and not Path(value).is_absolute() and ".." not in Path(value).parts
+
+
+def markdown_sections(text: str) -> list[dict[str, Any]]:
+    lines = text.splitlines()
+    headings: list[tuple[int, int, str]] = []
+    for index, line in enumerate(lines):
+        match = HEADING_RE.match(line)
+        if match:
+            headings.append((index, len(match.group(1)), match.group(2).strip()))
+    result: list[dict[str, Any]] = []
+    for position, (start, level, title) in enumerate(headings):
+        end = len(lines)
+        for next_start, next_level, _ in headings[position + 1:]:
+            if next_level <= level:
+                end = next_start
+                break
+        result.append({
+            "level": level,
+            "title": title,
+            "body": "\n".join(lines[start + 1:end]).strip(),
+        })
+    return result
+
+
+def feature_contract(requirements_text: str) -> dict[str, Any]:
+    requirements = sorted(set(REQ_ID_RE.findall(requirements_text)))
+    legacy_sections: list[dict[str, str]] = []
+    if not requirements:
+        for section in markdown_sections(requirements_text):
+            match = STABLE_SECTION_RE.match(section["title"])
+            slice_match = SLICE_CARD_RE.search(section["body"])
+            if not match or not slice_match:
+                continue
+            section_id = match.group(1)
+            if section_id.startswith(("REQ-", "SCN-", "IMP-", "AC-", "DEV-", "CAND-", "STORY-")):
+                continue
+            legacy_sections.append({
+                "id": section_id,
+                "title": match.group(2).strip(),
+                "slice_path": Path(slice_match.group(1)).as_posix(),
+                "body": section["body"],
+            })
+        requirements = sorted({item["id"] for item in legacy_sections})
+    mode = "atomic-identifiers" if REQ_ID_RE.search(requirements_text) else "legacy-sections"
+    return {
+        "requirements": requirements,
+        "scenarios": sorted(set(SCN_ID_RE.findall(requirements_text))),
+        "impacts": sorted(set(IMP_ID_RE.findall(requirements_text))),
+        "traceability": {
+            "mode": mode,
+            "requirement_unit": "REQ-*" if mode == "atomic-identifiers" else "section-with-slice-card",
+            "note": (
+                "Атомарная трассировка по устойчивым идентификаторам требований."
+                if mode == "atomic-identifiers"
+                else "Совместимость с прежним форматом: единицей трассировки является раздел с устойчивым идентификатором и ссылкой на карточку среза."
+            ),
+        },
+        "legacy_sections": legacy_sections,
+    }
+
+
+def slice_contract_from_files(
+    contract: dict[str, Any],
+    slice_path: str,
+    texts: list[str],
+) -> dict[str, list[str]]:
+    combined = "\n".join(texts)
+    known_requirements = set(contract["requirements"])
+    requirements = set(REQ_ID_RE.findall(combined)) & known_requirements
+    if contract["traceability"]["mode"] == "legacy-sections":
+        requirements.update(
+            item["id"]
+            for item in contract["legacy_sections"]
+            if Path(item["slice_path"]).as_posix() == Path(slice_path).as_posix()
+        )
+    return {
+        "requirements": sorted(requirements),
+        "scenarios": sorted(set(SCN_ID_RE.findall(combined)) & set(contract["scenarios"])),
+    }
+
+
+def validate_task_card(card_text: str, task: dict[str, Any]) -> list[str]:
+    task_id = task["id"]
+    errors: list[str] = []
+    if task_id not in card_text or "подтверждена разработкой" not in card_text:
+        errors.append(f"{task_id}: card must contain its id and confirmed decomposition state")
+    sections = {item["title"]: item["body"] for item in markdown_sections(card_text)}
+    for name in TASK_CARD_SECTIONS:
+        if name not in sections or not sections[name].strip():
+            errors.append(f"{task_id}: card section is missing or empty: {name}")
+    content = card_text.split("## Короткие команды разработчика", 1)[0]
+    placeholders = re.findall(r"<[^>\n]+>", content)
+    if placeholders:
+        errors.append(f"{task_id}: card contains unfilled placeholders: {', '.join(sorted(set(placeholders)))}")
+    for key in ("requirements", "scenarios", "impacts"):
+        for identifier in task.get(key, []):
+            if identifier not in card_text:
+                errors.append(f"{task_id}: card does not contain assigned {key} id {identifier}")
+    command_fragments = (
+        f"Уточни {task_id} по коду.",
+        f"Измени состав {task_id}:",
+        f"Переименуй {task_id}:",
+        "Перенеси <REQ/SCN/IMP> в <задача>.",
+        f"Объедини {task_id} и <задача>.",
+        f"Раздели {task_id}:",
+        f"Добавь зависимость {task_id} от <задача>.",
+        f"Убери зависимость {task_id} от <задача>.",
+        f"{task_id} уже реализована. Проверь.",
+        f"Отмени {task_id}:",
+        f"{task_id} подтверждена разработкой.",
+        f"Свяжи {task_id} с <ключ Jira>.",
+        f"Возьми {task_id} в разработку.",
+    )
+    for fragment in command_fragments:
+        if fragment not in card_text:
+            errors.append(f"{task_id}: developer command is missing: {fragment}")
+    return errors
 
 
 def copy_control(root: Path, template_names: tuple[str, ...]) -> None:
@@ -205,24 +359,65 @@ def validate_feature_package(package: Path) -> list[str]:
             errors.append(f"feature payload checksum mismatch: {item['path']}")
     if len(paths) != len(set(paths)):
         errors.append("feature manifest payload contains duplicate paths")
+    actual_payload_paths = {
+        path.relative_to(package).as_posix()
+        for path in package.rglob("*")
+        if path.is_file() and path.name != "manifest.json"
+    }
+    if set(paths) != actual_payload_paths:
+        missing = sorted(actual_payload_paths - set(paths))
+        extra = sorted(set(paths) - actual_payload_paths)
+        if missing:
+            errors.append(f"feature manifest payload omits files: {', '.join(missing)}")
+        if extra:
+            errors.append(f"feature manifest payload lists unexpected files: {', '.join(extra)}")
     for key in ("requirements", "scenarios", "impacts"):
         values = manifest.get(key, [])
         if isinstance(values, list) and (any(not isinstance(value, str) or not value for value in values) or len(values) != len(set(values))):
             errors.append(f"feature manifest {key} must contain unique identifiers")
+    requirements_text = (package / "requirements.md").read_text(encoding="utf-8", errors="ignore") if (package / "requirements.md").is_file() else ""
+    actual_contract = feature_contract(requirements_text)
+    if not actual_contract["requirements"]:
+        errors.append("feature package has no traceable requirements: add REQ-* ids or stable sections with Карточка среза")
+    for key in ("requirements", "scenarios", "impacts"):
+        if manifest.get(key) != actual_contract[key]:
+            errors.append(f"feature manifest {key} does not match requirements.md")
+    if manifest.get("traceability") != actual_contract["traceability"]:
+        errors.append("feature manifest traceability does not match requirements.md")
+    request_text = (package / "request.md").read_text(encoding="utf-8", errors="ignore")
+    for placeholder in PACKAGE_PLACEHOLDERS:
+        if placeholder in request_text or placeholder in json.dumps(manifest, ensure_ascii=False):
+            errors.append(f"feature package contains unfilled placeholder: {placeholder}")
+
     slices = manifest.get("slices", [])
     slice_ids: list[str] = []
     for item in slices if isinstance(slices, list) else []:
-        if isinstance(item, str):
-            slice_ids.append(item)
-        elif isinstance(item, dict) and isinstance(item.get("id"), str):
+        if isinstance(item, dict) and isinstance(item.get("id"), str):
             slice_ids.append(item["id"])
+            expected_path = f"slices/{item['id']}/slice.md"
+            if item.get("path") != expected_path:
+                errors.append(f"slice {item['id']} path must be {expected_path}")
+            slice_root = package / "slices" / item["id"]
+            slice_texts = [
+                path.read_text(encoding="utf-8", errors="ignore")
+                for path in sorted(slice_root.rglob("*.md"))
+            ] if slice_root.is_dir() else []
+            actual_slice = slice_contract_from_files(actual_contract, expected_path, slice_texts)
             for key in ("requirements", "scenarios"):
                 if not isinstance(item.get(key, []), list):
                     errors.append(f"slice {item['id']} {key} must be an array")
+                elif item.get(key) != actual_slice[key]:
+                    errors.append(f"slice {item['id']} {key} does not match packaged files")
         else:
             errors.append("feature manifest slices contains invalid item")
     if len(slice_ids) != len(set(slice_ids)):
         errors.append("feature manifest slices contains duplicate ids")
+    actual_slice_ids = {
+        path.parent.name
+        for path in (package / "slices").glob("*/slice.md")
+    } if (package / "slices").is_dir() else set()
+    if set(slice_ids) != actual_slice_ids:
+        errors.append("feature manifest slices do not match packaged slice directories")
     return errors
 
 
@@ -524,13 +719,15 @@ def add_feature_revision(root: Path, manifest: dict[str, Any], args: argparse.Na
     shutil.copy2(requirements_source, requirements_target)
     requirements_text = requirements_target.read_text(encoding="utf-8", errors="ignore")
     feature_payload = load(package / "manifest.json")
+    contract = feature_contract(requirements_text)
     feature_payload.update({
         "package_id": manifest["package_id"],
         "package_revision": revision,
         "feature": manifest["feature"],
-        "requirements": sorted(set(REQ_ID_RE.findall(requirements_text))),
-        "scenarios": sorted(set(SCN_ID_RE.findall(requirements_text))),
-        "impacts": sorted(set(IMP_ID_RE.findall(requirements_text))),
+        "requirements": contract["requirements"],
+        "scenarios": contract["scenarios"],
+        "impacts": contract["impacts"],
+        "traceability": contract["traceability"],
     })
     payload = [{
         "path": "requirements.md",
@@ -546,25 +743,45 @@ def add_feature_revision(root: Path, manifest: dict[str, Any], args: argparse.Na
             target = package / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-            text = target.read_text(encoding="utf-8", errors="ignore")
+            slice_texts = [target.read_text(encoding="utf-8", errors="ignore")]
             payload.append({
                 "path": relative.as_posix(),
                 "sha256": hash_file(target),
                 "purpose": f"Срез для проверки: {slice_id}",
             })
+            detailed_root = source.parent / "requirements"
+            if detailed_root.is_dir():
+                for detailed_source in sorted(detailed_root.rglob("*.md")):
+                    detailed_relative = Path("slices") / slice_id / detailed_source.relative_to(source.parent)
+                    detailed_target = package / detailed_relative
+                    detailed_target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(detailed_source, detailed_target)
+                    slice_texts.append(detailed_target.read_text(encoding="utf-8", errors="ignore"))
+                    payload.append({
+                        "path": detailed_relative.as_posix(),
+                        "sha256": hash_file(detailed_target),
+                        "purpose": f"Подробные требования среза: {slice_id}",
+                    })
+            ids = slice_contract_from_files(contract, relative.as_posix(), slice_texts)
             slices.append({
                 "id": slice_id,
                 "path": relative.as_posix(),
-                "requirements": sorted(set(REQ_ID_RE.findall(text))),
-                "scenarios": sorted(set(SCN_ID_RE.findall(text))),
+                "requirements": ids["requirements"],
+                "scenarios": ids["scenarios"],
             })
     request_text, title = render_feature_request(
         templates / "feature-request.template.md",
         replacements,
         requirements_text,
         [item["id"] for item in slices],
+        contract,
     )
     (package / "request.md").write_text(request_text, encoding="utf-8")
+    index_path = development_tasks / "index.md"
+    index_path.write_text(
+        index_path.read_text(encoding="utf-8").replace("<Название>", title),
+        encoding="utf-8",
+    )
     feature_payload["request"] = {"title": title, "requirements_path": "requirements.md"}
     feature_payload["payload"] = [
         {"path": "README.md", "sha256": hash_file(package / "README.md"), "purpose": "Инструкция принимающей SDD"},
@@ -907,8 +1124,7 @@ def validate_decomposition(
                 errors.append(f"{task_id}: card is missing: {card_path}")
             else:
                 card_text = card.read_text(encoding="utf-8", errors="ignore")
-                if task_id not in card_text or "подтверждена разработкой" not in card_text:
-                    errors.append(f"{task_id}: card must contain its id and confirmed decomposition state")
+                errors.extend(validate_task_card(card_text, task))
         estimate = task.get("estimate_days")
         if estimate is not None and (not isinstance(estimate, (int, float)) or isinstance(estimate, bool) or estimate <= 0):
             errors.append(f"{task_id}: estimate_days must be null or a positive number")
@@ -962,6 +1178,26 @@ def validate_decomposition(
             errors.append(f"coverage.{coverage_key} does not match actual unassigned ids")
     if not (working / "README.md").is_file() or not (working / "index.md").is_file():
         errors.append("development-tasks must contain README.md and index.md")
+    else:
+        instruction_text = (working / "README.md").read_text(encoding="utf-8", errors="ignore")
+        for fragment in (
+            "Сначала прочитать `handoff.json`",
+            "Не загружать весь репозиторий `coda`",
+            "development-task-card.template.md",
+            "блок `Короткие команды разработчика`",
+        ):
+            if fragment not in instruction_text:
+                errors.append(f"development instruction is incomplete: {fragment}")
+        index_text = (working / "index.md").read_text(encoding="utf-8", errors="ignore")
+        for placeholder in ("<Название>", "<revision>"):
+            if placeholder in index_text:
+                errors.append(f"development task index contains unfilled placeholder: {placeholder}")
+        for task_id in by_id:
+            if task_id not in index_text:
+                errors.append(f"development task index does not list {task_id}")
+        for command in INDEX_COMMANDS:
+            if command not in index_text:
+                errors.append(f"development task index command is missing: {command}")
     return errors
 
 
@@ -1034,21 +1270,17 @@ def markdown_title(text: str, fallback: str) -> str:
 
 def markdown_section(text: str, names: tuple[str, ...], fallback: str) -> str:
     wanted = {name.casefold() for name in names}
-    lines = text.splitlines()
-    start: int | None = None
-    for index, line in enumerate(lines):
-        match = re.match(r"^#{2,6}\s+(.+?)\s*$", line)
-        if match and match.group(1).strip().casefold() in wanted:
-            start = index + 1
+    value = ""
+    for section in markdown_sections(text):
+        if section["title"].casefold() in wanted:
+            value = section["body"]
             break
-    if start is None:
+    if not value:
         return fallback
-    body: list[str] = []
-    for line in lines[start:]:
-        if re.match(r"^#{1,6}\s+", line):
-            break
-        body.append(line)
-    value = "\n".join(body).strip()
+    value = "\n".join(
+        line for line in value.splitlines()
+        if not re.search(r"(?:^|[\s`(])/(?:home|Users|mnt)/", line)
+    ).strip()
     if not value:
         return fallback
     if len(value) > 2500:
@@ -1056,20 +1288,51 @@ def markdown_section(text: str, names: tuple[str, ...], fallback: str) -> str:
     return value
 
 
+def legacy_request_parts(contract: dict[str, Any]) -> tuple[str, str, str]:
+    goal_parts: list[str] = []
+    examples: list[str] = []
+    criteria: list[str] = []
+    for section in contract.get("legacy_sections", []):
+        purpose = ""
+        match = re.search(
+            r"\*\*Назначение\*\*\s*(.*?)(?=\n\*\*[^\n]+\*\*|\Z)",
+            section["body"],
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        if match:
+            purpose = re.sub(r"^\s*[-*]\s+", "", match.group(1).strip())
+        goal_parts.append(f"- `{section['id']}` — {section['title']}: {purpose or 'результат определён в одноимённом разделе `requirements.md`.'}")
+        acceptance = re.search(
+            r"\*\*Критерии при(?:е|ё)мки\*\*\s*(.*?)(?=\n\*\*[^\n]+\*\*|\Z)",
+            section["body"],
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+        if acceptance:
+            for line in acceptance.group(1).splitlines():
+                item = re.match(r"^\s*\d+\.\s+(.+)$", line)
+                if item:
+                    criteria.append(f"{len(criteria) + 1}. `{section['id']}`: {item.group(1).strip()}")
+                    if not any(example.startswith(f"- `{section['id']}`") for example in examples):
+                        examples.append(f"- `{section['id']}`: {item.group(1).strip()}")
+    return "\n".join(goal_parts), "\n".join(examples), "\n".join(criteria)
+
+
 def render_feature_request(
     template: Path,
     replacements: dict[str, str],
     requirements_text: str,
     slice_ids: list[str],
+    contract: dict[str, Any],
 ) -> tuple[str, str]:
     title = markdown_title(requirements_text, replacements["<feature-slug>"])
+    legacy_goal, legacy_examples, legacy_criteria = legacy_request_parts(contract)
     values = dict(replacements)
     values.update({
         "<Название функциональности>": title,
         "<Законченный пользовательский или системный результат.>": markdown_section(
             requirements_text,
             ("Цель", "Назначение и границы", "Пользовательский и системный результат"),
-            "Требуемый результат и его границы полностью определены в `requirements.md`.",
+            legacy_goal or "Требуемый результат и его границы полностью определены в `requirements.md`.",
         ),
         "- <Обязательное ограничение.>": markdown_section(
             requirements_text,
@@ -1078,18 +1341,18 @@ def render_feature_request(
         ),
         "<Текущее состояние, участники, данные и внешние системы.>": markdown_section(
             requirements_text,
-            ("Текущее состояние", "Контекст", "Участники и внешние системы"),
+            ("Текущее состояние", "Контекст", "Участники и внешние системы", "Общий контур функциональности"),
             "Текущее состояние, данные и участники описаны в `requirements.md`; перед реализацией их необходимо сверить с кодом.",
         ),
         "- <Характерный положительный, отрицательный или граничный пример.>": markdown_section(
             requirements_text,
             ("Примеры", "Сценарии"),
-            "Характерные и граничные сценарии перечислены как `SCN-*` в `requirements.md` и срезах.",
+            legacy_examples or "Характерные и граничные сценарии перечислены как `SCN-*` в `requirements.md` и срезах.",
         ),
         "1. <Наблюдаемый критерий.>": markdown_section(
             requirements_text,
             ("Критерии приёмки", "Критерии завершённости", "Условия приёмки"),
-            "Каждый входной `REQ-*` и `SCN-*` получил отдельный фактический результат и доказательства проверки.",
+            legacy_criteria or "Каждый входной `REQ-*` и `SCN-*` получил отдельный фактический результат и доказательства проверки.",
         ),
         "<slices-path-or-list>": ", ".join(f"slices/{item}/slice.md" for item in slice_ids) or "срезы отсутствуют",
     })
@@ -1110,17 +1373,32 @@ def prepare_implementation_command(args: argparse.Namespace) -> int:
     if target.exists():
         raise ValueError(f"Implementation receipt already exists: {target}")
     target.parent.mkdir(parents=True)
-    template = root / ".control/templates/implementation-receipt.template.json"
-    text = replace_template(template, {
-        "<package-id>": manifest["package_id"],
-        "\"package_revision\": 1": f"\"package_revision\": {args.revision}",
-        "\"decomposition_revision\": 1": f"\"decomposition_revision\": {args.decomposition_revision}",
-        "DEV-<BE|FE>-001": args.task_id,
-        "\"result_revision\": 1": f"\"result_revision\": {args.result_revision}",
+    receipt = load(root / ".control/templates/implementation-receipt.template.json")
+    receipt.update({
+        "package_id": manifest["package_id"],
+        "package_revision": args.revision,
+        "decomposition_revision": args.decomposition_revision,
+        "task_id": args.task_id,
+        "result_revision": args.result_revision,
+        "jira_key": tasks[args.task_id].get("jira_key"),
+        "requirement_results": [implementation_result_item("requirement", item) for item in tasks[args.task_id].get("requirements", [])],
+        "scenario_results": [implementation_result_item("scenario", item) for item in tasks[args.task_id].get("scenarios", [])],
     })
-    target.write_text(text, encoding="utf-8")
+    save(target, receipt)
     print(target)
     return 0
+
+
+def implementation_result_item(key: str, identifier: str) -> dict[str, Any]:
+    return {
+        key: identifier,
+        "status": "not-implemented",
+        "behavior_before": None,
+        "delivered_behavior": None,
+        "deviation_from_input": None,
+        "remaining_work": None,
+        "evidence": [],
+    }
 
 
 def validate_result_items(values: Any, key: str, expected: list[str], status_key: str) -> list[str]:
@@ -1209,20 +1487,51 @@ def prepare_test_command(args: argparse.Namespace) -> int:
     if not is_feature_manifest(manifest):
         raise ValueError("prepare-test is available only for feature packages")
     entry = revision_entry(manifest, args.revision)
-    slice_contract(feature_input_manifest(root, entry), args.slice_id)
+    contract = slice_contract(feature_input_manifest(root, entry), args.slice_id)
+    snapshot_record, decomposition, _ = decomposition_snapshot(root, entry, args.decomposition_revision)
+    decomposition_revision = snapshot_record["revision"]
     target = root / entry["returns_path"] / "test-results" / args.slice_id / revision_name(args.result_revision) / "receipt.json"
     if target.exists():
         raise ValueError(f"Test receipt already exists: {target}")
     target.parent.mkdir(parents=True)
-    text = replace_template(root / ".control/templates/test-receipt.template.json", {
-        "<package-id>": manifest["package_id"],
-        "\"package_revision\": 1": f"\"package_revision\": {args.revision}",
-        "<slice-id>": args.slice_id,
-        "\"result_revision\": 1": f"\"result_revision\": {args.result_revision}",
+    requirement_ids = contract.get("requirements", [])
+    scenario_ids = contract.get("scenarios", [])
+    related_tasks = sorted({
+        task["id"]
+        for task in decomposition.get("tasks", [])
+        if isinstance(task, dict)
+        and (
+            set(task.get("requirements", [])) & set(requirement_ids)
+            or set(task.get("scenarios", [])) & set(scenario_ids)
+        )
     })
-    target.write_text(text, encoding="utf-8")
+    registered_receipts = sorted({
+        item["path"]
+        for item in entry.get("implementation_results", [])
+        if isinstance(item, dict)
+        and item.get("task_id") in related_tasks
+        and item.get("decomposition_revision") == decomposition_revision
+        and isinstance(item.get("path"), str)
+    })
+    receipt = load(root / ".control/templates/test-receipt.template.json")
+    receipt.update({
+        "package_id": manifest["package_id"],
+        "package_revision": args.revision,
+        "decomposition_revision": decomposition_revision,
+        "slice_id": args.slice_id,
+        "result_revision": args.result_revision,
+        "related_tasks": related_tasks,
+        "implementation_receipts": registered_receipts,
+        "requirement_results": [test_result_item("requirement", item) for item in requirement_ids],
+        "scenario_results": [test_result_item("scenario", item) for item in scenario_ids],
+    })
+    save(target, receipt)
     print(target)
     return 0
+
+
+def test_result_item(key: str, identifier: str) -> dict[str, Any]:
+    return {key: identifier, "status": "not-tested", "evidence": []}
 
 
 def register_test_command(args: argparse.Namespace) -> int:
@@ -1242,6 +1551,7 @@ def register_test_command(args: argparse.Namespace) -> int:
         "kind": "slice-test-result",
         "package_id": manifest["package_id"],
         "package_revision": args.revision,
+        "decomposition_revision": args.decomposition_revision,
         "slice_id": args.slice_id,
         "result_revision": args.result_revision,
     }
@@ -1520,6 +1830,7 @@ def parser() -> argparse.ArgumentParser:
     prepare_test.add_argument("root")
     prepare_test.add_argument("revision", type=int)
     prepare_test.add_argument("slice_id")
+    prepare_test.add_argument("--decomposition-revision", type=int)
     prepare_test.add_argument("--result-revision", type=int, default=1)
     prepare_test.set_defaults(handler=prepare_test_command)
     register_test = commands.add_parser("register-test")

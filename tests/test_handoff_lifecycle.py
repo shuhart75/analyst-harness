@@ -17,6 +17,38 @@ def run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 class HandoffLifecycleTests(unittest.TestCase):
+    def valid_card(self, task: dict) -> str:
+        text = (ROOT / "templates/handoff/development-task-card.template.md").read_text(encoding="utf-8")
+        replacements = {
+            "DEV-<BE|FE>-001": task["id"],
+            "<Название задачи>": "Законченный технический результат",
+            "<backend|frontend>": task["contour"],
+            "<Законченный технический результат>": "Проверяемый результат поставки",
+            "<Какой наблюдаемый результат обеспечивает задача.>": "Система предоставляет требуемое поведение.",
+            "<Полные формулировки необходимых сценариев и влияний.>": " ".join(task.get("scenarios", []) + task.get("impacts", [])) or "Нет.",
+            "<Пункт>": "Поставить требуемое поведение",
+            "<Наблюдаемое условие>": "Поведение наблюдается в проверке",
+            "<Проверка>": "Автоматическая проверка результата",
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        requirement_rows = "\n".join(f"| {item} | Полная формулировка требования {item}. |" for item in task.get("requirements", []))
+        text = text.replace("|---|---|\n\n## Сценарии", f"|---|---|\n{requirement_rows}\n\n## Сценарии")
+        text = text.replace("| предложена |", "| подтверждена разработкой |")
+        text = text.replace("|---|---|---|\n\nОтсутствие", "|---|---|---|\n| Найденный модуль | не реализовано | `src/Demo.java` |\n\nОтсутствие")
+        return text
+
+    def valid_index(self, tasks: list[dict]) -> str:
+        text = (ROOT / "templates/handoff/development-tasks-index.template.md").read_text(encoding="utf-8")
+        text = text.replace("<Название>", "Демонстрационная функциональность").replace("<revision>", "1")
+        rows = "\n".join(
+            f"| {task['id']} | {task['contour']} | Проверяемый результат | - | - | нет | [{task['id']}]({task['card_path']}) |"
+            for task in tasks
+        )
+        text = text.replace("|---|---|---|---:|---|---|---|\n", f"|---|---|---|---:|---|---|---|\n{rows}\n")
+        text = text.replace("Состояние декомпозиции: **черновик**", "Состояние декомпозиции: **подтверждена разработкой**")
+        return text
+
     def create_claimed_feature(self, root: Path) -> tuple[Path, Path]:
         project = root / "project"
         result = run("bash", str(ROOT / "scripts/scaffold-project.sh"), str(project))
@@ -48,14 +80,8 @@ class HandoffLifecycleTests(unittest.TestCase):
     def write_decomposition(self, handoff: Path, tasks: list[dict], coverage: dict) -> None:
         working = handoff / "revisions/001/returns/development-tasks"
         for task in tasks:
-            (working / task["card_path"]).write_text(
-                f"# {task['id']} — Результат\n\nСостояние декомпозиции: подтверждена разработкой\n",
-                encoding="utf-8",
-            )
-        (working / "index.md").write_text(
-            "# Техническая декомпозиция\n\nДекомпозиция подтверждена разработкой.\n",
-            encoding="utf-8",
-        )
+            (working / task["card_path"]).write_text(self.valid_card(task), encoding="utf-8")
+        (working / "index.md").write_text(self.valid_index(tasks), encoding="utf-8")
         receipt = {
             "schema_version": 1,
             "kind": "technical-decomposition",
@@ -115,6 +141,112 @@ class HandoffLifecycleTests(unittest.TestCase):
                 manifest = json.loads((handoff / "handoff.json").read_text(encoding="utf-8"))
                 self.assertEqual(manifest["next_sdd_action"]["action"], "continue")
 
+    def test_card_without_permanent_developer_commands_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            handoff, control = self.create_claimed_feature(Path(temp))
+            task = {
+                "id": "DEV-BE-001",
+                "contour": "backend",
+                "decomposition_status": "confirmed-by-development",
+                "card_path": "DEV-BE-001.md",
+                "estimate_days": None,
+                "estimate_source": None,
+                "size_exception_reason": None,
+                "jira_key": None,
+                "requirements": ["REQ-DEMO-001"],
+                "scenarios": ["SCN-DEMO-001"],
+                "impacts": ["IMP-DEMO-001"],
+                "dependencies": [],
+            }
+            self.write_decomposition(handoff, [task], {
+                "unassigned_requirements": [],
+                "unassigned_scenarios": [],
+                "unassigned_impacts": [],
+            })
+            card = handoff / "revisions/001/returns/development-tasks/DEV-BE-001.md"
+            card.write_text(card.read_text(encoding="utf-8").replace("Возьми DEV-BE-001 в разработку.", ""), encoding="utf-8")
+            result = run(sys.executable, str(control), "confirm-decomposition", str(handoff), "1")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("developer command is missing", result.stdout + result.stderr)
+
+    def test_legacy_section_requirements_are_packaged_and_validated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / "project"
+            result = run("bash", str(ROOT / "scripts/scaffold-project.sh"), str(project))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            feature = project / "features/demo"
+            for slice_id in ("first", "second"):
+                detailed = feature / f"slices/{slice_id}/requirements"
+                detailed.mkdir(parents=True)
+                (feature / f"slices/{slice_id}/slice.md").write_text(f"# Срез {slice_id}\n", encoding="utf-8")
+                (detailed / "backend.md").write_text(f"# Серверные требования {slice_id}\n", encoding="utf-8")
+            (feature / "requirements.md").write_text(
+                """# Старая функциональность
+
+## Общий контур функциональности
+
+Текущее поведение и границы функциональности.
+
+## Контроль срезов
+
+## LEGACY-DEMO-001 — Первый результат
+
+Карточка среза: `slices/first/slice.md`
+
+**Назначение**
+
+- Получить первый наблюдаемый результат.
+
+**Критерии приемки**
+
+1. Первый результат доступен.
+
+## LEGACY-DEMO-002 — Второй результат
+
+Карточка среза: `slices/second/slice.md`
+
+**Назначение**
+
+- Получить второй наблюдаемый результат.
+
+**Критерии приемки**
+
+1. Второй результат доступен.
+
+## Доработки затронутых функциональностей
+
+IMP-LEGACY-DEMO-001
+""",
+                encoding="utf-8",
+            )
+            tool = project / ".workflow/tools/handoffctl.py"
+            result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "legacy-demo")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            handoff = feature / "handoffs/legacy-demo"
+            result = run(sys.executable, str(tool), "add-revision", str(handoff), "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            package = handoff / "revisions/001/package"
+            manifest = json.loads((package / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["requirements"], ["LEGACY-DEMO-001", "LEGACY-DEMO-002"])
+            self.assertEqual(manifest["traceability"]["mode"], "legacy-sections")
+            self.assertEqual(manifest["slices"][0]["requirements"], ["LEGACY-DEMO-001"])
+            self.assertEqual(manifest["slices"][1]["requirements"], ["LEGACY-DEMO-002"])
+            self.assertIn("slices/first/requirements/backend.md", [item["path"] for item in manifest["payload"]])
+            request = (package / "request.md").read_text(encoding="utf-8")
+            self.assertIn("Получить первый наблюдаемый результат", request)
+            self.assertIn("Первый результат доступен", request)
+            index = (handoff / "revisions/001/returns/development-tasks/index.md").read_text(encoding="utf-8")
+            self.assertIn("Старая функциональность", index)
+            self.assertNotIn("<Название>", index)
+            result = run(sys.executable, str(tool), "transport", str(handoff), "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+            manifest["requirements"] = ["LEGACY-DEMO-001"]
+            (package / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+            result = run(sys.executable, str(tool), "transport", str(handoff), "1", "--force")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("does not match requirements.md", result.stdout + result.stderr)
+
     def test_feature_decomposition_delivery_and_testing_are_independent(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp) / "project"
@@ -159,14 +291,6 @@ class HandoffLifecycleTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
             working = handoff / "revisions/001/returns/development-tasks"
-            (working / "DEV-BE-001.md").write_text(
-                "# DEV-BE-001 — Серверный результат\n\nСостояние декомпозиции: подтверждена разработкой\n",
-                encoding="utf-8",
-            )
-            (working / "index.md").write_text(
-                "# Техническая декомпозиция\n\nDEV-BE-001 подтверждена разработкой.\n",
-                encoding="utf-8",
-            )
             decomposition = {
                 "schema_version": 1,
                 "kind": "technical-decomposition",
@@ -185,7 +309,7 @@ class HandoffLifecycleTests(unittest.TestCase):
                     "estimate_days": None,
                     "estimate_source": None,
                     "size_exception_reason": None,
-                    "jira_key": None,
+                    "jira_key": "KODA-1",
                     "requirements": ["REQ-DEMO-001"],
                     "scenarios": ["SCN-DEMO-001"],
                     "impacts": ["IMP-DEMO-001"],
@@ -199,6 +323,8 @@ class HandoffLifecycleTests(unittest.TestCase):
                 "checks": [{"name": "coverage", "status": "passed"}],
                 "notes": None,
             }
+            (working / "DEV-BE-001.md").write_text(self.valid_card(decomposition["tasks"][0]), encoding="utf-8")
+            (working / "index.md").write_text(self.valid_index(decomposition["tasks"]), encoding="utf-8")
             (handoff / "revisions/001/returns/decomposition-receipt.json").write_text(
                 json.dumps(decomposition), encoding="utf-8"
             )
@@ -218,6 +344,9 @@ class HandoffLifecycleTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             implementation_path = handoff / "revisions/001/returns/implementation-results/DEV-BE-001/001/receipt.json"
             implementation = json.loads(implementation_path.read_text(encoding="utf-8"))
+            self.assertEqual(implementation["jira_key"], "KODA-1")
+            self.assertEqual([item["requirement"] for item in implementation["requirement_results"]], ["REQ-DEMO-001"])
+            self.assertEqual([item["scenario"] for item in implementation["scenario_results"]], ["SCN-DEMO-001"])
             implementation.update({
                 "status": "delivered",
                 "requirement_results": [{"requirement": "REQ-DEMO-001", "status": "implemented-as-required", "evidence": []}],
@@ -240,6 +369,10 @@ class HandoffLifecycleTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             test_path = handoff / "revisions/001/returns/test-results/list/001/receipt.json"
             test_receipt = json.loads(test_path.read_text(encoding="utf-8"))
+            self.assertEqual(test_receipt["decomposition_revision"], 1)
+            self.assertEqual(test_receipt["related_tasks"], ["DEV-BE-001"])
+            self.assertEqual([item["requirement"] for item in test_receipt["requirement_results"]], ["REQ-DEMO-001"])
+            self.assertEqual([item["scenario"] for item in test_receipt["scenario_results"]], ["SCN-DEMO-001"])
             test_receipt.update({
                 "status": "passed",
                 "related_tasks": ["DEV-BE-001"],

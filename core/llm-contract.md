@@ -98,6 +98,9 @@ If the user asks for work outside the active mode, either switch mode explicitly
 - `requirement pack` is grouped by feature and, when useful, by slice and then FE/BE.
 - `feature delivery package` lives under `features/<feature>/handoffs/<package-id>/` and is the preferred shared unit for development and testing. The immutable input contains root requirements and slices; developers return their technical decomposition inside the same package.
 - `development task card` is created and confirmed by developers under `returns/development-tasks/`. It describes one future Jira task and one contour, is self-contained, and may have an estimate or Jira key, but neither is required.
+- Each development task card must be created from the package template, keep every required section populated, and retain the full `Короткие команды разработчика` block after every edit.
+- Receiver-side context is disclosed progressively: active `handoff.json`, compact request and manifest, one relevant contour of packaged requirements, that contour's local SDD, matched code, then nearby tests. Do not load all of `coda` or both contours without a recorded cross-contour dependency.
+- A feature manifest may use atomic `REQ-*`/`SCN-*` traceability or explicit `legacy-sections` compatibility. Never manufacture identifiers missing from an older source document.
 - `features/<feature>/requirements.md` is the primary control page and authored source for requirements; each slice must have its own ordered section there.
 - `slice card` and slice FE/BE packs are derived artifacts cut from the root feature requirements, not parallel independent sources. Slices remain the primary testing units; development cards and implementation receipts provide supporting context.
 - `common feature prototype` lives in `features/<feature>/prototype.html`; the user iterates on it first as the visual source of truth.

@@ -3,6 +3,7 @@
   "kind": "slice-test-result",
   "package_id": "<package-id>",
   "package_revision": 1,
+  "decomposition_revision": 1,
   "slice_id": "<slice-id>",
   "result_revision": 1,
   "status": "draft",

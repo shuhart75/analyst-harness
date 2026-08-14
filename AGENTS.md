@@ -50,11 +50,14 @@ Work should be grouped by:
 ## Developer handoff
 
 - For new work, send one `feature-delivery` package containing root requirements and slices; do not pre-author the final Jira decomposition under `features/<feature>/tasks/`.
+- In a received package, read `handoff.json`, then `request.md` and `manifest.json`, then only the requirements and slices for one selected contour. Read that contour's local SDD before opening matched code and nearby tests. Never load all of `coda` or both contours by default.
 - Developers own confirmed `DEV-BE-*` and `DEV-FE-*` cards after inspecting their local SDD and code.
+- Create every card from `development-task-card.template.md`, fill every section, and preserve the complete Russian `Короткие команды разработчика` block after every update.
 - A confirmed decomposition snapshot is delivered to the analyst in the background and never blocks implementation.
 - Keep decomposition state, implementation receipts and slice test receipts independent.
 - QA works by slice; development cards and implementation receipts are supporting context.
 - Preserve already sent input revisions and confirmed decomposition snapshots as immutable history.
+- Treat `traceability.mode = legacy-sections` as deliberate section-level compatibility. Do not invent `REQ-*` or `SCN-*` absent from the source.
 
 ## Prototype stack
 
