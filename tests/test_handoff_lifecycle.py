@@ -67,8 +67,7 @@ class HandoffLifecycleTests(unittest.TestCase):
         handoff = feature / "handoffs/demo-feature"
         for command in (
             ("add-revision", str(handoff), "1"),
-            ("transport", str(handoff), "1"),
-            ("set-state", str(handoff), "1", "sent"),
+            ("publish", str(handoff), "1"),
         ):
             result = run(sys.executable, str(tool), *command)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

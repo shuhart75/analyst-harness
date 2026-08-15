@@ -16,7 +16,6 @@ from typing import Any
 
 REVISION_STATES = {
     "draft",
-    "ready",
     "sent",
     "in-progress",
     "paused",
@@ -31,7 +30,6 @@ RECEIPT_EXPECTATIONS = {"required", "optional", "not-expected", "received"}
 TERMINAL_STATES = {"reviewed", "superseded", "archived", "cancelled"}
 FEATURE_REVISION_STATES = {
     "draft",
-    "ready",
     "sent",
     "in-progress",
     "paused",
@@ -883,7 +881,7 @@ def transport_command(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve()
     manifest = load(root_manifest(root))
     entry = revision_entry(manifest, args.revision)
-    if entry.get("state") not in {"draft", "ready"}:
+    if entry.get("state") != "draft":
         raise ValueError("An already sent revision is immutable and its transport cannot be rebuilt")
     package = root / entry["package_path"]
     if is_feature_manifest(manifest):
@@ -914,12 +912,31 @@ def transport_command(args: argparse.Namespace) -> int:
     entry["transport_path"] = f"revisions/{name}.zip"
     entry["transport_sha256"] = hash_file(archive)
     entry["package_files"] = package_hashes(package)
-    if entry["state"] == "draft":
-        entry.update({"state": "ready", "reason": "Пакет проверен, транспорт сформирован"})
+    entry["reason"] = "Транспорт сформирован; редакция ещё не отправлена"
     update_next_action(manifest)
     save(root_manifest(root), manifest)
     print(f"{archive}\nsha256={entry['transport_sha256']}")
     return 0
+
+
+def validate_send_preconditions(
+    manifest: dict[str, Any],
+    entry: dict[str, Any],
+    revision: int,
+    force: bool,
+) -> None:
+    if any(other.get("revision", 0) > revision for other in manifest.get("revisions", [])):
+        raise ValueError("An older revision cannot be sent after a newer revision has been registered")
+    terminal = (
+        {"superseded", "archived", "cancelled"}
+        if is_feature_manifest(manifest)
+        else TERMINAL_STATES | {"receipt-received"}
+    )
+    for other in manifest.get("revisions", []):
+        if other is entry or other.get("revision", revision) >= revision or other.get("state") in terminal:
+            continue
+        if other.get("sdd_action") in {"continue", "stop-and-report"} and not force:
+            raise ValueError("Another revision is in progress or must return a report; finish it or use --force")
 
 
 def set_state_command(args: argparse.Namespace) -> int:
@@ -933,8 +950,7 @@ def set_state_command(args: argparse.Namespace) -> int:
     if state == "sent":
         if not entry.get("transport_path"):
             raise ValueError("Build the transport archive before sending the revision")
-        if any(other.get("revision", 0) > args.revision for other in manifest.get("revisions", [])):
-            raise ValueError("An older revision cannot be sent after a newer revision has been registered")
+        validate_send_preconditions(manifest, entry, args.revision, args.force)
         for other in manifest.get("revisions", []):
             if (
                 other is entry
@@ -946,8 +962,6 @@ def set_state_command(args: argparse.Namespace) -> int:
                 )
             ):
                 continue
-            if other.get("sdd_action") in {"continue", "stop-and-report"} and not args.force:
-                raise ValueError("Another revision is in progress or must return a report; finish it or use --force")
             other.update({
                 "state": "superseded",
                 "sdd_action": "no-action",
@@ -981,14 +995,45 @@ def set_state_command(args: argparse.Namespace) -> int:
             entry["receipt"]["expectation"] = "not-expected"
         if manifest.get("active_revision") == args.revision:
             manifest["active_revision"] = None
-    elif state == "ready":
-        entry.update({"state": state, "sdd_action": "wait", "reason": args.reason or "Редакция готова, но ещё не отправлена"})
-        if not is_feature_manifest(manifest):
-            entry["receipt"]["expectation"] = "not-expected"
     else:
         raise ValueError(f"Use a dedicated command for state {state}")
     update_next_action(manifest)
     save(root_manifest(root), manifest)
+    return 0
+
+
+def publish_command(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    manifest = load(root_manifest(root))
+    entry = revision_entry(manifest, args.revision)
+    if entry.get("state") != "draft":
+        raise ValueError("Only a draft revision can be published")
+    validate_send_preconditions(manifest, entry, args.revision, args.force)
+    transport_args = argparse.Namespace(
+        root=str(root),
+        revision=args.revision,
+        force=args.force or bool(entry.get("transport_path")),
+    )
+    transport_command(transport_args)
+    state_args = argparse.Namespace(
+        root=str(root),
+        revision=args.revision,
+        state="sent",
+        reason=args.reason,
+        force=args.force,
+        request_report=False,
+    )
+    set_state_command(state_args)
+    updated = load(root_manifest(root))
+    published = revision_entry(updated, args.revision)
+    print(json.dumps({
+        "package_id": updated["package_id"],
+        "revision": args.revision,
+        "state": published["state"],
+        "transport_path": published["transport_path"],
+        "transport_sha256": published["transport_sha256"],
+        "next_sdd_action": updated["next_sdd_action"],
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -1790,6 +1835,12 @@ def parser() -> argparse.ArgumentParser:
     transport.add_argument("revision", type=int)
     transport.add_argument("--force", action="store_true")
     transport.set_defaults(handler=transport_command)
+    publish = commands.add_parser("publish")
+    publish.add_argument("root")
+    publish.add_argument("revision", type=int)
+    publish.add_argument("--reason")
+    publish.add_argument("--force", action="store_true")
+    publish.set_defaults(handler=publish_command)
     state = commands.add_parser("set-state")
     state.add_argument("root")
     state.add_argument("revision", type=int)

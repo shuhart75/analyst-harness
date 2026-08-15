@@ -127,6 +127,9 @@ class HarnessTests(unittest.TestCase):
             self.assertIn("returns/implementation-results/", contract)
             self.assertIn("returns/test-results/", contract)
             commands = (project / ".workflow/command-cheatsheet.md").read_text(encoding="utf-8")
+            self.assertIn("сформируй пакет для разработки", commands)
+            self.assertIn("передаём в разработку", commands)
+            self.assertIn("отдаём требования разработчикам", commands)
             self.assertIn("подготовь пакет функциональности для технической декомпозиции", commands)
             self.assertIn("декомпозиция подтверждена разработкой", commands)
             self.assertIn("возьми срез <id> в тестирование", commands)
@@ -209,15 +212,14 @@ class HarnessTests(unittest.TestCase):
                 result = run(sys.executable, str(tool), "add-revision", str(root), str(revision), "--replaces", str(revision - 1) if revision > 1 else "") if revision > 1 else run(sys.executable, str(tool), "add-revision", str(root), str(revision))
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.write_pending_handoff_package(root / f"revisions/{revision:03d}/package", "demo-be-change", revision)
-                result = run(sys.executable, str(tool), "transport", str(root), str(revision))
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                result = run(sys.executable, str(tool), "set-state", str(root), str(revision), "sent")
+                result = run(sys.executable, str(tool), "publish", str(root), str(revision))
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             manifest = json.loads((root / "handoff.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["active_revision"], 2)
             self.assertEqual(manifest["next_sdd_action"]["action"], "process")
             self.assertEqual(manifest["revisions"][0]["state"], "superseded")
             self.assertEqual(manifest["revisions"][0]["receipt"]["expectation"], "not-expected")
+            self.assertNotIn("ready", manifest["allowed_revision_states"])
             result = run(sys.executable, str(tool), "validate", str(root))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             control_tool = root / ".control/handoffctl.py"
@@ -231,6 +233,34 @@ class HarnessTests(unittest.TestCase):
             result = run(sys.executable, str(tool), "validate", str(root))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("immutable revision", result.stdout)
+
+    def test_publish_stops_before_transport_when_previous_revision_is_in_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            tool = project / ".workflow/tools/handoffctl.py"
+            result = run(sys.executable, str(tool), "init", str(project), "demo", "demo-be-change", "--role", "BE", "--source-task-id", "CAND-DEMO-BE-001", "--source-task-path", "features/demo/tasks/be-change.md")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            root = project / "features/demo/handoffs/demo-be-change"
+            result = run(sys.executable, str(tool), "add-revision", str(root), "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.write_pending_handoff_package(root / "revisions/001/package", "demo-be-change", 1)
+            result = run(sys.executable, str(tool), "publish", str(root), "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            control = root / ".control/handoffctl.py"
+            result = run(sys.executable, str(control), "claim", str(root), "1", "--by", "developer")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+            result = run(sys.executable, str(tool), "add-revision", str(root), "2", "--replaces", "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.write_pending_handoff_package(root / "revisions/002/package", "demo-be-change", 2)
+            result = run(sys.executable, str(tool), "publish", str(root), "2")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("in progress", result.stdout + result.stderr)
+            self.assertFalse((root / "revisions/002.zip").exists())
+            manifest = json.loads((root / "handoff.json").read_text(encoding="utf-8"))
+            second = next(item for item in manifest["revisions"] if item["revision"] == 2)
+            self.assertEqual(second["state"], "draft")
+            self.assertIsNone(second["transport_path"])
 
     def test_handoff_validator_accepts_delivery_deviation_and_additional_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

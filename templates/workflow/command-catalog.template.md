@@ -85,9 +85,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `актуализируй требования` | `requirements` | Обновить требования и распространить влияние на производные срезы. |
 | `разложи требования на срезы` | `requirements` | Decompose root feature requirements into testable slices. |
 | `подготовь детальные требования по срезам` | `requirements` | Derive slice cards and interface/backend detail packs from root requirements. |
-| `подготовь пакет функциональности для технической декомпозиции` | `requirements` | Создать общий пакет функциональности и неизменяемую редакцию требований со срезами. |
-| `сформируй транспорт пакета` | `requirements` | Validate one immutable revision and build `revisions/NNN.zip` beside it. |
-| `отправь редакцию пакета` | `requirements` | Mark exactly one revision as authorized for SDD processing and supersede older unclaimed revisions. |
+| `сформируй пакет для разработки` | `requirements` | Проверить и безопасно исправить требования, последовательно уточнить неоднозначности, затем создать ZIP и сразу отправить неизменяемую редакцию в SDD. |
 | `приостанови редакцию пакета` | `requirements` | Set SDD action to wait or stop-and-report without rewriting the revision. |
 | `покажи состояние пакета` | `requirements` | Read `handoff.json` and report the single current SDD action. |
 | `покажи подтверждённую декомпозицию` | `execution-update` | Прочитать актуальный неизменяемый снимок карточек, полученный от разработки. |
@@ -128,7 +126,7 @@ These are the recommended user-facing commands by role. Internal context refresh
 
 | Role | Commands | User gets |
 |---|---|---|
-| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `подготовь пакет функциональности для технической декомпозиции`, `обнови фактический план по подтверждённой декомпозиции` | Планы, требования, срезы, входные редакции и фактическое выполнение. |
+| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `сформируй пакет для разработки`, `обнови фактический план по подтверждённой декомпозиции` | Планы, требования, срезы, отправленные редакции и фактическое выполнение. |
 | Developer | `подготовь декомпозицию серверной части`, `подготовь декомпозицию клиентской части`, `проверь декомпозицию`, `декомпозиция подтверждена разработкой`, `подготовь список для Jira`, `возьми DEV-* в разработку` | Карточки будущих задач Jira, снимок декомпозиции и квитанции реализации. |
 | Tester | `возьми срез <id> в тестирование`, `подготовь проверки по срезу`, `собери негативные сценарии`, `сверь проверки с требованиями`, `зафиксируй найденные пробелы` | Проверки среза, покрытие и независимая квитанция тестирования. |
 
@@ -150,7 +148,7 @@ Treat these as equivalent user phrasings.
 | `актуализируй требования` | `обнови требования`, `синхронизируй требования`, `подтяни требования`, `приведи требования в актуальное состояние` |
 | `разложи требования на срезы` | `разложи по срезам`, `нарежь требования на срезы`, `выдели срезы`, `подготовь срезы` |
 | `подготовь детальные требования по срезам` | `детализируй срезы`, `подготовь требования по каждому срезу`, `собери detail packs по срезам`, `подготовь FE/BE требования по срезам` |
-| `подготовь пакет функциональности для технической декомпозиции` | `собери пакет функциональности`, `передай функциональность на декомпозицию` |
+| `сформируй пакет для разработки` | `передаём в разработку`, `передаем в разработку`, `отдаём требования разработчикам`, `отдаем требования разработчикам`, `подготовь требования для разработки`, `собери пакет для разработчиков`, `подготовь пакет функциональности для технической декомпозиции`, `собери пакет функциональности`, `передай функциональность на декомпозицию` |
 | `проверь хвосты требований` | `дочисти хвосты`, `убери хвосты в требованиях`, `проверь старые упоминания`, `проверь что старый вариант нигде не остался`, `сделай локальную дочистку требований` |
 | `проверь консистентность требований` | `сделай consistency sweep`, `проверь консистентность`, `сверь требования`, `проверь что ничего не разъехалось`, `сделай сверку требований` |
 | `актуализируй прототипы` | `обнови прототипы`, `синхронизируй прототипы`, `подтяни прототипы`, `приведи макеты в актуальное состояние` |
@@ -195,9 +193,7 @@ Treat these as equivalent user phrasings.
 | `делаем требования` | `requirements` | Switch mode, select new readable or old detailed format, read baseline/current and author the root feature requirements before deriving slices. |
 | `разложи требования на срезы` | `requirements` | Switch mode if needed, refresh context, decompose root requirements into slices, then update root requirements first if decomposition exposes gaps. |
 | `подготовь детальные требования по срезам` | `requirements` | Switch mode if needed, refresh slice context, run completeness checks internally, then derive slice cards and detail packs. |
-| `подготовь пакет функциональности для технической декомпозиции` | `requirements` | Переключить режим, проверить корневые требования и срезы, создать общий пакет функциональности и новую входную редакцию. |
-| `сформируй транспорт пакета` | `requirements` | Validate the revision package, record file hashes and build the adjacent deterministic ZIP. |
-| `отправь редакцию пакета` | `requirements` | Mark the revision as sent and expose it through `next_sdd_action`; do not edit the revision afterward. |
+| `сформируй пакет для разработки` | `requirements` | Переключить режим; проверить полноту, непротиворечивость, проверяемость, влияния, срезы, трассировку и язык; автоматически исправить только однозначное; при сомнениях задавать по одному вопросу; после успешной проверки создать и опубликовать редакцию как `sent`. |
 | `приостанови редакцию пакета` | `requirements` | Change only the root lifecycle manifest; use stop-and-report when an already claimed revision must return partial fact. |
 | `покажи подтверждённую декомпозицию` | `execution-update` | Найти актуальный снимок декомпозиции и показать карточки, оценки и необязательные связи Jira. |
 | `обнови фактический план по подтверждённой декомпозиции` | `execution-update` | Материализовать выбранные аналитиком карточки, не меняя утверждённый план. |
@@ -246,9 +242,7 @@ Treat these as equivalent user phrasings.
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |
-| `подготовь пакет функциональности для технической декомпозиции` | Создать общий пакет по всей функциональности без заранее утверждённых технических задач. | `features/<feature>/handoffs/<package-id>/*` |
-| `сформируй транспорт пакета` | Validate one revision and create its deterministic transport ZIP beside the revision directory. | `revisions/NNN/package/*`, `revisions/NNN.zip`, `handoff.json` |
-| `отправь редакцию пакета` | Authorize exactly one revision for SDD and make prior unclaimed revisions no longer actionable. | `handoff.json` |
+| `сформируй пакет для разработки` | Выполнить полный проход готовности требований; при содержательных сомнениях задавать аналитику по одному вопросу; затем создать транспорт и сразу опубликовать редакцию для SDD без промежуточного `ready`. | требования, срезы, `features/<feature>/handoffs/<package-id>/*` |
 | `приостанови редакцию пакета` | Tell SDD to wait or stop and report current fact, without mutating the input revision. | `handoff.json` |
 | `покажи состояние пакета` | Show active revision, expected receipt and exact next SDD action. | `handoff.json` |
 | `покажи подтверждённую декомпозицию` | Показать актуальный снимок карточек, который уже фоново доступен аналитику. | `returns/decomposition-snapshots/*` |

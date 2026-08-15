@@ -21,7 +21,6 @@
   },
   "allowed_revision_states": [
     "draft",
-    "ready",
     "sent",
     "in-progress",
     "paused",

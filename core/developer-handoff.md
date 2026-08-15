@@ -76,7 +76,6 @@ features/<feature>/handoffs/<package-id>/
 Состояния входной редакции:
 
 - `draft` — формируется;
-- `ready` — проверена и упакована;
 - `sent` — доступна принимающей SDD;
 - `in-progress` — разработческая сторона начала работу;
 - `paused` — входная редакция временно приостановлена;
@@ -230,10 +229,11 @@ SDD:
 ```text
 handoffctl init-feature <project> <feature> <package-id>
 handoffctl add-revision <root> 1
-handoffctl transport <root> 1
-handoffctl set-state <root> 1 sent
+handoffctl publish <root> 1
 handoffctl claim <root> 1 --by <сеанс>
 ```
+
+`publish` проверяет состав редакции, создаёт транспортный ZIP и сразу переводит редакцию в `sent` с `next_sdd_action.action = process`. Аналитик не проверяет внутренние файлы пакета, поэтому промежуточного состояния между успешной сборкой и отправкой нет. Низкоуровневые `transport` и `set-state` остаются служебными операциями восстановления и испытаний, а не пользовательским сценарием.
 
 Возвраты:
 
