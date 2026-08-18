@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 from pathlib import Path
 import sys
 
@@ -9,6 +10,7 @@ required = [
     ".workflow/tooling-policy.md",
     ".workflow/context-policy.md",
     ".workflow/research-policy.md",
+    ".workflow/code-inspection.md",
     ".workflow/run-loop.md",
     ".workflow/requirements-profile.md",
     ".workflow/harness.json",
@@ -24,6 +26,7 @@ required = [
     ".workflow/tools/validate-requirements-profile.py",
     ".workflow/tools/validate-handoff.py",
     ".workflow/tools/handoffctl.py",
+    ".workflow/tools/code-inspect.py",
     ".workflow/tools/harnessctl.py",
     ".workflow/tools/evaluate-harness.py",
     ".workflow/tools/sync-quarter-gantt.py",
@@ -72,6 +75,8 @@ required = [
     ".workflow/templates/research/errors-validation.template.yaml",
     ".workflow/templates/research/roles-access.template.yaml",
     ".workflow/templates/research/observability-config.template.yaml",
+    ".workflow/templates/research/code-evidence.template.yaml",
+    ".workflow/templates/workspace/analyst-workspace-agents.template.md",
     ".workflow/templates/handoff/slice-implementation-handoff.template.md",
     ".workflow/templates/handoff/developer-request.template.md",
     ".workflow/templates/handoff/developer-package-readme.template.md",
@@ -125,6 +130,45 @@ missing = [p for p in required if not (root / p).exists()]
 if missing:
     print("Missing required paths:")
     for item in missing:
+        print(f"- {item}")
+    sys.exit(1)
+
+registry_path = root / ".workflow/code-repos.json"
+try:
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"Invalid code repository registry: {exc}")
+    sys.exit(1)
+
+registry_errors = []
+if registry.get("schema_version") != 2:
+    registry_errors.append("schema_version must be 2")
+repositories = registry.get("repositories")
+if not isinstance(repositories, list):
+    registry_errors.append("repositories must be an array")
+else:
+    identifiers = [item.get("id") for item in repositories if isinstance(item, dict)]
+    if len(identifiers) != len(repositories) or len(identifiers) != len(set(identifiers)):
+        registry_errors.append("repository ids must be present and unique")
+    default_repository = registry.get("workspace", {}).get("default_repository")
+    if default_repository is not None and default_repository not in identifiers:
+        registry_errors.append("default_repository must reference a registered repository or be null")
+    for repository in repositories:
+        if repository.get("access") != "read-only":
+            registry_errors.append(f"{repository.get('id')}: access must be read-only")
+        location = repository.get("location")
+        if not isinstance(location, dict) or not (
+            location.get("relative_to_analytical") or location.get("relative_to_documents")
+        ):
+            registry_errors.append(f"{repository.get('id')}: relative location is required")
+        contours = repository.get("contours")
+        if not isinstance(contours, dict) or not contours or not all(
+            isinstance(value, dict) and value.get("path") for value in contours.values()
+        ):
+            registry_errors.append(f"{repository.get('id')}: at least one contour path is required")
+if registry_errors:
+    print("Invalid code repository registry:")
+    for item in registry_errors:
         print(f"- {item}")
     sys.exit(1)
 print("Structure OK")

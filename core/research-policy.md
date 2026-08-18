@@ -19,6 +19,7 @@ Run research internally when:
 - building an implementation plan;
 - preparing QA checks and negative scenarios;
 - updating requirements from source materials that touch several areas;
+- establishing current implementation facts needed for planning or requirements;
 - validating that prototypes still match requirements.
 
 The user should not need to call `исследуй срез` or similar internal commands.
@@ -46,6 +47,7 @@ Expected files:
 - `errors-validation.yaml`
 - `roles-access.yaml`
 - `observability-config.yaml`
+- `code-evidence.yaml` when findings come from a local code clone
 - `summary.md`
 
 Use only the files needed for the current action. Do not create empty research files just to satisfy a template.
@@ -61,6 +63,7 @@ Use only the files needed for the current action. Do not create empty research f
 | `errors-validation` | Validation, errors, retries, manual resolution, edge cases |
 | `roles-access` | Roles, permissions, screen/action availability |
 | `observability-config` | Logs, metrics, audit, configuration, operational signals |
+| `code-evidence` | Commit-bound implementation facts with relative paths and symbols |
 
 ## Completeness Checklist
 
@@ -97,3 +100,5 @@ After research:
 - Do not merge research directly into `baseline/current/` outside release finalization.
 - Do not let `.research/` replace feature requirements or slice packs.
 - Do not continue silently if research finds a business decision, contradiction or prototype mismatch.
+- Do not treat the current implementation as the owner of business intent. Separate code facts from inferences and ask the analyst when a semantic choice remains.
+- Do not copy source fragments into the documents repository. Record only the commit, relative path, symbol and short observation.

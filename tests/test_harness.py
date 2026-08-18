@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import hashlib
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,6 +24,64 @@ class HarnessTests(unittest.TestCase):
         result = run("bash", str(ROOT / "scripts/scaffold-project.sh"), str(project))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return project
+
+    def scaffold_analyst_workspace(self, root: Path) -> tuple[Path, Path]:
+        analytical = root / "analytical"
+        result = run("bash", str(ROOT / "scripts/scaffold-project.sh"), str(analytical))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for command in (
+            ("git", "init", "-b", "main", str(analytical)),
+            ("git", "-C", str(analytical), "config", "user.name", "Harness Test"),
+            ("git", "-C", str(analytical), "config", "user.email", "harness@example.test"),
+            ("git", "-C", str(analytical), "remote", "add", "origin", "https://example.test/analytical.git"),
+            ("git", "-C", str(analytical), "add", "."),
+            ("git", "-C", str(analytical), "commit", "-m", "initial"),
+        ):
+            result = run(*command)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        code = root / "code"
+        (code / "backend/src").mkdir(parents=True)
+        (code / "frontend/src").mkdir(parents=True)
+        (code / "backend/AGENTS.md").write_text("# Backend SDD\n", encoding="utf-8")
+        (code / "frontend/AGENTS.md").write_text("# Frontend SDD\n", encoding="utf-8")
+        (code / "backend/src/Registry.java").write_text("class Registry { String productCode; }\n", encoding="utf-8")
+        (code / "frontend/src/Registry.tsx").write_text("export const Registry = () => null;\n", encoding="utf-8")
+        for command in (
+            ("git", "init", "-b", "main", str(code)),
+            ("git", "-C", str(code), "config", "user.name", "Harness Test"),
+            ("git", "-C", str(code), "config", "user.email", "harness@example.test"),
+            ("git", "-C", str(code), "remote", "add", "origin", "https://example.test/code.git"),
+            ("git", "-C", str(code), "add", "."),
+            ("git", "-C", str(code), "commit", "-m", "initial"),
+        ):
+            result = run(*command)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        registry = {
+            "schema_version": 2,
+            "workspace": {
+                "layout": "test",
+                "code_optional": True,
+                "default_repository": "code",
+                "analytical_repository": {
+                    "id": "analytical",
+                    "accepted_remote_urls": ["https://example.test/analytical.git"],
+                },
+            },
+            "repositories": [{
+                "id": "code",
+                "purpose": "test",
+                "access": "read-only",
+                "location": {"relative_to_analytical": "../code"},
+                "accepted_remote_urls": ["https://example.test/code.git"],
+                "expected_branch": None,
+                "contours": {"backend": {"path": "backend"}, "frontend": {"path": "frontend"}},
+                "instruction_patterns": ["AGENTS.md", "**/AGENTS.md"],
+            }],
+        }
+        (analytical / ".workflow/code-repos.json").write_text(json.dumps(registry), encoding="utf-8")
+        run("git", "-C", str(analytical), "add", ".workflow/code-repos.json")
+        run("git", "-C", str(analytical), "commit", "-m", "configure code")
+        return analytical, code
 
     def write_pending_handoff_package(self, package: Path, package_id: str = "demo", revision: int = 1) -> None:
         package.mkdir(parents=True, exist_ok=True)
@@ -86,6 +146,89 @@ class HarnessTests(unittest.TestCase):
             result = run(sys.executable, str(project / ".workflow/tools/harnessctl.py"), "doctor", str(project))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_analyst_workspace_resolves_and_guards_code_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            analytical, code = self.scaffold_analyst_workspace(root)
+            tool = analytical / ".workflow/tools/code-inspect.py"
+
+            result = run(sys.executable, str(tool), "doctor", str(analytical))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["status"], "ok")
+            self.assertEqual(report["repositories"][0]["head"], run("git", "-C", str(code), "rev-parse", "HEAD").stdout.strip())
+
+            result = run(
+                sys.executable,
+                str(tool),
+                "locate",
+                str(analytical),
+                "productCode",
+                "--contour",
+                "backend",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            located = json.loads(result.stdout)
+            self.assertEqual(located["matches"], ["backend/src/Registry.java"])
+            self.assertFalse(located["truncated"])
+
+            state_home = root / "state"
+            env = {**os.environ, "XDG_STATE_HOME": str(state_home)}
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(tool),
+                    "begin",
+                    str(analytical),
+                    "--contour",
+                    "backend",
+                    "--feature",
+                    "registry",
+                    "--query",
+                    "Найти productCode",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            state = Path(result.stdout.splitlines()[0])
+            self.assertTrue(state.is_file())
+            result = run(sys.executable, str(tool), "verify", str(state))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+            result = run(sys.executable, str(tool), "setup", str(analytical))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Договор общей рабочей области аналитика", (root / "AGENTS.md").read_text(encoding="utf-8"))
+            workspace = json.loads((root / "analyst-workspace.code-workspace").read_text(encoding="utf-8"))
+            self.assertEqual([item["path"] for item in workspace["folders"]], ["analytical", "code"])
+
+            run_file = analytical / ".workflow/tools/harnessctl.py"
+            result = run(
+                sys.executable,
+                str(run_file),
+                "run-init",
+                str(analytical),
+                "implementation",
+                "--run-id",
+                "code-root-test",
+                "--role",
+                "BE",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            run_payload = json.loads((analytical / ".workflow/runs/code-root-test/run.json").read_text(encoding="utf-8"))
+            self.assertEqual(Path(run_payload["code_root"]), code / "backend")
+
+            source = code / "backend/src/Registry.java"
+            source.write_text(source.read_text(encoding="utf-8") + "// changed\n", encoding="utf-8")
+            result = run(sys.executable, str(tool), "verify", str(state))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('"result": "changed"', result.stdout)
+            result = run(sys.executable, str(tool), "begin", str(analytical), "--contour", "backend")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("нужен чистый клон", result.stdout)
+
     def test_scaffold_contains_per_item_developer_handoff_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
@@ -106,6 +249,7 @@ class HarnessTests(unittest.TestCase):
             templates = project / ".workflow/templates/handoff"
             required = (
                 "handoff-root.feature.template.json",
+                "handoff-root-feature-agents.template.md",
                 "handoff-root-feature-readme.template.md",
                 "feature-package-readme.template.md",
                 "feature-request.template.md",
@@ -120,8 +264,24 @@ class HarnessTests(unittest.TestCase):
             for name in required:
                 self.assertTrue((templates / name).is_file(), name)
             root_manifest = json.loads((templates / "handoff-root.feature.template.json").read_text(encoding="utf-8"))
-            self.assertEqual(root_manifest["schema_version"], 2)
+            self.assertEqual(root_manifest["schema_version"], 3)
             self.assertEqual(root_manifest["package_kind"], "feature-delivery")
+            self.assertEqual(root_manifest["transport_policy"], {
+                "creation": "on-request",
+                "repository_archives": "forbidden",
+                "destination": "~/Downloads",
+            })
+            self.assertEqual(root_manifest["agent_contract"]["path"], "AGENTS.md")
+            self.assertTrue(root_manifest["agent_contract"]["required"])
+            registry = json.loads((project / ".workflow/code-repos.json").read_text(encoding="utf-8"))
+            self.assertEqual(registry["schema_version"], 2)
+            self.assertTrue(registry["workspace"]["code_optional"])
+            self.assertIsNone(registry["workspace"]["default_repository"])
+            self.assertEqual(registry["repositories"], [])
+            self.assertTrue((project / ".workflow/code-inspection.md").is_file())
+            self.assertTrue((project / ".workflow/tools/code-inspect.py").is_file())
+            self.assertTrue((project / ".workflow/templates/research/code-evidence.template.yaml").is_file())
+            self.assertTrue((project / ".workflow/templates/workspace/analyst-workspace-agents.template.md").is_file())
             contract = (project / ".workflow/developer-handoff.md").read_text(encoding="utf-8")
             self.assertIn("returns/decomposition-snapshots/", contract)
             self.assertIn("returns/implementation-results/", contract)
@@ -234,7 +394,7 @@ class HarnessTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("immutable revision", result.stdout)
 
-    def test_publish_stops_before_transport_when_previous_revision_is_in_progress(self) -> None:
+    def test_publish_stops_when_previous_revision_is_in_progress(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
             tool = project / ".workflow/tools/handoffctl.py"
@@ -261,6 +421,57 @@ class HarnessTests(unittest.TestCase):
             second = next(item for item in manifest["revisions"] if item["revision"] == 2)
             self.assertEqual(second["state"], "draft")
             self.assertIsNone(second["transport_path"])
+
+    def test_transport_is_on_request_and_outside_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            project = self.scaffold(base)
+            tool = project / ".workflow/tools/handoffctl.py"
+            result = run(
+                sys.executable,
+                str(tool),
+                "init",
+                str(project),
+                "demo",
+                "demo-be-change",
+                "--role",
+                "BE",
+                "--source-task-id",
+                "CAND-DEMO-BE-001",
+                "--source-task-path",
+                "features/demo/tasks/be-change.md",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            root = project / "features/demo/handoffs/demo-be-change"
+            result = run(sys.executable, str(tool), "add-revision", str(root), "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.write_pending_handoff_package(root / "revisions/001/package", "demo-be-change", 1)
+            result = run(sys.executable, str(tool), "publish", str(root), "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(list(root.rglob("*.zip")), [])
+
+            home = base / "home"
+            env = {**os.environ, "HOME": str(home)}
+            result = subprocess.run(
+                [sys.executable, str(tool), "transport", str(root), "1"],
+                text=True,
+                capture_output=True,
+                check=False,
+                env=env,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            archive = home / "Downloads/demo-be-change-r001.zip"
+            self.assertTrue(archive.is_file())
+            self.assertEqual(list(root.rglob("*.zip")), [])
+            manifest = json.loads((root / "handoff.json").read_text(encoding="utf-8"))
+            self.assertIsNone(manifest["revisions"][0]["transport_path"])
+            self.assertIsNone(manifest["revisions"][0]["transport_sha256"])
+
+            forbidden = root / "revisions/001.zip"
+            forbidden.write_bytes(archive.read_bytes())
+            result = run(sys.executable, str(tool), "validate", str(root))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("archives inside the handoff repository are forbidden", result.stdout + result.stderr)
 
     def test_handoff_validator_accepts_delivery_deviation_and_additional_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -375,6 +586,118 @@ class HarnessTests(unittest.TestCase):
             result = run(sys.executable, str(project / ".workflow/tools/validate-planning.py"), str(project))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("approved plan was modified", result.stdout)
+
+    def test_workspace_can_create_analytical_repository_without_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp) / "analyst-harness"
+            shutil.copytree(
+                ROOT,
+                workspace,
+                ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache"),
+            )
+            tool = workspace / "scripts/workspace.py"
+            result = run(
+                sys.executable,
+                str(tool),
+                "configure",
+                "--analytical-mode",
+                "create",
+                "--code-mode",
+                "skip",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = run(sys.executable, str(tool), "bootstrap")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            project = workspace / "analytical-project"
+            self.assertEqual(
+                Path(run("git", "-C", str(project), "rev-parse", "--show-toplevel").stdout.strip()).resolve(),
+                project.resolve(),
+            )
+            registry = json.loads((project / ".workflow/code-repos.json").read_text(encoding="utf-8"))
+            self.assertEqual(registry["repositories"], [])
+            self.assertIsNone(registry["workspace"]["default_repository"])
+            result = run(sys.executable, str(project / ".workflow/tools/code-inspect.py"), "doctor", str(project))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("работа без исследования кода разрешена", result.stdout)
+
+    def test_workspace_can_clone_user_configured_repositories(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            remotes = root / "remotes"
+            remotes.mkdir()
+
+            def seed_bare(name: str, files: dict[str, str]) -> Path:
+                bare = remotes / f"{name}.git"
+                work = root / f"seed-{name}"
+                self.assertEqual(run("git", "init", "--bare", str(bare)).returncode, 0)
+                self.assertEqual(run("git", "init", "-b", "main", str(work)).returncode, 0)
+                self.assertEqual(run("git", "-C", str(work), "config", "user.name", "Harness Test").returncode, 0)
+                self.assertEqual(run("git", "-C", str(work), "config", "user.email", "harness@example.test").returncode, 0)
+                for relative, content in files.items():
+                    path = work / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(content, encoding="utf-8")
+                self.assertEqual(run("git", "-C", str(work), "add", ".").returncode, 0)
+                self.assertEqual(run("git", "-C", str(work), "commit", "-m", "initial").returncode, 0)
+                self.assertEqual(run("git", "-C", str(work), "remote", "add", "origin", str(bare)).returncode, 0)
+                self.assertEqual(run("git", "-C", str(work), "push", "origin", "main").returncode, 0)
+                self.assertEqual(run("git", "-C", str(bare), "symbolic-ref", "HEAD", "refs/heads/main").returncode, 0)
+                return bare
+
+            analytical_remote = seed_bare("analytical", {"README.md": "# Product knowledge\n"})
+            code_remote = seed_bare("code", {"backend/AGENTS.md": "# Backend\n", "backend/app.py": "VALUE = 1\n"})
+            workspace = root / "analyst-harness"
+            shutil.copytree(ROOT, workspace, ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache"))
+            tool = workspace / "scripts/workspace.py"
+            result = run(
+                sys.executable,
+                str(tool),
+                "configure",
+                "--analytical-mode",
+                "clone",
+                "--analytical-url",
+                str(analytical_remote),
+                "--code-mode",
+                "clone",
+                "--code-url",
+                str(code_remote),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = run(sys.executable, str(tool), "bootstrap")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            registry = json.loads(
+                (workspace / "analytical-project/.workflow/code-repos.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(registry["workspace"]["default_repository"], "code")
+            self.assertEqual(registry["repositories"][0]["accepted_remote_urls"], [str(code_remote)])
+            self.assertEqual(registry["repositories"][0]["contours"], {"backend": {"path": "backend"}})
+            result = run(sys.executable, str(tool), "status")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_workspace_can_create_both_repositories(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            workspace = Path(temp) / "analyst-harness"
+            shutil.copytree(ROOT, workspace, ignore=shutil.ignore_patterns(".git", "__pycache__", ".pytest_cache"))
+            tool = workspace / "scripts/workspace.py"
+            result = run(
+                sys.executable,
+                str(tool),
+                "configure",
+                "--analytical-mode",
+                "create",
+                "--code-mode",
+                "create",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            result = run(sys.executable, str(tool), "bootstrap")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            code = workspace / "code"
+            self.assertEqual(Path(run("git", "-C", str(code), "rev-parse", "--show-toplevel").stdout.strip()), code)
+            registry = json.loads(
+                (workspace / "analytical-project/.workflow/code-repos.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(registry["repositories"][0]["accepted_remote_urls"], [])
+            self.assertEqual(registry["repositories"][0]["contours"], {"root": {"path": "."}})
 
 
 if __name__ == "__main__":

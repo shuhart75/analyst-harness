@@ -24,6 +24,7 @@ The planning mode starts with feature intake when the user brings a candidate ne
 - `features/*/planning/estimates.md`
 - `features/*/planning/scope-prototype/*`
 - `features/*/domain-impact.md` for preliminary DDD impact
+- optional `features/*/.research/code-evidence.yaml`
 - `planning/*/gantt/quarter-plan.puml`
 - `planning/*/gantt/commander-plan.puml`
 - `planning/*/plan-state.md`
@@ -38,6 +39,7 @@ The planning mode starts with feature intake when the user brings a candidate ne
 - scope prototype
 - quarter and commander gantt
 - planning context, assumptions, risk register and story map
+- auxiliary commit-bound code evidence when current implementation affects planning
 
 ## Planning story model
 
@@ -98,6 +100,8 @@ Planning mode owns quarter and commander baselines. It does not own current exec
 
 During planning, capture obvious cross-feature or domain-wide consequences in `domain-impact.md`, but keep them marked as `proposed` until requirements work confirms them.
 
+When a planning boundary, dependency or estimate materially depends on current implementation and a code repository is configured, use it for one bounded read-only inspection under `.workflow/code-inspection.md`. Record the inspected commit and keep technical findings as evidence or assumptions; do not derive a new business scope from code alone. If no code repository is configured, state the unchecked assumption instead of blocking planning.
+
 ## Forbidden without mode switch
 
 - implementation task actual dates
@@ -125,6 +129,7 @@ For `новая фича`, `занимаемся планированием`, `�
 
 - summarize source materials into the intake result or `features/<feature>/planning/planning-context.md`;
 - explicitly separate current-system coverage, new delta and uncertain items;
+- use targeted code inspection when `baseline/current/` and source materials are insufficient to classify current-system coverage;
 - keep planning assumptions in `features/<feature>/planning/assumptions.md` or a clearly named section of `planning-context.md`;
 - keep planning risks in `features/<feature>/planning/risk-register.md` or a clearly named section of `planning-context.md`;
 - map `source -> delta -> planning story -> slice` in `features/<feature>/planning/story-map.md` when the feature is large enough that the relationship is not obvious;

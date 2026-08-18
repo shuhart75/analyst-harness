@@ -2,6 +2,15 @@
 
 This repository defines a reusable workflow harness.
 
+## First launch of this repository
+
+- If `.analyst-workspace.json` is absent, do not guess repository URLs or create directories yet.
+- Ask the user, one question at a time, whether the analytical repository must be cloned or created, then whether the code repository must be cloned, created, or omitted.
+- Ask for a URL only for a repository selected for cloning. Never supply a product-specific default URL.
+- Save the accepted choices with `python3 scripts/workspace.py configure ...`, then run `python3 scripts/workspace.py bootstrap`.
+- On later sessions, use the saved local settings and do not ask the same questions again. The settings file is local and must not be committed.
+- The code repository is optional. Absence of code access limits implementation research but does not block planning, requirements, prototypes, handoffs, progress tracking, or release finalization.
+
 ## Always read first
 
 When working inside a project that uses this harness, read in this order:
@@ -14,13 +23,14 @@ When working inside a project that uses this harness, read in this order:
 6. `.workflow/tooling-policy.md`
 7. `.workflow/context-policy.md`
 8. `.workflow/research-policy.md`
-9. `.workflow/run-loop.md`
-10. `.workflow/harness.json`
-11. `.workflow/run-state/session-brief.md` when present
-12. `.workflow/active-mode.md`
-13. `.workflow/modes/<active-mode>.md`
-14. `.workflow/team.md` before planning resources or regenerating actual-progress
-15. relevant files under `.workflow/overrides/`
+9. `.workflow/code-inspection.md`
+10. `.workflow/run-loop.md`
+11. `.workflow/harness.json`
+12. `.workflow/run-state/session-brief.md` when present
+13. `.workflow/active-mode.md`
+14. `.workflow/modes/<active-mode>.md`
+15. `.workflow/team.md` before planning resources or regenerating actual-progress
+16. relevant files under `.workflow/overrides/`
 
 ## Primary workflow rule
 
@@ -51,7 +61,7 @@ Work should be grouped by:
 
 - Treat `сформируй пакет для разработки` and its documented Russian synonyms as one end-to-end analyst command: validate and safely repair requirements, ask one semantic question at a time when needed, then publish directly to `sent`. Do not leave a `ready` revision for analyst inspection.
 - For new work, send one `feature-delivery` package containing root requirements and slices; do not pre-author the final Jira decomposition under `features/<feature>/tasks/`.
-- In a received package, read `handoff.json`, then `request.md` and `manifest.json`, then only the requirements and slices for one selected contour. Read that contour's local SDD before opening matched code and nearby tests. Never load all of `coda` or both contours by default.
+- In a received package, read `handoff.json`, then `request.md` and `manifest.json`, then only the requirements and slices for one selected contour. Read that contour's local SDD before opening matched code and nearby tests. Never load the whole code repository or multiple contours by default.
 - Developers own confirmed `DEV-BE-*` and `DEV-FE-*` cards after inspecting their local SDD and code.
 - Create every card from `development-task-card.template.md`, fill every section, and preserve the complete Russian `Короткие команды разработчика` block after every update.
 - A confirmed decomposition snapshot is delivered to the analyst in the background and never blocks implementation.
@@ -89,6 +99,14 @@ Context summaries, checkpoints and research files are internal harness operation
 - Use `.workflow/context-policy.md` to decide when to create or refresh context summaries and checkpoints.
 - Use `.workflow/research-policy.md` to run role-based research for large features, slices, prototypes, development handoff, implementation planning and QA checks.
 - Treat `.research/`, context summaries and external memory as auxiliary. Accepted findings must be transferred into the authoritative planning, requirements, prototype, execution, release or baseline artifacts.
+
+## Analyst code inspection
+
+- Use `.workflow/code-inspection.md` when the analyst asks to inspect code or when current implementation facts are needed for planning or requirements.
+- Resolve the configured code repository through `.workflow/code-repos.json`; never require the user to provide its path in each prompt.
+- Treat the code repository as read-only in analyst work. Record its branch, commit and worktree state before inspection and verify that they are unchanged afterward.
+- Inspect one contour at a time. Read that contour's local instructions, locate exact identifiers, then open only matched modules and nearby tests, contracts or migrations.
+- Code observations are commit-bound auxiliary evidence, not automatic business requirements or baseline updates.
 
 ## Executable harness
 

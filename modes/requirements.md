@@ -119,7 +119,7 @@ If the change affects domain rules, lifecycle, roles, API semantics, data model,
 Если функциональность однозначно не следует из текущего контекста, сначала спроси, какую функциональность передавать. Далее выполни единый проход готовности:
 
 1. Проверь корневые требования по `.workflow/requirements-profile.md`: цель, границы, исключения, участники, предпосылки, правила, состояния и переходы, данные, права, интеграции, ошибки, отрицательные и граничные случаи, наблюдаемые критерии приёмки.
-2. Проверь внутреннюю непротиворечивость и соответствие относящемуся к функциональности `baseline/current/`. Не сверяй весь код `coda`: фактическую реализацию исследует принимающая SDD.
+2. Проверь внутреннюю непротиворечивость и соответствие относящемуся к функциональности `baseline/current/`. Если требование зависит от фактического API, данных, статусов, ролей, проверок или уже реализованного поведения и кодовый репозиторий настроен, выполни точечное исследование по `.workflow/code-inspection.md`. Не сверяй весь код. Зафиксируй коммит и доказательства; принимающая SDD всё равно повторно сверяет требования со своей актуальной веткой перед реализацией. Если кодовый репозиторий не настроен, явно зафиксируй непроверенное предположение и продолжай работу.
 3. Проверь раздел влияний. Каждая обязательная доработка соседней функциональности должна входить в объём, иметь критерий завершения и быть отражена в нужных требованиях и срезах.
 4. Проверь срезы и подробные требования контуров: они производны от корневого документа, не расходятся с ним и покрывают требования, сценарии, влияния и проверки.
 5. Проверь устойчивые идентификаторы и трассировку, зависимости, открытые вопросы, устаревшие хвосты, ссылки и русский язык.
@@ -129,7 +129,7 @@ If the change affects domain rules, lifecycle, roles, API semantics, data model,
 9. После исправлений повторно запусти профильную, языковую, ссылочную и трассировочную проверки для затронутой функциональности.
 10. Создай общий пакет или следующую редакцию существующего пакета, выполни `handoffctl publish` и проверь, что состояние редакции равно `sent`, а `next_sdd_action.action` равно `process`.
 
-Аналитик проверяет требования, а не служебное содержимое пакета. Поэтому успешная команда всегда заканчивается опубликованной редакцией и транспортным ZIP; промежуточного пользовательского состояния `ready` нет. В ответе покажи функциональность, номер редакции, путь к общему каталогу, путь и контрольную сумму ZIP, способ трассировки и действие SDD.
+Аналитик проверяет требования, а не служебное содержимое пакета. Поэтому успешная команда всегда заканчивается опубликованной редакцией без транспортного ZIP; промежуточного пользовательского состояния `ready` нет. В ответе покажи функциональность, номер редакции, путь к общему каталогу, способ трассировки и действие SDD. ZIP создавай только по отдельному явному требованию и только в `~/Downloads`.
 
 Аналитик не определяет окончательную разбивку будущих задач Jira. После успешного прохода создай общий пакет командой `handoffctl init-feature`, если его ещё нет, добавь новую неизменяемую редакцию командой `handoffctl add-revision` и сразу опубликуй её командой `handoffctl publish`.
 
@@ -168,6 +168,8 @@ For `делаем требования`, `актуализируй требов�
 - create or refresh `features/<feature>/artifact-map.md` when authored, derived or auxiliary artifacts change;
 - create or refresh `features/<feature>/slices/<slice>/context-summary.md` when a slice card or FE/BE pack is created or materially changed;
 - run role-based research from `.workflow/research-policy.md` when requirements are large, ambiguous, cross-cutting, or code/source-material inspection is needed;
+- automatically inspect the registered local code repository when a current implementation fact is necessary, without asking the user for repository paths; if code access is disabled, record the limitation without blocking the workflow;
+- keep analyst code access read-only and complete the before/after verification from `.workflow/code-inspection.md`;
 - run the completeness checklist before presenting slice requirements as ready;
 - update a checkpoint before and after long decomposition or derivation passes.
 

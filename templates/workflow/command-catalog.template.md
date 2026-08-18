@@ -78,6 +78,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `новая фича` | `planning` | Run feature intake/preflight before any scaffold step. |
 | `занимаемся планированием` | `planning` | Switch into quarter planning and HLE mode. |
 | `делаем требования` | `requirements` | Switch into living requirements mode and use the requested requirements format. |
+| `сходи в код` | текущий аналитический режим | Выполнить ограниченное исследование одного контура настроенного кодового репозитория без изменения кода и привязать выводы к коммиту; при отсутствии репозитория явно отметить ограничение. |
 | `делаем презентационный прототип` | `scope-prototype` | Switch into common feature prototype mode and choose the visual base before generating. |
 | `делаем прототип для разработки` | `delivery-prototype` | Switch into slice handoff mode, but block any slice edits until the root feature prototype is explicitly approved. |
 | `обновляем прогресс` | `execution-update` | Switch into implementation tracking mode. |
@@ -85,7 +86,8 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `актуализируй требования` | `requirements` | Обновить требования и распространить влияние на производные срезы. |
 | `разложи требования на срезы` | `requirements` | Decompose root feature requirements into testable slices. |
 | `подготовь детальные требования по срезам` | `requirements` | Derive slice cards and interface/backend detail packs from root requirements. |
-| `сформируй пакет для разработки` | `requirements` | Проверить и безопасно исправить требования, последовательно уточнить неоднозначности, затем создать ZIP и сразу отправить неизменяемую редакцию в SDD. |
+| `сформируй пакет для разработки` | `requirements` | Проверить и безопасно исправить требования, последовательно уточнить неоднозначности, затем сразу отправить неизменяемую редакцию в SDD без создания ZIP. |
+| `собери транспортный ZIP редакции <NNN>` | `requirements` | По явному требованию создать архив опубликованной редакции в `~/Downloads`, не меняя пакет и не сохраняя ZIP в репозитории. |
 | `приостанови редакцию пакета` | `requirements` | Set SDD action to wait or stop-and-report without rewriting the revision. |
 | `покажи состояние пакета` | `requirements` | Read `handoff.json` and report the single current SDD action. |
 | `покажи подтверждённую декомпозицию` | `execution-update` | Прочитать актуальный неизменяемый снимок карточек, полученный от разработки. |
@@ -126,7 +128,7 @@ These are the recommended user-facing commands by role. Internal context refresh
 
 | Role | Commands | User gets |
 |---|---|---|
-| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `сформируй пакет для разработки`, `обнови фактический план по подтверждённой декомпозиции` | Планы, требования, срезы, отправленные редакции и фактическое выполнение. |
+| Analyst | `новая фича`, `занимаемся планированием`, `спланируй фичу`, `делаем требования`, `сходи в код`, `разложи требования на срезы`, `подготовь детальные требования по срезам`, `сформируй пакет для разработки`, `обнови фактический план по подтверждённой декомпозиции` | Планы, требования, подтверждённые кодом факты, срезы, отправленные редакции и фактическое выполнение. |
 | Developer | `подготовь декомпозицию серверной части`, `подготовь декомпозицию клиентской части`, `проверь декомпозицию`, `декомпозиция подтверждена разработкой`, `подготовь список для Jira`, `возьми DEV-* в разработку` | Карточки будущих задач Jira, снимок декомпозиции и квитанции реализации. |
 | Tester | `возьми срез <id> в тестирование`, `подготовь проверки по срезу`, `собери негативные сценарии`, `сверь проверки с требованиями`, `зафиксируй найденные пробелы` | Проверки среза, покрытие и независимая квитанция тестирования. |
 
@@ -191,6 +193,7 @@ Treat these as equivalent user phrasings.
 | `новая фича` | `planning` | Switch mode, inspect source folder, run intake, do not scaffold yet. |
 | `занимаемся планированием` | `planning` | Switch mode, read baseline/current and current quarter planning. |
 | `делаем требования` | `requirements` | Switch mode, select new readable or old detailed format, read baseline/current and author the root feature requirements before deriving slices. |
+| `сходи в код` | текущий аналитический режим | Если кодовый репозиторий настроен, разрешить путь из реестра, зафиксировать его состояние, исследовать один контур, сообщить коммит и доказательства, затем проверить неизменность репозитория. |
 | `разложи требования на срезы` | `requirements` | Switch mode if needed, refresh context, decompose root requirements into slices, then update root requirements first if decomposition exposes gaps. |
 | `подготовь детальные требования по срезам` | `requirements` | Switch mode if needed, refresh slice context, run completeness checks internally, then derive slice cards and detail packs. |
 | `сформируй пакет для разработки` | `requirements` | Переключить режим; проверить полноту, непротиворечивость, проверяемость, влияния, срезы, трассировку и язык; автоматически исправить только однозначное; при сомнениях задавать по одному вопросу; после успешной проверки создать и опубликовать редакцию как `sent`. |
@@ -239,6 +242,7 @@ Treat these as equivalent user phrasings.
 | `проверь хвосты требований` | Run a quick feature-local cleanup for stale old wording, endpoints, fields, statuses or option names after a requirements edit. | current feature requirements, slice packs, `domain-impact.md`, local backlog items |
 | `проверь консистентность требований` | Run a consistency sweep across affected features and baseline. | requirements, `baseline/current/*`, `.workflow/consistency-backlog.md` |
 | `проверь русский язык требований` | Run the language validator for changed requirements; keep English only for exact technical identifiers and fixed special terms. | changed root/slice requirement files |
+| `сходи в код` | Inspect current implementation facts in one registered code contour without changing it; report the limitation when code access is disabled. | ad hoc answer or `features/*/.research/code-evidence.yaml`, then requirements when accepted |
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |

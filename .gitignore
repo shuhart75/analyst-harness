@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+/.analyst-workspace.json
+/analyst-workspace.code-workspace
+/analytical-project/
+/code/

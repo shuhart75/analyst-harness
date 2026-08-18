@@ -69,6 +69,10 @@ TASK_ID_RE = re.compile(r"DEV-(BE|FE)-[0-9]+")
 REQ_ID_RE = re.compile(r"\bREQ-[A-Z0-9-]+\b")
 SCN_ID_RE = re.compile(r"\bSCN-[A-Z0-9-]+\b")
 IMP_ID_RE = re.compile(r"\bIMP-[A-Z0-9-]+\b")
+TRACE_ID_RANGE_RE = re.compile(
+    r"\b((?:REQ|SCN|IMP)-[A-Z0-9-]*?)([0-9]+)\s*[—–]\s*"
+    r"((?:REQ|SCN|IMP)-[A-Z0-9-]*?)([0-9]+)\b"
+)
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 STABLE_SECTION_RE = re.compile(r"^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\s+(?:—|-)\s+(.+)$")
 SLICE_CARD_RE = re.compile(r"Карточка среза:\s*`([^`]+)`", re.IGNORECASE)
@@ -157,7 +161,7 @@ def revision_entry(manifest: dict[str, Any], revision: int) -> dict[str, Any]:
 
 
 def is_feature_manifest(manifest: dict[str, Any]) -> bool:
-    return manifest.get("schema_version") == 2 and manifest.get("package_kind") == "feature-delivery"
+    return manifest.get("schema_version") in {2, 3} and manifest.get("package_kind") == "feature-delivery"
 
 
 def relative_path(value: Any) -> bool:
@@ -223,6 +227,25 @@ def feature_contract(requirements_text: str) -> dict[str, Any]:
     }
 
 
+def referenced_identifiers(text: str, pattern: re.Pattern[str], known: set[str]) -> set[str]:
+    identifiers = set(pattern.findall(text)) & known
+    for match in TRACE_ID_RANGE_RE.finditer(text):
+        left_prefix, left_number, right_prefix, right_number = match.groups()
+        if left_prefix != right_prefix or len(left_number) != len(right_number):
+            continue
+        start = int(left_number)
+        end = int(right_number)
+        if end < start or end - start > 1000:
+            continue
+        width = len(left_number)
+        identifiers.update(
+            identifier
+            for number in range(start, end + 1)
+            if (identifier := f"{left_prefix}{number:0{width}d}") in known
+        )
+    return identifiers
+
+
 def slice_contract_from_files(
     contract: dict[str, Any],
     slice_path: str,
@@ -230,7 +253,7 @@ def slice_contract_from_files(
 ) -> dict[str, list[str]]:
     combined = "\n".join(texts)
     known_requirements = set(contract["requirements"])
-    requirements = set(REQ_ID_RE.findall(combined)) & known_requirements
+    requirements = referenced_identifiers(combined, REQ_ID_RE, known_requirements)
     if contract["traceability"]["mode"] == "legacy-sections":
         requirements.update(
             item["id"]
@@ -239,15 +262,28 @@ def slice_contract_from_files(
         )
     return {
         "requirements": sorted(requirements),
-        "scenarios": sorted(set(SCN_ID_RE.findall(combined)) & set(contract["scenarios"])),
+        "scenarios": sorted(referenced_identifiers(combined, SCN_ID_RE, set(contract["scenarios"]))),
     }
 
 
 def validate_task_card(card_text: str, task: dict[str, Any]) -> list[str]:
     task_id = task["id"]
     errors: list[str] = []
-    if task_id not in card_text or "подтверждена разработкой" not in card_text:
-        errors.append(f"{task_id}: card must contain its id and confirmed decomposition state")
+    if task_id not in card_text:
+        errors.append(f"{task_id}: card must contain its id")
+    if not re.search(
+        r"^\|\s*Состояние декомпозиции\s*\|\s*подтверждена разработкой\s*\|\s*$",
+        card_text,
+        flags=re.MULTILINE | re.IGNORECASE,
+    ):
+        errors.append(f"{task_id}: card decomposition state must be confirmed-by-development")
+    expected_contour = task.get("contour")
+    if isinstance(expected_contour, str) and not re.search(
+        rf"^\|\s*Контур\s*\|\s*`?{re.escape(expected_contour)}`?\s*\|\s*$",
+        card_text,
+        flags=re.MULTILINE | re.IGNORECASE,
+    ):
+        errors.append(f"{task_id}: card contour must be {expected_contour}")
     sections = {item["title"]: item["body"] for item in markdown_sections(card_text)}
     for name in TASK_CARD_SECTIONS:
         if name not in sections or not sections[name].strip():
@@ -421,8 +457,56 @@ def validate_feature_package(package: Path) -> list[str]:
 
 def validate_feature_root(root: Path, manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    if manifest.get("schema_version") not in {2, 3}:
+        errors.append("feature handoff has unsupported schema_version")
     if not isinstance(manifest.get("package_id"), str) or not manifest["package_id"]:
         errors.append("package_id is required")
+    if manifest.get("schema_version") == 3:
+        expected_transport_policy = {
+            "creation": "on-request",
+            "repository_archives": "forbidden",
+            "destination": "~/Downloads",
+        }
+        if manifest.get("transport_policy") != expected_transport_policy:
+            errors.append("feature handoff transport_policy is invalid")
+    agent_contract = manifest.get("agent_contract")
+    if manifest.get("schema_version") == 3 or agent_contract is not None:
+        if not isinstance(agent_contract, dict):
+            errors.append("agent_contract is required for feature handoff schema 3")
+        else:
+            expected_contract = {
+                "path": "AGENTS.md",
+                "schema_version": 1,
+                "required": True,
+            }
+            for key, value in expected_contract.items():
+                if agent_contract.get(key) != value:
+                    errors.append(f"agent_contract {key} must be {value!r}")
+            agent_path_value = agent_contract.get("path")
+            if not relative_path(agent_path_value):
+                errors.append("agent_contract path must be a relative path")
+            else:
+                agent_path = root / agent_path_value
+                if not agent_path.is_file():
+                    errors.append(f"agent contract file is missing: {agent_path_value}")
+                else:
+                    if agent_contract.get("sha256") != hash_file(agent_path):
+                        errors.append("agent contract checksum mismatch")
+                    agent_text = agent_path.read_text(encoding="utf-8", errors="ignore")
+                    for fragment in (
+                        "# Контракт SDD",
+                        "## Область действия и приоритет",
+                        "## Обязательный порядок начала работы",
+                        "## Ограничение контекста",
+                        "## Техническая декомпозиция",
+                        "## Подтверждение декомпозиции",
+                        "## Реализация",
+                        "## Тестирование",
+                        "## Запреты",
+                        "next_sdd_action",
+                    ):
+                        if fragment not in agent_text:
+                            errors.append(f"agent contract is incomplete: {fragment}")
     required = (
         "README.md",
         ".control/handoffctl.py",
@@ -464,11 +548,8 @@ def validate_feature_root(root: Path, manifest: dict[str, Any]) -> list[str]:
         recorded = item.get("package_files")
         if item.get("state") != "draft" and (not isinstance(recorded, dict) or recorded != package_hashes(package)):
             errors.append(f"revision {label}: immutable package files differ")
-        transport_path = item.get("transport_path")
-        if transport_path:
-            archive = root / transport_path
-            if not archive.is_file() or item.get("transport_sha256") != hash_file(archive):
-                errors.append(f"revision {label}: transport archive mismatch")
+        if item.get("transport_path") is not None or item.get("transport_sha256") is not None:
+            errors.append(f"revision {label}: repository transport metadata is forbidden")
         decomposition = item.get("decomposition")
         if not isinstance(decomposition, dict):
             errors.append(f"revision {label}: decomposition state is missing")
@@ -524,12 +605,22 @@ def validate_root(root: Path) -> list[str]:
         manifest = load(path)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         return [str(exc)]
+    repository_archives = sorted(path.relative_to(root).as_posix() for path in root.rglob("*.zip"))
+    if repository_archives:
+        errors.append(f"transport archives inside the handoff repository are forbidden: {', '.join(repository_archives)}")
     if is_feature_manifest(manifest):
-        return validate_feature_root(root, manifest)
+        return errors + validate_feature_root(root, manifest)
     if manifest.get("schema_version") != 1:
         errors.append("handoff.json schema_version must be 1")
     if not isinstance(manifest.get("package_id"), str) or not manifest["package_id"]:
         errors.append("package_id is required")
+    transport_policy = manifest.get("transport_policy")
+    if transport_policy is not None and transport_policy != {
+        "creation": "on-request",
+        "repository_archives": "forbidden",
+        "destination": "~/Downloads",
+    }:
+        errors.append("handoff transport_policy is invalid")
     for required in (
         "README.md",
         ".control/handoffctl.py",
@@ -571,14 +662,8 @@ def validate_root(root: Path) -> list[str]:
         if item.get("state") not in {"draft"}:
             if not isinstance(recorded_files, dict) or recorded_files != package_hashes(package_path):
                 errors.append(f"revision {label}: package files differ from the recorded immutable revision")
-        transport_path = item.get("transport_path")
-        transport_hash = item.get("transport_sha256")
-        if transport_path:
-            archive = root / transport_path
-            if not archive.is_file():
-                errors.append(f"revision {label}: transport archive is missing")
-            elif hash_file(archive) != transport_hash:
-                errors.append(f"revision {label}: transport checksum mismatch")
+        if item.get("transport_path") is not None or item.get("transport_sha256") is not None:
+            errors.append(f"revision {label}: repository transport metadata is forbidden")
         receipt_path = root / str(item.get("receipt_path", ""))
         if isinstance(receipt, dict) and receipt.get("expectation") == "received":
             if not receipt_path.is_file():
@@ -655,9 +740,13 @@ def init_feature_command(args: argparse.Namespace) -> int:
     template_root = Path(__file__).resolve().parents[1] / "templates" / "handoff"
     readme = (template_root / "handoff-root-feature-readme.template.md").read_text(encoding="utf-8")
     (root / "README.md").write_text(readme.replace("<package-id>", args.package_id), encoding="utf-8")
+    agents = (template_root / "handoff-root-feature-agents.template.md").read_text(encoding="utf-8")
+    agents_path = root / "AGENTS.md"
+    agents_path.write_text(agents.replace("<package-id>", args.package_id), encoding="utf-8")
     manifest = load(template_root / "handoff-root.feature.template.json")
     manifest.update({"package_id": args.package_id, "feature": args.feature})
     manifest["source_requirements"] = {"path": args.requirements_path or f"features/{args.feature}/requirements.md"}
+    manifest["agent_contract"]["sha256"] = hash_file(agents_path)
     update_next_action(manifest)
     save(root_manifest(root), manifest)
     copy_control(root, (
@@ -881,8 +970,11 @@ def transport_command(args: argparse.Namespace) -> int:
     root = Path(args.root).resolve()
     manifest = load(root_manifest(root))
     entry = revision_entry(manifest, args.revision)
-    if entry.get("state") != "draft":
-        raise ValueError("An already sent revision is immutable and its transport cannot be rebuilt")
+    if entry.get("state") == "draft":
+        raise ValueError("Publish the revision before building an on-request transport archive")
+    root_errors = validate_root(root)
+    if root_errors:
+        raise ValueError("\n".join(root_errors))
     package = root / entry["package_path"]
     if is_feature_manifest(manifest):
         errors = validate_feature_package(package)
@@ -894,7 +986,9 @@ def transport_command(args: argparse.Namespace) -> int:
         if result.returncode:
             raise ValueError(result.stdout + result.stderr)
     name = revision_name(args.revision)
-    archive = root / "revisions" / f"{name}.zip"
+    downloads = Path.home() / "Downloads"
+    downloads.mkdir(parents=True, exist_ok=True)
+    archive = downloads / f"{manifest['package_id']}-r{name}.zip"
     if archive.exists() and not args.force:
         raise ValueError(f"Transport already exists: {archive}; use --force to rebuild")
     temp = archive.with_suffix(".zip.tmp")
@@ -909,13 +1003,7 @@ def transport_command(args: argparse.Namespace) -> int:
                 info.external_attr = 0o100644 << 16
                 target.writestr(info, path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
     temp.replace(archive)
-    entry["transport_path"] = f"revisions/{name}.zip"
-    entry["transport_sha256"] = hash_file(archive)
-    entry["package_files"] = package_hashes(package)
-    entry["reason"] = "Транспорт сформирован; редакция ещё не отправлена"
-    update_next_action(manifest)
-    save(root_manifest(root), manifest)
-    print(f"{archive}\nsha256={entry['transport_sha256']}")
+    print(f"{archive}\nsha256={hash_file(archive)}")
     return 0
 
 
@@ -948,9 +1036,22 @@ def set_state_command(args: argparse.Namespace) -> int:
     if state not in allowed_states:
         raise ValueError(f"Unsupported state: {state}")
     if state == "sent":
-        if not entry.get("transport_path"):
-            raise ValueError("Build the transport archive before sending the revision")
         validate_send_preconditions(manifest, entry, args.revision, args.force)
+        package = root / entry["package_path"]
+        if is_feature_manifest(manifest):
+            errors = validate_feature_package(package)
+        else:
+            validator = Path(__file__).resolve().with_name("validate-handoff.py")
+            result = subprocess.run(
+                [sys.executable, str(validator), str(package)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            errors = [] if result.returncode == 0 else [result.stdout + result.stderr]
+        if errors:
+            raise ValueError("\n".join(errors))
+        entry["package_files"] = package_hashes(package)
         for other in manifest.get("revisions", []):
             if (
                 other is entry
@@ -1009,12 +1110,6 @@ def publish_command(args: argparse.Namespace) -> int:
     if entry.get("state") != "draft":
         raise ValueError("Only a draft revision can be published")
     validate_send_preconditions(manifest, entry, args.revision, args.force)
-    transport_args = argparse.Namespace(
-        root=str(root),
-        revision=args.revision,
-        force=args.force or bool(entry.get("transport_path")),
-    )
-    transport_command(transport_args)
     state_args = argparse.Namespace(
         root=str(root),
         revision=args.revision,
@@ -1030,8 +1125,6 @@ def publish_command(args: argparse.Namespace) -> int:
         "package_id": updated["package_id"],
         "revision": args.revision,
         "state": published["state"],
-        "transport_path": published["transport_path"],
-        "transport_sha256": published["transport_sha256"],
         "next_sdd_action": updated["next_sdd_action"],
     }, ensure_ascii=False, indent=2))
     return 0
@@ -1227,7 +1320,7 @@ def validate_decomposition(
         instruction_text = (working / "README.md").read_text(encoding="utf-8", errors="ignore")
         for fragment in (
             "Сначала прочитать `handoff.json`",
-            "Не загружать весь репозиторий `coda`",
+            "Не загружать весь кодовый репозиторий",
             "development-task-card.template.md",
             "блок `Короткие команды разработчика`",
         ):
@@ -1240,6 +1333,8 @@ def validate_decomposition(
         for task_id in by_id:
             if task_id not in index_text:
                 errors.append(f"development task index does not list {task_id}")
+        if "Состояние декомпозиции: **подтверждена разработкой**" not in index_text:
+            errors.append("development task index must have confirmed decomposition state")
         for command in INDEX_COMMANDS:
             if command not in index_text:
                 errors.append(f"development task index command is missing: {command}")
@@ -1795,10 +1890,13 @@ def status_command(args: argparse.Namespace) -> int:
     payload = {
         "package_id": manifest.get("package_id"),
         "package_kind": manifest.get("package_kind", "task-delivery"),
+        "transport_policy": manifest.get("transport_policy"),
         "status": manifest.get("status"),
         "active_revision": manifest.get("active_revision"),
         "next_sdd_action": action,
     }
+    if is_feature_manifest(manifest):
+        payload["agent_contract"] = manifest.get("agent_contract")
     if is_feature_manifest(manifest) and manifest.get("active_revision") is not None:
         entry = revision_entry(manifest, manifest["active_revision"])
         payload["decomposition"] = entry.get("decomposition")
@@ -1833,7 +1931,7 @@ def parser() -> argparse.ArgumentParser:
     transport = commands.add_parser("transport")
     transport.add_argument("root")
     transport.add_argument("revision", type=int)
-    transport.add_argument("--force", action="store_true")
+    transport.add_argument("--force", action="store_true", help="перезаписать существующий архив в ~/Downloads")
     transport.set_defaults(handler=transport_command)
     publish = commands.add_parser("publish")
     publish.add_argument("root")

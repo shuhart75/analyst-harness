@@ -168,6 +168,59 @@ class HandoffLifecycleTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("developer command is missing", result.stdout + result.stderr)
 
+    def test_unconfirmed_card_or_index_is_rejected(self) -> None:
+        task = {
+            "id": "DEV-BE-001",
+            "contour": "backend",
+            "decomposition_status": "confirmed-by-development",
+            "card_path": "DEV-BE-001.md",
+            "estimate_days": None,
+            "estimate_source": None,
+            "size_exception_reason": None,
+            "jira_key": None,
+            "requirements": ["REQ-DEMO-001"],
+            "scenarios": ["SCN-DEMO-001"],
+            "impacts": ["IMP-DEMO-001"],
+            "dependencies": [],
+        }
+        coverage = {
+            "unassigned_requirements": [],
+            "unassigned_scenarios": [],
+            "unassigned_impacts": [],
+        }
+        cases = (
+            (
+                "card",
+                "DEV-BE-001.md",
+                "| Состояние декомпозиции | подтверждена разработкой |",
+                "| Состояние декомпозиции | предложена |",
+                "card decomposition state must be confirmed-by-development",
+            ),
+            (
+                "contour",
+                "DEV-BE-001.md",
+                "| Контур | `backend` |",
+                "| Контур | `frontend` |",
+                "card contour must be backend",
+            ),
+            (
+                "index",
+                "index.md",
+                "Состояние декомпозиции: **подтверждена разработкой**",
+                "Состояние декомпозиции: **черновик**",
+                "development task index must have confirmed decomposition state",
+            ),
+        )
+        for name, target_name, old, new, message in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp:
+                handoff, control = self.create_claimed_feature(Path(temp))
+                self.write_decomposition(handoff, [task], coverage)
+                target = handoff / "revisions/001/returns/development-tasks" / target_name
+                target.write_text(target.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
+                result = run(sys.executable, str(control), "confirm-decomposition", str(handoff), "1")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stdout + result.stderr)
+
     def test_legacy_section_requirements_are_packaged_and_validated(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp) / "project"
@@ -237,14 +290,98 @@ IMP-LEGACY-DEMO-001
             index = (handoff / "revisions/001/returns/development-tasks/index.md").read_text(encoding="utf-8")
             self.assertIn("Старая функциональность", index)
             self.assertNotIn("<Название>", index)
-            result = run(sys.executable, str(tool), "transport", str(handoff), "1")
+            result = run(sys.executable, str(tool), "publish", str(handoff), "1")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
             manifest["requirements"] = ["LEGACY-DEMO-001"]
             (package / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
             result = run(sys.executable, str(tool), "transport", str(handoff), "1", "--force")
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("does not match requirements.md", result.stdout + result.stderr)
+            self.assertIn("immutable package files differ", result.stdout + result.stderr)
+
+    def test_feature_slice_manifest_expands_identifier_ranges(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / "project"
+            result = run("bash", str(ROOT / "scripts/scaffold-project.sh"), str(project))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            feature = project / "features/demo"
+            slice_root = feature / "slices/list"
+            slice_root.mkdir(parents=True)
+            (feature / "requirements.md").write_text(
+                "# Требования\n\nREQ-DEMO-001\nREQ-DEMO-002\nREQ-DEMO-003\n\n"
+                "SCN-DEMO-001\nSCN-DEMO-002\nSCN-DEMO-003\n",
+                encoding="utf-8",
+            )
+            (slice_root / "slice.md").write_text(
+                "# Срез\n\nREQ-DEMO-001 — REQ-DEMO-003\n\nSCN-DEMO-001 — SCN-DEMO-003\n",
+                encoding="utf-8",
+            )
+            tool = project / ".workflow/tools/handoffctl.py"
+            result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "demo-feature")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            handoff = feature / "handoffs/demo-feature"
+            root_readme = (handoff / "README.md").read_text(encoding="utf-8")
+            self.assertIn("Формальный договор для SDD находится в `AGENTS.md`", root_readme)
+            self.assertIn("Обработай активную редакцию пакета.", root_readme)
+            self.assertNotIn("## Обязательная инструкция SDD", root_readme)
+            self.assertNotIn("python .control/handoffctl.py", root_readme)
+            agent_text = (handoff / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("# Контракт SDD", agent_text)
+            self.assertIn("## Обязательный порядок начала работы", agent_text)
+            self.assertIn("prepare-implementation", agent_text)
+            root_manifest = json.loads((handoff / "handoff.json").read_text(encoding="utf-8"))
+            self.assertEqual(root_manifest["schema_version"], 3)
+            self.assertEqual(root_manifest["agent_contract"]["path"], "AGENTS.md")
+            self.assertEqual(
+                root_manifest["agent_contract"]["sha256"],
+                hashlib.sha256((handoff / "AGENTS.md").read_bytes()).hexdigest(),
+            )
+            result = run(sys.executable, str(tool), "add-revision", str(handoff), "1")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            instruction = (handoff / "revisions/001/returns/development-tasks/README.md").read_text(encoding="utf-8")
+            self.assertIn("## Порядок подтверждения декомпозиции", instruction)
+            self.assertIn("Наличие этих слов только в блоке коротких команд подтверждением не является", instruction)
+            package_manifest = json.loads((handoff / "revisions/001/package/manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                package_manifest["slices"][0]["requirements"],
+                ["REQ-DEMO-001", "REQ-DEMO-002", "REQ-DEMO-003"],
+            )
+            self.assertEqual(
+                package_manifest["slices"][0]["scenarios"],
+                ["SCN-DEMO-001", "SCN-DEMO-002", "SCN-DEMO-003"],
+            )
+
+    def test_feature_agent_contract_is_required_and_immutable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / "project"
+            result = run("bash", str(ROOT / "scripts/scaffold-project.sh"), str(project))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            feature = project / "features/demo"
+            feature.mkdir(parents=True)
+            (feature / "requirements.md").write_text("# Требования\n\nREQ-DEMO-001\n", encoding="utf-8")
+            tool = project / ".workflow/tools/handoffctl.py"
+            result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "demo-feature")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            handoff = feature / "handoffs/demo-feature"
+            result = run(sys.executable, str(tool), "validate", str(handoff))
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            status = run(sys.executable, str(tool), "status", str(handoff))
+            self.assertEqual(status.returncode, 0, status.stdout + status.stderr)
+            status_payload = json.loads(status.stdout)
+            self.assertEqual(status_payload["agent_contract"]["path"], "AGENTS.md")
+
+            agents = handoff / "AGENTS.md"
+            original = agents.read_text(encoding="utf-8")
+            agents.write_text(original + "\nНесогласованное изменение.\n", encoding="utf-8")
+            result = run(sys.executable, str(tool), "validate", str(handoff))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("agent contract checksum mismatch", result.stdout + result.stderr)
+
+            agents.write_text(original, encoding="utf-8")
+            agents.unlink()
+            result = run(sys.executable, str(tool), "validate", str(handoff))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("agent contract file is missing", result.stdout + result.stderr)
 
     def test_feature_decomposition_delivery_and_testing_are_independent(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -281,9 +418,7 @@ IMP-LEGACY-DEMO-001
             self.assertIn("# Требования", request_text)
             self.assertIn("slices/list/slice.md", request_text)
             self.assertNotIn("<Законченный пользовательский", request_text)
-            result = run(sys.executable, str(tool), "transport", str(handoff), "1")
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            result = run(sys.executable, str(tool), "set-state", str(handoff), "1", "sent")
+            result = run(sys.executable, str(tool), "publish", str(handoff), "1")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             control = handoff / ".control/handoffctl.py"
             result = run(sys.executable, str(control), "claim", str(handoff), "1", "--by", "developer-session")
@@ -466,9 +601,7 @@ IMP-LEGACY-DEMO-001
                 "allowed_follow_up_recommendations": recommendations,
             }
             (package / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-            result = run(sys.executable, str(tool), "transport", str(handoff), "1")
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            result = run(sys.executable, str(tool), "set-state", str(handoff), "1", "sent")
+            result = run(sys.executable, str(tool), "publish", str(handoff), "1")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             control = handoff / ".control/handoffctl.py"
             result = run(sys.executable, str(control), "claim", str(handoff), "1", "--by", "developer-session")

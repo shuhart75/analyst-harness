@@ -42,6 +42,8 @@ A failed check does not advance the run. Repeated failure reaches the configured
 - Current requirements contain a dedicated `Доработки затронутых функциональностей` section.
 - Every impact row is covered by requirements, task candidates, and checks or explicitly marked `not applicable` with a reason.
 - Local stale tails block completion. Cross-mode propagation may be deferred only through a concrete consistency backlog record.
+- When requirements depend on current implementation and code access is configured, analyst research is bounded to one registered contour, records the exact commit, and verifies that the code worktree is unchanged.
+- Analyst code evidence improves the input but never replaces developer-side reconciliation against the implementation branch used for delivery.
 
 ## Technical Decomposition Invariants
 

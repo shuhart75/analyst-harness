@@ -19,7 +19,7 @@
   },
   "slices": [],
   "target": {
-    "repository": "coda",
+    "repository": "code",
     "contours": [
       "backend",
       "frontend"

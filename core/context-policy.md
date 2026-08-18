@@ -36,6 +36,7 @@ Use these lightweight artifacts when a feature, slice, planning track, prototype
 - `features/<feature>/execution-context.md`
 - `features/<feature>/slices/<slice>/context-summary.md`
 - `.workflow/run-state/current.md`
+- local code-inspection state under the user state directory, created by `.workflow/tools/code-inspect.py`
 
 Keep each context summary short enough to read at the start of a small-window session. Prefer links to source files over copying full requirement text.
 
@@ -47,6 +48,7 @@ The assistant should automatically build or refresh context when:
 - creating or substantially updating feature requirements;
 - decomposing root requirements into slices;
 - creating or updating detailed slice requirements;
+- resolving current implementation facts needed by planning or requirements;
 - creating or updating root or slice prototypes;
 - preparing a slice for development;
 - preparing implementation plans or QA checks;
@@ -100,5 +102,6 @@ Rules:
 - Prefer targeted reads over whole-repo rereads.
 - Prefer artifact maps and context summaries over copying large documents.
 - Keep research outputs under `.research/` and mark them as auxiliary.
+- Keep code references relative to the registered repository and bind them to a full commit identifier; never store analyst-machine absolute code paths in requirements.
 - Delete or archive temporary research only after its accepted decisions are transferred to source-of-truth artifacts.
 - If context and source disagree, source wins and context must be updated.

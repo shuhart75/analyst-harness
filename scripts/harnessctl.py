@@ -107,6 +107,7 @@ def managed_sources(root: Path) -> dict[str, Path]:
         ".workflow/tooling-policy.md": root / "core/tooling-policy.md",
         ".workflow/context-policy.md": root / "core/context-policy.md",
         ".workflow/research-policy.md": root / "core/research-policy.md",
+        ".workflow/code-inspection.md": root / "core/code-inspection.md",
         ".workflow/run-loop.md": root / "core/run-loop.md",
         ".workflow/developer-handoff.md": root / "core/developer-handoff.md",
         ".workflow/requirements-profile.md": root / "core/requirements-profile.md",
@@ -139,6 +140,7 @@ def managed_sources(root: Path) -> dict[str, Path]:
         "evaluate-harness.py",
         "validate-handoff.py",
         "handoffctl.py",
+        "code-inspect.py",
     ):
         result[f".workflow/tools/{script}"] = root / "scripts" / script
     for dirname in (
@@ -153,6 +155,7 @@ def managed_sources(root: Path) -> dict[str, Path]:
         "research",
         "runs",
         "testing",
+        "workspace",
     ):
         for path in (root / "templates" / dirname).rglob("*"):
             if path.is_file():
@@ -321,7 +324,13 @@ def session_brief_command(args: argparse.Namespace) -> int:
     project = Path(args.project).resolve()
     active = (project / ".workflow/active-mode.md").read_text(encoding="utf-8", errors="ignore")
     mode = next((line.split(":", 1)[1].strip() for line in active.splitlines() if line.startswith("mode:")), "unknown")
-    paths = ["AGENTS.md", ".workflow/llm-contract.md", f".workflow/modes/{mode}.md"]
+    paths = [
+        "AGENTS.md",
+        ".workflow/llm-contract.md",
+        ".workflow/code-inspection.md",
+        ".workflow/code-repos.json",
+        f".workflow/modes/{mode}.md",
+    ]
     if args.feature:
         paths.extend(
             [
@@ -372,11 +381,34 @@ def run_init_command(args: argparse.Namespace) -> int:
     if not code_root and args.role:
         repos_path = project / ".workflow/code-repos.json"
         if repos_path.exists():
-            repos = json.loads(repos_path.read_text(encoding="utf-8")).get("repositories", {})
-            role_key = {"AN": "requirements", "BE": "backend", "FE": "frontend", "QA": "qa"}.get(args.role)
-            candidates = repos.get(role_key, []) if role_key else []
-            if candidates:
-                code_root = candidates[0]
+            registry = json.loads(repos_path.read_text(encoding="utf-8"))
+            repositories = registry.get("repositories", {})
+            if registry.get("schema_version") == 2 and isinstance(repositories, list):
+                default_id = registry.get("workspace", {}).get("default_repository")
+                repository = next(
+                    (item for item in repositories if isinstance(item, dict) and item.get("id") == default_id),
+                    repositories[0] if len(repositories) == 1 else None,
+                )
+                if repository:
+                    location = repository.get("location", {})
+                    environment = location.get("environment")
+                    configured = os.environ.get(environment, "") if isinstance(environment, str) else ""
+                    relative = location.get("relative_to_analytical") or location.get("relative_to_documents")
+                    base = Path(configured).expanduser() if configured else project / relative
+                    contour = {"BE": "backend", "FE": "frontend"}.get(args.role)
+                    if contour:
+                        contours = repository.get("contours", {})
+                        contour_path = contours.get(contour, {}).get("path")
+                        if not contour_path and len(contours) == 1:
+                            contour_path = next(iter(contours.values())).get("path")
+                        if contour_path:
+                            base = base / contour_path
+                    code_root = str(base.resolve())
+            elif isinstance(repositories, dict):
+                role_key = {"AN": "requirements", "BE": "backend", "FE": "frontend", "QA": "qa"}.get(args.role)
+                candidates = repositories.get(role_key, []) if role_key else []
+                if candidates:
+                    code_root = candidates[0]
     input_paths: list[Path] = []
     if args.feature:
         input_paths.extend(

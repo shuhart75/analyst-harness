@@ -1,5 +1,10 @@
 {
   "schema_version": 1,
+  "transport_policy": {
+    "creation": "on-request",
+    "repository_archives": "forbidden",
+    "destination": "~/Downloads"
+  },
   "package_id": "<package-id>",
   "feature": "<feature-slug>",
   "role": "<BE|FE>",
