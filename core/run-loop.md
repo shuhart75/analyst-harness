@@ -42,7 +42,7 @@ A failed check does not advance the run. Repeated failure reaches the configured
 - Current requirements contain a dedicated `Доработки затронутых функциональностей` section.
 - Every impact row is covered by requirements, task candidates, and checks or explicitly marked `not applicable` with a reason.
 - Local stale tails block completion. Cross-mode propagation may be deferred only through a concrete consistency backlog record.
-- When requirements depend on current implementation and code access is configured, analyst research is bounded to one registered contour, records the exact commit, and verifies that the code worktree is unchanged.
+- When requirements depend on current implementation, analyst research is bounded to one registered `code` contour, records the exact commit, and verifies that the code worktree is unchanged.
 - Analyst code evidence improves the input but never replaces developer-side reconciliation against the implementation branch used for delivery.
 
 ## Technical Decomposition Invariants
@@ -65,4 +65,4 @@ A failed check does not advance the run. Repeated failure reaches the configured
 - Continue all independent work and complete implementation, verification and commits that are feasible in the code repository.
 - Report every input item, remaining work and any additional delivery in the receipt without hiding scope differences.
 - Return baseline and requirement feedback in receipts; analyst review may happen later and never gates development or testing.
-- The canonical states and receipt contract are defined in `.workflow/developer-handoff.md`.
+- The canonical states and receipt contract are defined in `core/developer-handoff.md`.

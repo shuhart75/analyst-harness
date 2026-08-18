@@ -4,24 +4,25 @@ This policy governs read-only use of a locally cloned code repository by analyst
 
 ## Repository layout
 
-The harness repository is the local working area. It contains one analytical repository and, when configured, one independent code repository:
+The `analyst-harness` clone is the workspace root. It contains the harness, one configured analytical repository and, optionally, one configured code repository:
 
 ```text
 <workspace>/
-├── analyst-harness/
-├── .analyst-workspace.json
+├── AGENTS.md
 ├── analyst-workspace.code-workspace
-├── analytical-project/
-└── code/                         # optional
+├── <analytical-project>/
+└── <code>/
+    ├── backend/
+    └── frontend/
 ```
 
-The directory names are configurable during first launch. The analytical repository remains the source of requirements and planning. The optional code repository remains independent and read-only during analytical work. Do not merge them, create a submodule, or place a symlink to code inside the analytical repository.
+The configured analytical project remains the requirements and planning repository. The optional code repository remains independent. Do not create submodules or symlinks between them.
 
-The common parent gives the LLM filesystem access to both repositories. It does not authorize whole-repository reading and does not place all code into model context.
+The common workspace gives the LLM filesystem access to the registered repositories. It does not authorize whole-repository reading and does not place all code into model context.
 
 ## Resolution and setup
 
-The first-launch choices are stored locally in `.analyst-workspace.json`. `scripts/workspace.py bootstrap` prepares the selected repositories and writes the effective code location and contours to the analytical project's `.workflow/code-repos.json`.
+Repository identity, accepted remotes, relative location and detected contours are stored locally in `.workspace-state/code-repos.json`. The committed template contains no product URL.
 
 Resolution order:
 
@@ -30,11 +31,11 @@ Resolution order:
 
 The harness must not store analyst-machine absolute paths in committed project files.
 
-`scripts/workspace.py` creates `analyst-workspace.code-workspace` at the harness root. `code-inspect.py setup` can regenerate a minimal workspace when the repositories are already prepared manually.
+`python3 scripts/workspace.py bootstrap` prepares the configured repositories and `analyst-workspace.code-workspace`. Do not use `code-inspect.py setup` to replace the root `AGENTS.md`; the root contract belongs to this harness.
 
 ## Read-only contract
 
-During analyst planning and requirements work, the configured code repository is read-only.
+During analyst planning and requirements work, `code` is read-only.
 
 Before inspection:
 
@@ -47,14 +48,14 @@ After inspection, compare branch, commit and worktree entries with the initial s
 
 Do not fetch, pull, switch branches, build, generate, format, install dependencies, run migrations, edit code or execute commands that may create files unless the user explicitly requests a separate code operation.
 
-This is a workflow guard, not an operating-system sandbox. Use a client-provided read-only mount for the code root when available, but still perform the before/after verification.
+This is a workflow guard, not an operating-system sandbox. Use a client-provided read-only mount for the `code` root when available, but still perform the before/after verification.
 
 ## Bounded discovery
 
 Code inspection is a targeted research action, not a repository audit.
 
 1. Start from the feature question and exact identifiers already present in requirements or baseline.
-2. Select one contour registered in `.workflow/code-repos.json`.
+2. Select one contour, `backend` or `frontend`.
 3. Read local instructions for that contour.
 4. Use bounded filename/content search to locate exact routes, fields, statuses, tables, classes or components.
 5. Open only matched modules, adjacent tests and necessary contracts or migrations.
@@ -72,7 +73,7 @@ The LLM may inspect code without an extra confirmation when the action is read-o
 - check whether an expected capability already exists;
 - identify affected neighboring code before writing requirements;
 - resolve a factual mismatch between `baseline/current/`, requirements and implementation;
-- refresh previously recorded code evidence after the configured code commit changes.
+- refresh previously recorded code evidence after the local `code` commit changes.
 
 Do not inspect code merely to derive a business decision that the code does not own. Ask the analyst when evidence leaves a semantic choice.
 

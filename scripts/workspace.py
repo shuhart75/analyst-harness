@@ -5,9 +5,10 @@ import argparse
 import json
 import os
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+from workspace_paths import ensure_local_state, state_root
 
 
 CONFIG_NAME = ".analyst-workspace.json"
@@ -26,25 +27,32 @@ def harness_root(explicit: str | None = None) -> Path:
     return Path(explicit).expanduser().resolve() if explicit else Path(__file__).resolve().parents[1]
 
 
-def checked_relative(root: Path, value: str, label: str) -> Path:
+def checked_path(root: Path, value: str, label: str) -> Path:
     candidate = (root / value).resolve()
     if candidate == root or root not in candidate.parents:
         raise ValueError(f"{label} должен быть относительным путём внутри рабочей области")
     return candidate
 
 
+def git_root(path: Path) -> Path | None:
+    result = run("git", "-C", str(path), "rev-parse", "--show-toplevel")
+    if result.returncode != 0:
+        return None
+    return Path(result.stdout.strip()).resolve()
+
+
 def load_config(root: Path) -> dict:
     path = root / CONFIG_NAME
     if not path.is_file():
         raise ValueError(
-            "Первичная настройка не выполнена. LLM должна запросить способ подготовки "
-            "аналитического и кодового репозиториев, затем выполнить workspace.py configure."
+            "Первичная настройка не выполнена. LLM должна последовательно запросить способ "
+            "подготовки аналитического и кодового репозиториев, затем выполнить configure."
         )
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Не удалось прочитать {path}: {exc}") from exc
-    if payload.get("schema_version") != 1:
+    if payload.get("schema_version") != 2:
         raise ValueError(f"Неподдерживаемая схема {path}")
     return payload
 
@@ -67,27 +75,28 @@ def register_local_excludes(root: Path, paths: list[Path]) -> None:
     existing = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
     entries = ["/" + os.path.relpath(path, root).rstrip("/") + "/" for path in paths]
     missing = [entry for entry in entries if entry not in existing.splitlines()]
-    if missing:
-        with exclude.open("a", encoding="utf-8") as handle:
-            if existing and not existing.endswith("\n"):
-                handle.write("\n")
-            handle.write("\n# analyst-harness managed workspace\n")
-            handle.write("\n".join(missing) + "\n")
+    if not missing:
+        return
+    with exclude.open("a", encoding="utf-8") as handle:
+        if existing and not existing.endswith("\n"):
+            handle.write("\n")
+        handle.write("\n# analyst-harness workspace repositories\n")
+        handle.write("\n".join(missing) + "\n")
 
 
 def configure_command(args: argparse.Namespace) -> int:
     root = harness_root(args.root)
     validate_mode(args.analytical_mode, args.analytical_url, "аналитического репозитория")
     validate_mode(args.code_mode, args.code_url, "кодового репозитория")
-    analytical = checked_relative(root, args.analytical_dir, "Путь аналитического репозитория")
-    code = None if args.code_mode == "skip" else checked_relative(root, args.code_dir, "Путь кодового репозитория")
-    if code == analytical:
+    analytical = checked_path(root, args.analytical_dir, "Путь аналитического репозитория")
+    code = None if args.code_mode == "skip" else checked_path(root, args.code_dir, "Путь кодового репозитория")
+    if analytical == code:
         raise ValueError("Аналитический и кодовый репозитории должны находиться в разных каталогах")
     path = root / CONFIG_NAME
     if path.exists() and not args.force:
-        raise ValueError(f"{path} уже существует; используй --force только для осознанной перенастройки")
+        raise ValueError(f"{path} уже существует; --force допустим только для осознанной перенастройки")
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "configured_at": utc_now(),
         "analytical": {
             "mode": args.analytical_mode,
@@ -106,13 +115,6 @@ def configure_command(args: argparse.Namespace) -> int:
     return 0
 
 
-def git_root(path: Path) -> Path | None:
-    result = run("git", "-C", str(path), "rev-parse", "--show-toplevel")
-    if result.returncode != 0:
-        return None
-    return Path(result.stdout.strip()).resolve()
-
-
 def ensure_clone(path: Path, url: str, label: str) -> None:
     if not path.exists():
         result = run("git", "clone", url, str(path))
@@ -121,69 +123,84 @@ def ensure_clone(path: Path, url: str, label: str) -> None:
     if git_root(path) != path:
         raise ValueError(f"{label} не является корнем Git-репозитория: {path}")
     remotes = run("git", "-C", str(path), "remote", "get-url", "--all", "origin")
-    urls = {line.strip() for line in remotes.stdout.splitlines() if line.strip()}
-    if url not in urls:
-        raise ValueError(f"origin {label} не совпадает с сохранённым URL: {sorted(urls)}")
+    current = {line.strip() for line in remotes.stdout.splitlines() if line.strip()}
+    if url not in current:
+        raise ValueError(f"origin {label} не совпадает с сохранённым URL: {sorted(current)}")
 
 
-def ensure_created_analytical(root: Path, path: Path) -> None:
+def ensure_content_only(path: Path) -> None:
+    embedded = [name for name in (".workflow", ".vscode", "AGENTS.md") if (path / name).exists()]
+    if embedded:
+        raise ValueError(
+            "Аналитический репозиторий содержит встроенную обвязку: "
+            + ", ".join(embedded)
+            + ". Сначала перенеси проектные данные во внешнюю структуру; автоматическое удаление запрещено."
+        )
+
+
+def ensure_analytical(root: Path, source: Path, config: dict) -> Path:
+    path = checked_path(root, config["path"], "Путь аналитического репозитория")
+    if config["mode"] == "clone":
+        ensure_clone(path, config["remote_url"], "аналитический репозиторий")
+        ensure_content_only(path)
+        result = run("bash", str(source / "scripts/scaffold-project.sh"), str(path), "--merge")
+        if result.returncode != 0:
+            raise ValueError(f"Не удалось дополнить структуру проекта: {(result.stdout + result.stderr).strip()}")
+        return path
     if path.exists() and any(path.iterdir()) and git_root(path) != path:
-        raise ValueError(f"Каталог для аналитического репозитория не пуст и не является Git-репозиторием: {path}")
+        raise ValueError(f"Каталог аналитического репозитория не пуст: {path}")
     if not path.exists() or not any(path.iterdir()):
-        result = run("bash", str(root / "scripts/scaffold-project.sh"), str(path))
+        result = run("bash", str(source / "scripts/scaffold-project.sh"), str(path))
         if result.returncode != 0:
             raise ValueError(f"Не удалось создать аналитический проект: {(result.stdout + result.stderr).strip()}")
-    elif not (path / ".workflow").is_dir():
-        result = run("bash", str(root / "scripts/scaffold-project.sh"), str(path), "--merge")
-        if result.returncode != 0:
-            raise ValueError(f"Не удалось установить обвязку: {(result.stdout + result.stderr).strip()}")
+    ensure_content_only(path)
     if git_root(path) != path:
         result = run("git", "init", "-b", "main", str(path))
         if result.returncode != 0:
             raise ValueError(f"Не удалось создать Git-репозиторий: {result.stderr.strip()}")
+    return path
 
 
-def install_harness(root: Path, project: Path) -> None:
-    result = run("bash", str(root / "scripts/scaffold-project.sh"), str(project), "--merge")
-    if result.returncode != 0:
-        raise ValueError(f"Не удалось установить обвязку в {project}: {(result.stdout + result.stderr).strip()}")
-
-
-def ensure_created_code(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-    if any(path.iterdir()) and git_root(path) != path:
-        raise ValueError(f"Каталог кодового репозитория не пуст и не является Git-репозиторием: {path}")
-    if git_root(path) != path:
-        result = run("git", "init", "-b", "main", str(path))
+def ensure_code(root: Path, config: dict) -> Path | None:
+    if config["mode"] == "skip":
+        return None
+    path = checked_path(root, config["path"], "Путь кодового репозитория")
+    if config["mode"] == "clone":
+        ensure_clone(path, config["remote_url"], "кодовый репозиторий")
+    else:
+        path.mkdir(parents=True, exist_ok=True)
+        if any(path.iterdir()) and git_root(path) != path:
+            raise ValueError(f"Каталог кодового репозитория не пуст: {path}")
+        if git_root(path) != path:
+            result = run("git", "init", "-b", "main", str(path))
+            if result.returncode != 0:
+                raise ValueError(f"Не удалось создать кодовый Git-репозиторий: {result.stderr.strip()}")
+    if config["mode"] == "clone":
+        result = run("git", "-C", str(path), "config", "remote.origin.pushurl", "DISABLED_BY_ANALYST_HARNESS")
         if result.returncode != 0:
-            raise ValueError(f"Не удалось создать кодовый Git-репозиторий: {result.stderr.strip()}")
+            raise ValueError(f"Не удалось запретить отправку в кодовый репозиторий: {result.stderr.strip()}")
+    return path
 
 
 def detect_contours(code: Path) -> dict:
-    result = {}
-    for name in ("backend", "frontend"):
-        if (code / name).is_dir():
-            result[name] = {"path": name}
-    return result or {"root": {"path": "."}}
+    contours = {name: {"path": name} for name in ("backend", "frontend") if (code / name).is_dir()}
+    return contours or {"root": {"path": "."}}
 
 
-def write_code_registry(project: Path, code_config: dict, code_path: Path | None) -> None:
+def write_code_registry(analytical: Path, analytical_config: dict, code: Path | None, code_config: dict) -> Path:
     repositories = []
-    default_repository = None
-    if code_path:
-        default_repository = "code"
-        accepted = [code_config["remote_url"]] if code_config.get("remote_url") else []
+    if code:
         repositories.append({
             "id": "code",
             "purpose": "Кодовый репозиторий для проверки требований",
             "access": "read-only",
             "location": {
                 "environment": "ANALYST_CODE_REPO",
-                "relative_to_analytical": os.path.relpath(code_path, project),
+                "relative_to_analytical": os.path.relpath(code, analytical),
             },
-            "accepted_remote_urls": accepted,
+            "accepted_remote_urls": [code_config["remote_url"]] if code_config.get("remote_url") else [],
             "expected_branch": None,
-            "contours": detect_contours(code_path),
+            "contours": detect_contours(code),
             "instruction_patterns": [
                 "AGENTS.md", "**/AGENTS.md", "CLAUDE.md", "**/CLAUDE.md",
                 "openspec/README.md", "**/openspec/README.md", ".sdd/README.md", "**/.sdd/README.md",
@@ -192,19 +209,26 @@ def write_code_registry(project: Path, code_config: dict, code_path: Path | None
     payload = {
         "schema_version": 2,
         "workspace": {
-            "layout": "managed-by-analyst-harness",
+            "layout": "sibling-clones",
             "code_optional": True,
-            "default_repository": default_repository,
-            "analytical_repository": {"id": "analytical", "accepted_remote_urls": []},
+            "analytical_repository": {
+                "id": "analytical",
+                "accepted_remote_urls": [analytical_config["remote_url"]] if analytical_config.get("remote_url") else [],
+            },
         },
         "repositories": repositories,
     }
-    path = project / ".workflow/code-repos.json"
+    path = state_root() / "code-repos.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return path
 
 
 def write_workspace(root: Path, analytical: Path, code: Path | None) -> Path:
-    folders = [{"name": "analytical", "path": os.path.relpath(analytical, root)}]
+    folders = [
+        {"name": "analyst-harness", "path": "."},
+        {"name": "analytical", "path": os.path.relpath(analytical, root)},
+    ]
     if code:
         folders.append({"name": "code-read-only", "path": os.path.relpath(code, root)})
     payload = {
@@ -221,29 +245,18 @@ def write_workspace(root: Path, analytical: Path, code: Path | None) -> Path:
 
 def bootstrap_command(args: argparse.Namespace) -> int:
     root = harness_root(args.root)
+    source = Path(__file__).resolve().parents[1]
     config = load_config(root)
-    analytical_config = config["analytical"]
-    analytical = checked_relative(root, analytical_config["path"], "Путь аналитического репозитория")
-    if analytical_config["mode"] == "clone":
-        ensure_clone(analytical, analytical_config["remote_url"], "аналитический репозиторий")
-        install_harness(root, analytical)
-    else:
-        ensure_created_analytical(root, analytical)
-
-    code_config = config["code"]
-    code = None
-    if code_config["mode"] != "skip":
-        code = checked_relative(root, code_config["path"], "Путь кодового репозитория")
-        if code_config["mode"] == "clone":
-            ensure_clone(code, code_config["remote_url"], "кодовый репозиторий")
-        else:
-            ensure_created_code(code)
-    write_code_registry(analytical, code_config, code)
+    ensure_local_state()
+    analytical = ensure_analytical(root, source, config["analytical"])
+    code = ensure_code(root, config["code"])
+    registry = write_code_registry(analytical, config["analytical"], code, config["code"])
     workspace = write_workspace(root, analytical, code)
     print(json.dumps({
         "status": "ready",
         "analytical_repository": str(analytical),
         "code_repository": str(code) if code else None,
+        "code_registry": str(registry),
         "workspace": str(workspace),
     }, ensure_ascii=False, indent=2))
     return 0
@@ -256,35 +269,32 @@ def status_command(args: argparse.Namespace) -> int:
     for key in ("analytical", "code"):
         item = config[key]
         if item["mode"] == "skip":
-            report["repositories"].append({"kind": key, "mode": "skip", "path": None, "state": "disabled"})
+            report["repositories"].append({"kind": key, "mode": "skip", "state": "disabled"})
             continue
-        path = checked_relative(root, item["path"], f"Путь {key}")
+        path = checked_path(root, item["path"], f"Путь {key}")
         state = "ready" if git_root(path) == path else "missing"
-        report["repositories"].append({"kind": key, "mode": item["mode"], "path": str(path), "state": state})
         if state != "ready":
             report["status"] = "incomplete"
+        report["repositories"].append({"kind": key, "mode": item["mode"], "path": str(path), "state": state})
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["status"] == "ready" else 1
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(description="Первичная настройка рабочей области аналитика")
+    result = argparse.ArgumentParser(description="Настраиваемая рабочая область аналитика")
     result.add_argument("--root", help="Корень analyst-harness; обычно определяется автоматически")
     commands = result.add_subparsers(dest="command", required=True)
-
     configure = commands.add_parser("configure")
-    configure.add_argument("--analytical-mode", required=True, choices=("clone", "create"))
+    configure.add_argument("--analytical-mode", choices=("clone", "create"), required=True)
     configure.add_argument("--analytical-url")
     configure.add_argument("--analytical-dir", default="analytical-project")
-    configure.add_argument("--code-mode", required=True, choices=("clone", "create", "skip"))
+    configure.add_argument("--code-mode", choices=("clone", "create", "skip"), required=True)
     configure.add_argument("--code-url")
     configure.add_argument("--code-dir", default="code")
     configure.add_argument("--force", action="store_true")
     configure.set_defaults(handler=configure_command)
-
     bootstrap = commands.add_parser("bootstrap")
     bootstrap.set_defaults(handler=bootstrap_command)
-
     status = commands.add_parser("status")
     status.set_defaults(handler=status_command)
     return result

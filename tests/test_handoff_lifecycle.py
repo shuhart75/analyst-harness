@@ -61,7 +61,7 @@ class HandoffLifecycleTests(unittest.TestCase):
             encoding="utf-8",
         )
         (slice_root / "slice.md").write_text("# Срез\n\nREQ-DEMO-001\n\nSCN-DEMO-001\n", encoding="utf-8")
-        tool = project / ".workflow/tools/handoffctl.py"
+        tool = ROOT / "scripts/handoffctl.py"
         result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "demo-feature")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         handoff = feature / "handoffs/demo-feature"
@@ -271,7 +271,7 @@ IMP-LEGACY-DEMO-001
 """,
                 encoding="utf-8",
             )
-            tool = project / ".workflow/tools/handoffctl.py"
+            tool = ROOT / "scripts/handoffctl.py"
             result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "legacy-demo")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             handoff = feature / "handoffs/legacy-demo"
@@ -316,7 +316,7 @@ IMP-LEGACY-DEMO-001
                 "# Срез\n\nREQ-DEMO-001 — REQ-DEMO-003\n\nSCN-DEMO-001 — SCN-DEMO-003\n",
                 encoding="utf-8",
             )
-            tool = project / ".workflow/tools/handoffctl.py"
+            tool = ROOT / "scripts/handoffctl.py"
             result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "demo-feature")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             handoff = feature / "handoffs/demo-feature"
@@ -359,7 +359,7 @@ IMP-LEGACY-DEMO-001
             feature = project / "features/demo"
             feature.mkdir(parents=True)
             (feature / "requirements.md").write_text("# Требования\n\nREQ-DEMO-001\n", encoding="utf-8")
-            tool = project / ".workflow/tools/handoffctl.py"
+            tool = ROOT / "scripts/handoffctl.py"
             result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "demo-feature")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             handoff = feature / "handoffs/demo-feature"
@@ -399,7 +399,7 @@ IMP-LEGACY-DEMO-001
                 "# Срез\n\nREQ-DEMO-001\n\nSCN-DEMO-001\n",
                 encoding="utf-8",
             )
-            tool = project / ".workflow/tools/handoffctl.py"
+            tool = ROOT / "scripts/handoffctl.py"
             result = run(sys.executable, str(tool), "init-feature", str(project), "demo", "demo-feature")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             handoff = feature / "handoffs/demo-feature"
@@ -540,7 +540,7 @@ IMP-LEGACY-DEMO-001
             project = Path(temp) / "project"
             result = run("bash", str(ROOT / "scripts/scaffold-project.sh"), str(project))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            tool = project / ".workflow/tools/handoffctl.py"
+            tool = ROOT / "scripts/handoffctl.py"
             result = run(sys.executable, str(tool), "init", str(project), "demo", "demo-be-change", "--role", "BE", "--source-task-id", "CAND-DEMO-BE-001", "--source-task-path", "features/demo/tasks/be-change.md")
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             handoff = project / "features/demo/handoffs/demo-be-change"
@@ -560,7 +560,7 @@ IMP-LEGACY-DEMO-001
                 "request_id": "demo-be-change",
                 "request_version": 1,
                 "request_sha256": request_hash,
-                "target_repository": "coda",
+                "target_repository": "code",
                 "target_contour": "backend",
                 "received_at": None,
                 "completed_at": None,
@@ -587,7 +587,7 @@ IMP-LEGACY-DEMO-001
                 "package_id": "demo-be-change",
                 "package_revision": 1,
                 "request": {"id": "demo-be-change", "version": 1},
-                "target": {"repository": "coda", "contour": "backend"},
+                "target": {"repository": "code", "contour": "backend"},
                 "payload": [
                     {"path": "request.md", "sha256": request_hash},
                     {"path": "receipt.template.json", "sha256": hashlib.sha256(receipt_template_path.read_bytes()).hexdigest()},

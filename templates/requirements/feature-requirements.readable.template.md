@@ -2,14 +2,14 @@
 
 Статус: **черновик**
 Редакция: `<1>`
-Профиль требований: **АС КОДА / ISO/IEC/IEEE 29148:2018**
+Профиль требований: **ISO-like / ISO/IEC/IEEE 29148:2018**
 Утвердил: `<заполняется только пользователем при утверждении>`
 Дата утверждения: `<YYYY-MM-DD или не утверждено>`
 Функциональность: `features/<feature-slug>/feature.md`
 Квартал: `<YYYY-QN>`
 Дата обновления: `<YYYY-MM-DD>`
 Формат: **новый лёгкий**
-Шаблон: `.workflow/templates/requirements/feature-requirements.readable.template.md`
+Шаблон: `templates/requirements/feature-requirements.readable.template.md`
 
 ## Как читать документ
 

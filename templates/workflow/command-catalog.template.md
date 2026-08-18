@@ -5,16 +5,16 @@ This file documents short natural-language commands that switch context or trigg
 ## Interpretation rules
 
 - Commands are intent shortcuts, not magic shell commands.
-- If a command implies a mode switch, update `.workflow/active-mode.md` or explicitly state that the user should switch mode if the runtime cannot edit it.
+- If a command implies a mode switch, update `.workspace-state/active-mode.md` or explicitly state that the user should switch mode if the runtime cannot edit it.
 - After a mode switch, read the target mode file before editing artifacts.
 - If a command includes a folder/path, inspect that path before writing outputs.
-- If a command causes cross-feature/domain impact, update `features/*/domain-impact.md` and `.workflow/consistency-backlog.md` as needed.
+- If a command causes cross-feature/domain impact, update `features/*/domain-impact.md` and `planning/consistency-backlog.md` as needed.
 - For small requirement edits, prefer a quick feature-local tail cleanup over a whole-repo audit.
 - If a command is ambiguous, make a reasonable assumption and state it briefly; ask only when the wrong assumption would create significant rework.
 
 ## Daily core command set
 
-Use this as the preferred short set for everyday work. In VSCodium these commands are mirrored by prompt starters in `.vscode/workflow.code-snippets`.
+Use this as the preferred short set for everyday work. VSCodium adapters and snippets remain in the harness and are not copied into the content repository.
 
 ## How to use these commands
 
@@ -78,7 +78,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `новая фича` | `planning` | Run feature intake/preflight before any scaffold step. |
 | `занимаемся планированием` | `planning` | Switch into quarter planning and HLE mode. |
 | `делаем требования` | `requirements` | Switch into living requirements mode and use the requested requirements format. |
-| `сходи в код` | текущий аналитический режим | Выполнить ограниченное исследование одного контура настроенного кодового репозитория без изменения кода и привязать выводы к коммиту; при отсутствии репозитория явно отметить ограничение. |
+| `сходи в код` | текущий аналитический режим | Выполнить ограниченное исследование одного контура локального `code` без изменения кода и привязать выводы к коммиту. |
 | `делаем презентационный прототип` | `scope-prototype` | Switch into common feature prototype mode and choose the visual base before generating. |
 | `делаем прототип для разработки` | `delivery-prototype` | Switch into slice handoff mode, but block any slice edits until the root feature prototype is explicitly approved. |
 | `обновляем прогресс` | `execution-update` | Switch into implementation tracking mode. |
@@ -193,7 +193,7 @@ Treat these as equivalent user phrasings.
 | `новая фича` | `planning` | Switch mode, inspect source folder, run intake, do not scaffold yet. |
 | `занимаемся планированием` | `planning` | Switch mode, read baseline/current and current quarter planning. |
 | `делаем требования` | `requirements` | Switch mode, select new readable or old detailed format, read baseline/current and author the root feature requirements before deriving slices. |
-| `сходи в код` | текущий аналитический режим | Если кодовый репозиторий настроен, разрешить путь из реестра, зафиксировать его состояние, исследовать один контур, сообщить коммит и доказательства, затем проверить неизменность репозитория. |
+| `сходи в код` | текущий аналитический режим | Разрешить путь из реестра, зафиксировать состояние `code`, исследовать один контур, сообщить коммит и доказательства, затем проверить неизменность кодового репозитория. |
 | `разложи требования на срезы` | `requirements` | Switch mode if needed, refresh context, decompose root requirements into slices, then update root requirements first if decomposition exposes gaps. |
 | `подготовь детальные требования по срезам` | `requirements` | Switch mode if needed, refresh slice context, run completeness checks internally, then derive slice cards and detail packs. |
 | `сформируй пакет для разработки` | `requirements` | Переключить режим; проверить полноту, непротиворечивость, проверяемость, влияния, срезы, трассировку и язык; автоматически исправить только однозначное; при сомнениях задавать по одному вопросу; после успешной проверки создать и опубликовать редакцию как `sent`. |
@@ -236,13 +236,13 @@ Treat these as equivalent user phrasings.
 | User command | Meaning | Main artifacts |
 |---|---|---|
 | `давай сделаем требования` | Create or update the root feature requirement page first, then derive slice detail packs from it. | `features/*/requirements.md`, `features/*/slices/*/requirements/*.md` |
-| `делаем требования в новом формате` | Use the new readable templates: business context in root, short visual slice packs, tester checklists in every slice, PlantUML only. | `.workflow/templates/requirements/*.readable.template.md`, requirements |
-| `делаем требования в старом формате` | Use the old detailed templates and preserve the earlier Confluence-style structure. | `.workflow/templates/requirements/feature-requirements.template.md`, requirements |
+| `делаем требования в новом формате` | Use the new readable templates: business context in root, short visual slice packs, tester checklists in every slice, PlantUML only. | `templates/requirements/*.readable.template.md`, requirements |
+| `делаем требования в старом формате` | Use the old detailed templates and preserve the earlier Confluence-style structure. | `templates/requirements/feature-requirements.template.md`, requirements |
 | `актуализируй требования` | Обновить требования и распространить влияние на производные срезы. Уже отправленную редакцию и карточки разработчиков не переписывать. | requirements, slices, `domain-impact.md`, consistency backlog |
 | `проверь хвосты требований` | Run a quick feature-local cleanup for stale old wording, endpoints, fields, statuses or option names after a requirements edit. | current feature requirements, slice packs, `domain-impact.md`, local backlog items |
-| `проверь консистентность требований` | Run a consistency sweep across affected features and baseline. | requirements, `baseline/current/*`, `.workflow/consistency-backlog.md` |
+| `проверь консистентность требований` | Run a consistency sweep across affected features and baseline. | requirements, `baseline/current/*`, `planning/consistency-backlog.md` |
 | `проверь русский язык требований` | Run the language validator for changed requirements; keep English only for exact technical identifiers and fixed special terms. | changed root/slice requirement files |
-| `сходи в код` | Inspect current implementation facts in one registered code contour without changing it; report the limitation when code access is disabled. | ad hoc answer or `features/*/.research/code-evidence.yaml`, then requirements when accepted |
+| `сходи в код` | Inspect current implementation facts in one registered `code` contour without changing it. | ad hoc answer or `features/*/.research/code-evidence.yaml`, then requirements when accepted |
 | `разложи по срезам` | Derive semantic slice cards and detail packs from the root feature requirements, not just FE/BE. | `features/<feature>/slices/*` |
 | `разложи требования на срезы` | Derive testable slices from root feature requirements and update root requirements first if gaps appear. | root requirements, slice list, `features/<feature>/slices/*` |
 | `подготовь детальные требования по срезам` | Prepare slice cards and interface/backend detail packs with internal completeness checks. | slice cards, FE/BE packs, checklist findings |
@@ -276,7 +276,7 @@ Treat these as equivalent user phrasings.
 
 | User command | Meaning | Main artifacts |
 |---|---|---|
-| `обнови реальный прогресс` | Update implementation tasks and regenerate actual-progress gantt plus standalone Confluence export. | `execution/tasks.md`, actualization, `.workflow/team.md`, gantt |
+| `обнови реальный прогресс` | Update implementation tasks and regenerate actual-progress gantt plus standalone Confluence export. | `execution/tasks.md`, actualization, `planning/team.md`, gantt |
 | `задача X завершена` | Mark implementation task done and adjust actual dates/progress. | task registry, actual-progress |
 | `задачу X взял Y` | Set executor and actual/planned start for a task. | task registry, actual-progress |
 | `добавь реальные задачи вместо story X` | Materialize planning story with implementation tasks. | task registry, `actualization.md` |
@@ -305,7 +305,7 @@ Treat these as equivalent user phrasings.
 | `зафиксируй итоговые требования` | Copy/normalize final delivered requirements into release package. | release final requirements |
 | `промоуть в baseline` | Promote release outputs into `baseline/current`. | baseline/current, baseline/versions, release notes |
 | `откати решение DEC-*` | Handle rollback according to pre/post-release status. | domain-impact, backlog, release/baseline as needed |
-| `закрой consistency backlog` | Propagate or explicitly defer open consistency items for release. | `.workflow/consistency-backlog.md`, impacted artifacts |
+| `закрой consistency backlog` | Propagate or explicitly defer open consistency items for release. | `planning/consistency-backlog.md`, impacted artifacts |
 
 ## Validation Commands
 

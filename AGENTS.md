@@ -1,124 +1,84 @@
 # Harness Rules
 
-This repository defines a reusable workflow harness.
+This repository is the root of a configurable analyst workspace. The harness remains here; analytical data and optional code live in independent sibling Git repositories.
 
-## First launch of this repository
+## First launch
 
-- If `.analyst-workspace.json` is absent, do not guess repository URLs or create directories yet.
-- Ask the user, one question at a time, whether the analytical repository must be cloned or created, then whether the code repository must be cloned, created, or omitted.
-- Ask for a URL only for a repository selected for cloning. Never supply a product-specific default URL.
-- Save the accepted choices with `python3 scripts/workspace.py configure ...`, then run `python3 scripts/workspace.py bootstrap`.
-- On later sessions, use the saved local settings and do not ask the same questions again. The settings file is local and must not be committed.
-- The code repository is optional. Absence of code access limits implementation research but does not block planning, requirements, prototypes, handoffs, progress tracking, or release finalization.
+- If `.analyst-workspace.json` is absent, ask the user one question at a time:
+  1. clone or create the analytical repository;
+  2. if clone was selected, request its URL;
+  3. clone, create, or skip the code repository;
+  4. if clone was selected, request its URL.
+- Use the default directories `analytical-project/` and `code/` unless the user explicitly chooses others.
+- Save the answers with `python3 scripts/workspace.py configure ...`, then run `python3 scripts/workspace.py bootstrap`.
+- If the configuration exists but the configured repository or workspace file is absent, run bootstrap without repeating questions.
+- Never infer or insert a product-specific repository URL.
+
+## Ownership boundaries
+
+- Read the analytical root from `.analyst-workspace.json`; do not assume a fixed directory name in user interaction.
+- Change requirements, plans, packages and factual progress only in the configured analytical repository.
+- The analytical repository must not contain an embedded `.workflow`, `.vscode`, or root `AGENTS.md` harness copy.
+- Keep contracts, modes, scripts, templates and local run state in this harness root.
+- Treat the optional code repository as read-only. Its local push URL is disabled when it was cloned by the harness.
+- If code is not configured, continue analytical work and state technical assumptions that require receiver-side verification.
 
 ## Always read first
 
-When working inside a project that uses this harness, read in this order:
-
 1. `AGENTS.md`
-2. `.workflow/llm-contract.md`
-3. `.workflow/requirements-profile.md` before authoring or substantially rewriting requirements
-4. `.workflow/agent-delegation.md`
-5. `.workflow/skills-policy.md`
-6. `.workflow/tooling-policy.md`
-7. `.workflow/context-policy.md`
-8. `.workflow/research-policy.md`
-9. `.workflow/code-inspection.md`
-10. `.workflow/run-loop.md`
-11. `.workflow/harness.json`
-12. `.workflow/run-state/session-brief.md` when present
-13. `.workflow/active-mode.md`
-14. `.workflow/modes/<active-mode>.md`
-15. `.workflow/team.md` before planning resources or regenerating actual-progress
-16. relevant files under `.workflow/overrides/`
+2. `.analyst-workspace.json`
+3. `core/llm-contract.md`
+4. `core/requirements-profile.md` before authoring or substantially rewriting requirements
+5. `core/agent-delegation.md`
+6. `core/skills-policy.md`
+7. `core/tooling-policy.md`
+8. `core/context-policy.md`
+9. `core/research-policy.md`
+10. `core/code-inspection.md` when code evidence is needed
+11. `core/run-loop.md`
+12. `.workspace-state/run-state/session-brief.md` when present
+13. `.workspace-state/active-mode.md`
+14. `modes/<active-mode>.md`
+15. `<analytical-project>/README.md`
+16. `<analytical-project>/planning/team.md` before planning resources
+17. relevant `<analytical-project>/context/project-rules/*.md`
 
-## Primary workflow rule
+## Mode boundary
 
-Treat workflow mode as a hard guardrail.
+- Treat the active mode as a hard write boundary.
+- Switch mode before changing artifacts owned by another mode, or ask the user to confirm the switch.
+- Approved quarter and commander plans are immutable. Later work belongs to task candidates and actual-progress.
 
-- Do not change artifacts outside the active mode unless the user explicitly asks for a mode switch.
-- If the requested change belongs to another mode, switch mode first or ask the user to confirm the switch.
+## Requirements
 
-## Canonical distinctions
-
-Project-local intake templates live in `.workflow/templates/intake/`. Use them before scaffolding a new feature from an external folder or an unstructured initiative.
-
-Project-local requirement templates live in `.workflow/templates/requirements/`. Use them as the active template source when writing or updating requirement packs.
-
-- `planning story` is a planning and estimation unit only.
-- `implementation task` is an execution tracking unit only.
-- They are related, but they are not the same artifact.
-
-## Feature-centered structure
-
-Work should be grouped by:
-
-- `feature`
-- then `slice`
-- then FE/BE requirement packs and execution artifacts
+- Author requirements in Russian. Keep English only for exact code, paths, API and database identifiers, enum values, formats, fixed product names, and necessary technical terms.
+- Root requirements are authored. Slice cards and contour detail packs are derived and must be regenerated after semantic root changes.
+- New root documents follow `core/requirements-profile.md`, an adaptation of ISO/IEC/IEEE 29148:2018.
+- Detect impact on neighboring features, include required neighboring work in the current requirements, and record deferred propagation in `planning/consistency-backlog.md` inside the analytical project.
+- Never invent a business rule from code. Code observations are commit-bound technical evidence.
+- Only the user-owner may approve requirements or plans.
 
 ## Developer handoff
 
-- Treat `сформируй пакет для разработки` and its documented Russian synonyms as one end-to-end analyst command: validate and safely repair requirements, ask one semantic question at a time when needed, then publish directly to `sent`. Do not leave a `ready` revision for analyst inspection.
-- For new work, send one `feature-delivery` package containing root requirements and slices; do not pre-author the final Jira decomposition under `features/<feature>/tasks/`.
-- In a received package, read `handoff.json`, then `request.md` and `manifest.json`, then only the requirements and slices for one selected contour. Read that contour's local SDD before opening matched code and nearby tests. Never load the whole code repository or multiple contours by default.
-- Developers own confirmed `DEV-BE-*` and `DEV-FE-*` cards after inspecting their local SDD and code.
-- Create every card from `development-task-card.template.md`, fill every section, and preserve the complete Russian `Короткие команды разработчика` block after every update.
-- A confirmed decomposition snapshot is delivered to the analyst in the background and never blocks implementation.
-- Keep decomposition state, implementation receipts and slice test receipts independent.
-- QA works by slice; development cards and implementation receipts are supporting context.
-- Preserve already sent input revisions and confirmed decomposition snapshots as immutable history.
-- Treat `traceability.mode = legacy-sections` as deliberate section-level compatibility. Do not invent `REQ-*` or `SCN-*` absent from the source.
+- Treat `сформируй пакет для разработки` and its documented synonyms as one complete action: validate requirements, repair only meaning-preserving issues, ask one semantic question at a time, and publish directly to `sent` when all checks pass.
+- Send one feature package containing root requirements and slices. Do not pre-author the final Jira decomposition under `features/<feature>/tasks/`.
+- Developers own confirmed `DEV-BE-*` and `DEV-FE-*` cards after inspecting their code and local SDD.
+- A confirmed decomposition snapshot is returned in the background and does not block implementation.
+- Keep input revisions, decomposition snapshots, implementation receipts, and slice test receipts independent and immutable where the contract requires it.
+- Never create a ZIP unless the user explicitly requests it. A requested transport ZIP belongs only in `~/Downloads`, never in a repository.
 
-## Prototype stack
+## Code inspection
 
-Use React + MUI without a build step unless a project override explicitly says otherwise.
+- Resolve the optional code repository through `.workspace-state/code-repos.json`; never require paths in routine user prompts.
+- Inspect one contour at a time. Read local instructions, locate exact identifiers, then open only matched modules and nearby tests or contracts.
+- Record branch, commit and worktree state before reading and verify unchanged state afterward.
+- Do not fetch, pull, switch branches, build, format, generate, install dependencies, or run commands that can change the code repository during analytical inspection.
 
-## LLM contract
+## Commands and validation
 
-The project-local `.workflow/llm-contract.md` is the canonical CLI-neutral contract for Codex, Claude, Qwen, VSCodium agents, and similar assistants. Follow it before applying mode-specific rules.
-
-## Companion policies
-
-Project-local files `.workflow/agent-delegation.md`, `.workflow/skills-policy.md` and `.workflow/tooling-policy.md` define how an LLM should use delegation, reusable skills, and tools within this workflow.
-
-## Consistency backlog
-
-When a local change affects neighboring requirements, baseline artifacts, or prototypes and cannot be fully propagated immediately, record it in `.workflow/consistency-backlog.md`.
-
-## Command catalog
-
-Use `.workflow/command-catalog.md` to interpret short workflow commands like `делаем требования`, `обнови реальный прогресс`, `актуализируй прототипы`, or `промоуть в baseline`.
-
-Use `.workflow/command-cheatsheet.md` as the preferred quick-reference list of ready-to-send Russian prompt phrasings.
-
-## Context and research
-
-Context summaries, checkpoints and research files are internal harness operations, not extra commands the user must remember.
-
-- Use `.workflow/context-policy.md` to decide when to create or refresh context summaries and checkpoints.
-- Use `.workflow/research-policy.md` to run role-based research for large features, slices, prototypes, development handoff, implementation planning and QA checks.
-- Treat `.research/`, context summaries and external memory as auxiliary. Accepted findings must be transferred into the authoritative planning, requirements, prototype, execution, release or baseline artifacts.
-
-## Analyst code inspection
-
-- Use `.workflow/code-inspection.md` when the analyst asks to inspect code or when current implementation facts are needed for planning or requirements.
-- Resolve the configured code repository through `.workflow/code-repos.json`; never require the user to provide its path in each prompt.
-- Treat the code repository as read-only in analyst work. Record its branch, commit and worktree state before inspection and verify that they are unchanged afterward.
-- Inspect one contour at a time. Read that contour's local instructions, locate exact identifiers, then open only matched modules and nearby tests, contracts or migrations.
-- Code observations are commit-bound auxiliary evidence, not automatic business requirements or baseline updates.
-
-## Executable harness
-
-- Run `.workflow/tools/harnessctl.py doctor <project>` before broad workflow changes.
-- Use `.workflow/tools/harnessctl.py session-brief <project>` for progressive context disclosure.
-- Approved quarter and commander plans are immutable planning baselines.
-- Route later scope into task candidates and actual-progress instead of rewriting an approved plan.
-
-## Requirements language
-
-- Write requirement prose in Russian.
-- Keep English only for exact code, paths, API/database identifiers, enum values, and fixed external-system names.
-- Prefer a Russian explanation before an unavoidable special term.
-- Run `.workflow/tools/validate-language.py` for changed requirements before completion.
-- Run `.workflow/tools/validate-requirements-profile.py` for changed root documents that use the profile marker.
+- Interpret short Russian commands through `templates/workflow/command-catalog.template.md` and `templates/workflow/command-cheatsheet.template.md`.
+- Run `python3 scripts/harnessctl.py session-brief <analytical-project>` for progressive context disclosure.
+- Run `python3 scripts/harnessctl.py doctor <analytical-project>` before broad workflow changes.
+- Run `python3 scripts/validate-language.py <analytical-project>` after changing requirements.
+- Run `python3 scripts/validate-requirements-profile.py <analytical-project>` for changed profiled root documents.
+- Preserve unrelated user changes and report any validation failure that cannot be resolved within the requested scope.

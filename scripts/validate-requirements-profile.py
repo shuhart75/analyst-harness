@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 
-PROFILE_MARKER = "Профиль требований: **АС КОДА / ISO/IEC/IEEE 29148:2018**"
+PROFILE_MARKER = "Профиль требований: **ISO-like / ISO/IEC/IEEE 29148:2018**"
 REQUIRED_SECTIONS = (
     "Назначение и границы",
     "Текущее состояние",
@@ -117,7 +117,7 @@ def validate(path: Path) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Проверка профиля требований АС КОДА")
+    parser = argparse.ArgumentParser(description="Проверка адаптированного профиля требований")
     parser.add_argument("project")
     parser.add_argument("--feature")
     args = parser.parse_args()

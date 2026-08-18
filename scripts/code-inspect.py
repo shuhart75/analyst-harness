@@ -11,8 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-
-CONFIG_PATH = Path(".workflow/code-repos.json")
+from workspace_paths import code_registry_path
 
 
 def utc_now() -> str:
@@ -35,13 +34,13 @@ def run_git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def load_registry(project: Path) -> dict:
-    path = project / CONFIG_PATH
+    path = code_registry_path()
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Не удалось прочитать {path}: {exc}") from exc
     if payload.get("schema_version") != 2 or not isinstance(payload.get("repositories"), list):
-        raise ValueError(".workflow/code-repos.json должен соответствовать схеме 2")
+        raise ValueError("реестр кода обвязки должен соответствовать схеме 2")
     return payload
 
 
@@ -50,20 +49,6 @@ def repository_entry(registry: dict, repository_id: str) -> dict:
         if isinstance(entry, dict) and entry.get("id") == repository_id:
             return entry
     raise ValueError(f"Репозиторий не зарегистрирован: {repository_id}")
-
-
-def selected_repository_id(registry: dict, explicit: str | None) -> str:
-    if explicit:
-        return explicit
-    configured = registry.get("workspace", {}).get("default_repository")
-    if isinstance(configured, str) and configured:
-        return configured
-    repositories = [item for item in registry["repositories"] if isinstance(item, dict) and item.get("id")]
-    if len(repositories) == 1:
-        return repositories[0]["id"]
-    if not repositories:
-        raise ValueError("Кодовый репозиторий не настроен для этой рабочей области")
-    raise ValueError("Укажи --repository: в рабочей области зарегистрировано несколько кодовых репозиториев")
 
 
 def resolve_repository(project: Path, entry: dict) -> Path:
@@ -75,7 +60,7 @@ def resolve_repository(project: Path, entry: dict) -> Path:
     if value:
         root = Path(value).expanduser()
     else:
-        relative = location.get("relative_to_analytical") or location.get("relative_to_documents")
+        relative = location.get("relative_to_analytical")
         if not isinstance(relative, str) or not relative:
             raise ValueError(f"Для {entry.get('id')} не задан относительный путь")
         root = project / relative
@@ -97,19 +82,18 @@ def contour_root(repository: Path, entry: dict, contour: str | None) -> Path:
     return root
 
 
-def documents_identity(project: Path, registry: dict) -> dict:
-    workspace = registry.get("workspace", {})
-    entry = workspace.get("analytical_repository") or workspace.get("documents_repository", {})
+def analytical_identity(project: Path, registry: dict) -> dict:
+    entry = registry.get("workspace", {}).get("analytical_repository", {})
     top = run_git(project, "rev-parse", "--show-toplevel")
     if top.returncode != 0 or Path(top.stdout.strip()).resolve() != project:
-        raise ValueError(f"documents не является корнем Git-репозитория: {project}")
+        raise ValueError(f"аналитический проект не является корнем Git-репозитория: {project}")
     head = run_git(project, "rev-parse", "HEAD")
     branch = run_git(project, "symbolic-ref", "--quiet", "--short", "HEAD")
     remotes = run_git(project, "remote", "get-url", "--all", "origin")
     remote_urls = [line.strip() for line in remotes.stdout.splitlines() if line.strip()]
     accepted = entry.get("accepted_remote_urls", [])
     return {
-        "repository": entry.get("id", "documents"),
+        "repository": entry.get("id", "analytical"),
         "root": str(project),
         "head": head.stdout.strip() if head.returncode == 0 else None,
         "branch": branch.stdout.strip() if branch.returncode == 0 else None,
@@ -182,7 +166,7 @@ def print_json(payload: dict) -> None:
 def status_command(args: argparse.Namespace) -> int:
     project = Path(args.project).resolve()
     registry = load_registry(project)
-    entry = repository_entry(registry, selected_repository_id(registry, args.repository))
+    entry = repository_entry(registry, args.repository)
     repository = resolve_repository(project, entry)
     snapshot = git_snapshot(repository, entry, args.contour)
     print_json(snapshot)
@@ -196,11 +180,11 @@ def doctor_command(args: argparse.Namespace) -> int:
     warnings: list[str] = []
     reports: list[dict] = []
     try:
-        documents = documents_identity(project, registry)
-        if not documents["origin_matches_registry"]:
-            errors.append("documents: origin не совпадает с реестром")
+        analytical = analytical_identity(project, registry)
+        if not analytical["origin_matches_registry"]:
+            errors.append("аналитический проект: origin не совпадает с реестром")
     except ValueError as exc:
-        documents = None
+        analytical = None
         errors.append(str(exc))
     for entry in registry["repositories"]:
         if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
@@ -226,11 +210,9 @@ def doctor_command(args: argparse.Namespace) -> int:
                     warnings.append(f"{entry['id']}/{contour}: локальные инструкции SDD не найдены известными шаблонами")
         except ValueError as exc:
             errors.append(str(exc))
-    if not registry["repositories"]:
-        warnings.append("Кодовый репозиторий не настроен; работа без исследования кода разрешена")
     print_json({
         "status": "error" if errors else "ok",
-        "documents": documents,
+        "analytical": analytical,
         "repositories": reports,
         "warnings": warnings,
         "errors": errors,
@@ -241,7 +223,7 @@ def doctor_command(args: argparse.Namespace) -> int:
 def begin_command(args: argparse.Namespace) -> int:
     project = Path(args.project).resolve()
     registry = load_registry(project)
-    entry = repository_entry(registry, selected_repository_id(registry, args.repository))
+    entry = repository_entry(registry, args.repository)
     repository = resolve_repository(project, entry)
     snapshot = git_snapshot(repository, entry, args.contour)
     if not snapshot["origin_matches_registry"]:
@@ -258,7 +240,7 @@ def begin_command(args: argparse.Namespace) -> int:
         "schema_version": 1,
         "kind": "code-inspection",
         "started_at": utc_now(),
-        "documents_root": str(project),
+        "analytical_root": str(project),
         "feature": args.feature,
         "query": args.query,
         "initial": snapshot,
@@ -272,7 +254,7 @@ def begin_command(args: argparse.Namespace) -> int:
 def verify_command(args: argparse.Namespace) -> int:
     state_path = Path(args.state).resolve()
     payload = json.loads(state_path.read_text(encoding="utf-8"))
-    project = Path(payload["documents_root"]).resolve()
+    project = Path(payload["analytical_root"]).resolve()
     initial = payload["initial"]
     registry = load_registry(project)
     entry = repository_entry(registry, initial["repository"])
@@ -297,7 +279,7 @@ def locate_command(args: argparse.Namespace) -> int:
         raise ValueError("max-results должен быть от 1 до 500")
     project = Path(args.project).resolve()
     registry = load_registry(project)
-    entry = repository_entry(registry, selected_repository_id(registry, args.repository))
+    entry = repository_entry(registry, args.repository)
     repository = resolve_repository(project, entry)
     snapshot = git_snapshot(repository, entry, args.contour)
     search_root = Path(snapshot["contour_root"])
@@ -337,38 +319,10 @@ def locate_command(args: argparse.Namespace) -> int:
 
 
 def setup_command(args: argparse.Namespace) -> int:
-    project = Path(args.project).resolve()
-    registry = load_registry(project)
-    documents = documents_identity(project, registry)
-    if not documents["origin_matches_registry"]:
-        raise ValueError("origin documents не совпадает с реестром")
-    entry = repository_entry(registry, selected_repository_id(registry, args.repository))
-    repository = resolve_repository(project, entry)
-    git_snapshot(repository, entry, None)
-    if project.parent != repository.parent:
-        raise ValueError("Для общей рабочей области аналитический и кодовый репозитории должны быть соседними каталогами")
-    root = project.parent
-    template = project / ".workflow/templates/workspace/analyst-workspace-agents.template.md"
-    text = template.read_text(encoding="utf-8")
-    text = text.replace("<analytical-dir>", project.name).replace("<code-dir>", repository.name)
-    agents = root / "AGENTS.md"
-    if agents.exists() and agents.read_text(encoding="utf-8") != text and not args.force:
-        raise ValueError(f"{agents} уже существует и отличается; используй --force только после проверки")
-    agents.write_text(text, encoding="utf-8")
-    workspace = root / "analyst-workspace.code-workspace"
-    workspace_payload = {
-        "folders": [
-            {"name": "analytical", "path": project.name},
-            {"name": "code-read-only", "path": repository.name},
-        ],
-        "settings": {
-            "files.exclude": {"**/.git": True},
-            "search.exclude": {"**/.git": True, "**/node_modules": True, "**/build": True},
-        },
-    }
-    workspace.write_text(json.dumps(workspace_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print_json({"root": str(root), "agents": str(agents), "workspace": str(workspace)})
-    return 0
+    raise ValueError(
+        "рабочая область настраивается только командами configure и bootstrap "
+        "из корня analyst-harness"
+    )
 
 
 def parser() -> argparse.ArgumentParser:
@@ -381,13 +335,13 @@ def parser() -> argparse.ArgumentParser:
 
     status = commands.add_parser("status")
     status.add_argument("project")
-    status.add_argument("--repository")
+    status.add_argument("--repository", default="code")
     status.add_argument("--contour")
     status.set_defaults(handler=status_command)
 
     begin = commands.add_parser("begin")
     begin.add_argument("project")
-    begin.add_argument("--repository")
+    begin.add_argument("--repository", default="code")
     begin.add_argument("--contour")
     begin.add_argument("--feature")
     begin.add_argument("--query")
@@ -401,7 +355,7 @@ def parser() -> argparse.ArgumentParser:
     locate = commands.add_parser("locate")
     locate.add_argument("project")
     locate.add_argument("query")
-    locate.add_argument("--repository")
+    locate.add_argument("--repository", default="code")
     locate.add_argument("--contour", required=True)
     locate.add_argument("--regex", action="store_true")
     locate.add_argument("--max-results", type=int, default=50)
@@ -409,7 +363,7 @@ def parser() -> argparse.ArgumentParser:
 
     setup = commands.add_parser("setup")
     setup.add_argument("project")
-    setup.add_argument("--repository")
+    setup.add_argument("--repository", default="code")
     setup.add_argument("--force", action="store_true")
     setup.set_defaults(handler=setup_command)
     return result

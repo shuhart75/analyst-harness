@@ -1320,7 +1320,7 @@ def validate_decomposition(
         instruction_text = (working / "README.md").read_text(encoding="utf-8", errors="ignore")
         for fragment in (
             "Сначала прочитать `handoff.json`",
-            "Не загружать весь кодовый репозиторий",
+            "Не загружать весь репозиторий `code`",
             "development-task-card.template.md",
             "блок `Короткие команды разработчика`",
         ):

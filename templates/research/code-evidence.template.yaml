@@ -2,20 +2,20 @@ schema_version: 1
 kind: code-evidence
 feature: "<feature-slug>"
 repository:
-  id: "<repository-id>"
+  id: code
   commit: "<full-commit-sha>"
   branch: "<branch-or-detached>"
   inspected_at: "<ISO-8601>"
   worktree_state: clean
 scope:
-  contour: "<registered-contour>"
+  contour: "<backend|frontend>"
   question: "<Что требовалось установить>"
 findings:
   - id: "CODE-<FEATURE>-001"
     classification: "<fact|inference|assumption|open-question>"
     observation: "<Краткое наблюдение без копирования исходного кода>"
     evidence:
-      - path: "<relative/path/in/code-repository>"
+      - path: "<relative/path/in/code>"
         symbol: "<symbol-or-section>"
         note: "<Что именно подтверждает источник>"
     related_requirements: []
