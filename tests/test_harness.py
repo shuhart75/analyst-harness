@@ -146,6 +146,14 @@ class HarnessTests(unittest.TestCase):
             result = run(sys.executable, str(project / ".workflow/tools/harnessctl.py"), "doctor", str(project))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_project_agent_contract_excludes_workspace_bootstrap(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = self.scaffold(Path(temp))
+            contract = (project / "AGENTS.md").read_text(encoding="utf-8")
+            self.assertIn("## Always read first", contract)
+            self.assertNotIn("## First launch of this repository", contract)
+            self.assertNotIn("scripts/workspace.py configure", contract)
+
     def test_analyst_workspace_resolves_and_guards_code_repository(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
