@@ -90,7 +90,7 @@ python3 scripts/workspace.py status
 - из корня `analyst-harness`;
 - непосредственно из настроенного репозитория роли `analytics`.
 
-В обоих случаях модель обязана определить `HARNESS_ROOT`, получить `PROJECT_ROOT` командой `python3 scripts/workspace.py project-root` и записывать `baseline/`, `context/`, `planning/`, `features/` и `releases/` только в `PROJECT_ROOT`. При запуске из `analytics` это обеспечивает местный игнорируемый `AGENTS.md`. Если подключена роль `code`, её путь берётся из `.workspace-state/code-repos.json`, поэтому исследование кода не зависит от места запуска задачи.
+В обоих случаях модель обязана определить `HARNESS_ROOT`, получить `PROJECT_ROOT` командой `python3 scripts/workspace.py project-root` и записывать `baseline/`, `context/`, `planning/`, `features/` и `releases/` только в `PROJECT_ROOT`. При запуске из `analytics` местный игнорируемый `AGENTS.md` содержит абсолютные `HARNESS_ROOT`, `PROJECT_ROOT` и, при наличии, `CODE_ROOT` этой машины. Поэтому маршрутизация не зависит ни от имени репозитория, ни от текущего вложенного каталога, а исследование роли `code` выполняется через единую корневую обвязку.
 
 ## Граница ответственности
 

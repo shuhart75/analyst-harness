@@ -17,6 +17,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 ## Ownership boundaries
 
 - The `analyst-harness` repository is `HARNESS_ROOT`. Resolve the repository assigned role `analytics` as `PROJECT_ROOT` with `python3 scripts/workspace.py project-root`; do not assume a fixed directory name or derive it from the current directory.
+- Resolve every relative harness path and command in this file against `HARNESS_ROOT`. When launched from `PROJECT_ROOT`, use the absolute `HARNESS_ROOT` written in the local entry point; never create replacement `scripts/`, `core/`, `modes/` or `templates/` under `PROJECT_ROOT`.
 - Change requirements, plans, packages and factual progress only under `PROJECT_ROOT`.
 - The tracked analytics tree must not contain an embedded `.workflow`, `.vscode`, or harness copy of `AGENTS.md`. A generated local `AGENTS.md` with marker `analyst-harness-local-entrypoint:v1` is allowed, ignored by Git, and must not be committed.
 - Keep contracts, modes, scripts, templates and local run state in this harness root.
