@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -62,6 +63,13 @@ class AnalystWorkspaceEndToEndTests(unittest.TestCase):
                     ("git", "apply"), cwd=harness, input=working_diff, text=True, capture_output=True, check=False
                 )
                 self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
+            untracked = run("git", "ls-files", "--others", "--exclude-standard", cwd=ROOT)
+            self.assertEqual(untracked.returncode, 0, untracked.stdout + untracked.stderr)
+            for relative in untracked.stdout.splitlines():
+                source = ROOT / relative
+                target = harness / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, target)
             harness_status_before = run("git", "status", "--porcelain=v1", cwd=harness).stdout
             configured = run(
                 sys.executable,

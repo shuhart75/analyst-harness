@@ -53,7 +53,11 @@ This repository is the root of a configurable analyst workspace. The harness rem
 ## Requirements
 
 - Author requirements in Russian. Keep English only for exact code, paths, API and database identifiers, enum values, formats, fixed product names, and necessary technical terms.
-- Root requirements are authored. Slice cards and contour detail packs are derived and must be regenerated after semantic root changes.
+- Root requirements are authored. During ordinary work, change only `PROJECT_ROOT/features/<feature>/requirements.md`; do not create or refresh slice cards, contour detail packs, task candidates, or handoff revisions.
+- Before editing an existing feature, run `requirementsctl.py status`. If it reports an unrecorded divergence from the last published revision, do not guess its origin: ask whether it came from analyst initiative or a registered developer receipt and record that answer first.
+- After every root requirement change, record its origin with `scripts/requirementsctl.py record-change`: `analyst` for an analyst-initiated change or `developer-receipt` with the receipt path for accepted developer feedback.
+- A developer-receipt change never creates a package revision and never refreshes slices. An analyst-initiated change after an existing package may produce one offer to prepare a new revision. Record the offer before asking; if declined, persist the refusal and do not ask again until an explicit preparation command.
+- Derive slices and contour detail packs only as part of an explicit package-preparation command.
 - New root documents follow `core/requirements-profile.md`, an adaptation of ISO/IEC/IEEE 29148:2018.
 - Detect impact on neighboring features, include required neighboring work in the current requirements, and record deferred propagation in `planning/consistency-backlog.md` inside the analytical project.
 - Never invent a business rule from code. Code observations are commit-bound technical evidence.
