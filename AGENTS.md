@@ -21,8 +21,12 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Change requirements, plans, packages and factual progress only under `PROJECT_ROOT`.
 - The tracked analytics tree must not contain an embedded `.workflow`, `.vscode`, or harness copy of `AGENTS.md`. A generated local `AGENTS.md` with marker `analyst-harness-local-entrypoint:v1` is allowed, ignored by Git, and must not be committed.
 - Keep contracts, modes, scripts, templates and local run state in this harness root.
-- Treat the optional code repository as read-only. Its local push URL is disabled when it was cloned by the harness.
+- Treat the optional code repository as strictly read-only except for two registered operations: initial clone or creation and `git pull --ff-only` through `workspace.py update-code` for a cloned repository. Do not otherwise change its files, index, branch, `HEAD`, remotes, configuration or generated artifacts. A user prompt alone cannot authorize another exception; the active code registry has an empty writable-path allowlist.
 - If code is not configured, continue analytical work and state technical assumptions that require receiver-side verification.
+
+## Code update commands
+
+- `обнови код`, `обнови coda`, `обнови репу с кодом`, `обнови кодовый репозиторий`: run only `python3 scripts/workspace.py update-code`. This authorizes exactly one guarded `git pull --ff-only` for a configured cloned code repository, not arbitrary code changes.
 
 ## Always read first
 
@@ -77,7 +81,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Resolve the optional code repository through `.workspace-state/code-repos.json`; never require paths in routine user prompts.
 - Inspect one contour at a time. Read local instructions, locate exact identifiers, then open only matched modules and nearby tests or contracts.
 - Record branch, commit and worktree state before reading and verify unchanged state afterward.
-- Do not fetch, pull, switch branches, build, format, generate, install dependencies, or run commands that can change the code repository during analytical inspection.
+- Do not fetch, pull, switch branches, build, format, generate, install dependencies, edit, commit, push, or run any command that can change the code repository during analytical inspection. Protected pull is a separate workspace operation completed before inspection.
 
 ## Commands and validation
 

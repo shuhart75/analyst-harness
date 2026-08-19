@@ -145,7 +145,7 @@ class HarnessTests(unittest.TestCase):
             state_root = root / "workspace-state"
             state_root.mkdir()
             registry = {
-                "schema_version": 2,
+                "schema_version": 3,
                 "workspace": {
                     "analytical_repository": {
                         "id": "analytical",
@@ -154,6 +154,13 @@ class HarnessTests(unittest.TestCase):
                 },
                 "repositories": [{
                     "id": "code",
+                    "access": "read-only",
+                    "write_policy": {
+                        "mode": "operations-only",
+                        "allowed_paths": [],
+                        "allowed_operations": ["git-pull-ff-only-via-workspace"],
+                        "user_prompt_can_override": False,
+                    },
                     "location": {"relative_to_analytical": "../code"},
                     "accepted_remote_urls": ["ssh://git@example.test/code.git"],
                     "expected_branch": None,
@@ -171,6 +178,14 @@ class HarnessTests(unittest.TestCase):
             report = json.loads(result.stdout)
             self.assertEqual(report["status"], "ok")
             self.assertEqual(report["repositories"][0]["head"], run("git", "-C", str(code), "rev-parse", "HEAD").stdout.strip())
+
+            registry["repositories"][0]["write_policy"]["allowed_paths"] = ["backend"]
+            (state_root / "code-repos.json").write_text(json.dumps(registry), encoding="utf-8")
+            result = run(sys.executable, str(tool), "doctor", str(analytical), env=env)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("небезопасная политика записи", result.stdout)
+            registry["repositories"][0]["write_policy"]["allowed_paths"] = []
+            (state_root / "code-repos.json").write_text(json.dumps(registry), encoding="utf-8")
 
             result = run(
                 sys.executable,
@@ -213,6 +228,14 @@ class HarnessTests(unittest.TestCase):
             result = run(sys.executable, str(tool), "verify", str(state), env=env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+            config_path = code / ".git/config"
+            config_before = config_path.read_bytes()
+            config_path.write_bytes(config_before + b"\n# unexpected analyst-side change\n")
+            result = run(sys.executable, str(tool), "verify", str(state), env=env)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("repository_config_sha256", result.stdout)
+            config_path.write_bytes(config_before)
+
             result = run(sys.executable, str(tool), "setup", str(analytical), env=env)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("configure и bootstrap", result.stdout)
@@ -236,6 +259,16 @@ class HarnessTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             run_payload = json.loads((state_root / "runs/code-root-test/run.json").read_text(encoding="utf-8"))
             self.assertEqual(Path(run_payload["code_root"]), code / "backend")
+            run_payload["verifiers"] = [{
+                "name": "forbidden-code-write",
+                "argv": [sys.executable, "-c", "from pathlib import Path; Path('forbidden').write_text('x')"],
+            }]
+            run_path = state_root / "runs/code-root-test/run.json"
+            run_path.write_text(json.dumps(run_payload), encoding="utf-8")
+            result = run(sys.executable, str(run_file), "run-verify", str(run_path), env=run_env)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("роли code запрещён", result.stderr)
+            self.assertFalse((code / "backend/forbidden").exists())
 
             source = code / "backend/src/Registry.java"
             source.write_text(source.read_text(encoding="utf-8") + "// changed\n", encoding="utf-8")
@@ -245,6 +278,21 @@ class HarnessTests(unittest.TestCase):
             result = run(sys.executable, str(tool), "begin", str(analytical), "--contour", "backend", env=env)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("нужен чистый клон", result.stdout)
+            result = run(sys.executable, str(tool), "doctor", str(analytical), env=env)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("исследование заблокировано", result.stdout)
+            result = run(
+                sys.executable,
+                str(tool),
+                "locate",
+                str(analytical),
+                "productCode",
+                "--contour",
+                "backend",
+                env=env,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("поиск заблокирован", result.stdout)
 
     def test_scaffold_contains_per_item_developer_handoff_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -292,7 +340,7 @@ class HarnessTests(unittest.TestCase):
             self.assertEqual(root_manifest["agent_contract"]["path"], "AGENTS.md")
             self.assertTrue(root_manifest["agent_contract"]["required"])
             registry = json.loads((ROOT / "templates/workflow/code-repos.template.json").read_text(encoding="utf-8"))
-            self.assertEqual(registry["schema_version"], 2)
+            self.assertEqual(registry["schema_version"], 3)
             self.assertEqual(registry["repositories"], [])
             self.assertEqual(registry["workspace"]["analytical_repository"]["accepted_remote_urls"], [])
             self.assertTrue((ROOT / "core/code-inspection.md").is_file())

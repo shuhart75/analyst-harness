@@ -87,7 +87,9 @@ class AnalystWorkspaceTests(unittest.TestCase):
                 "DISABLED_BY_ANALYST_HARNESS",
             )
             registry = json.loads((workspace / ".workspace-state/code-repos.json").read_text(encoding="utf-8"))
+            self.assertEqual(registry["schema_version"], 3)
             self.assertEqual(registry["repositories"][0]["id"], "code")
+            self.assertEqual(registry["repositories"][0]["write_policy"]["allowed_paths"], [])
             self.assertEqual(registry["repositories"][0]["location"]["relative_to_analytical"], "../code")
             self.assertEqual(set(registry["repositories"][0]["contours"]), {"backend", "frontend"})
             multi_root = json.loads((workspace / "analyst-workspace.code-workspace").read_text(encoding="utf-8"))
@@ -102,6 +104,54 @@ class AnalystWorkspaceTests(unittest.TestCase):
             )
             self.assertEqual(project_root.returncode, 0, project_root.stdout + project_root.stderr)
             self.assertEqual(Path(project_root.stdout.strip()), analytical)
+
+            code = workspace / "code"
+            config_before = (code / ".git/config").read_bytes()
+            repeated = run(
+                sys.executable,
+                str(ROOT / "scripts/workspace.py"),
+                "--root",
+                str(workspace),
+                "bootstrap",
+                env=env,
+            )
+            self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+            self.assertEqual((code / ".git/config").read_bytes(), config_before)
+
+            upstream = root / "code-upstream"
+            self.assertEqual(run("git", "clone", str(code_remote), str(upstream)).returncode, 0)
+            self.assertEqual(run("git", "-C", str(upstream), "config", "user.name", "Harness Test").returncode, 0)
+            self.assertEqual(run("git", "-C", str(upstream), "config", "user.email", "harness@example.test").returncode, 0)
+            (upstream / "backend/app.py").write_text("VALUE = 2\n", encoding="utf-8")
+            self.assertEqual(run("git", "-C", str(upstream), "add", ".").returncode, 0)
+            self.assertEqual(run("git", "-C", str(upstream), "commit", "-m", "code update").returncode, 0)
+            self.assertEqual(run("git", "-C", str(upstream), "push", "origin", "main").returncode, 0)
+
+            updated = run(
+                sys.executable,
+                str(ROOT / "scripts/workspace.py"),
+                "--root",
+                str(workspace),
+                "update-code",
+                env=env,
+            )
+            self.assertEqual(updated.returncode, 0, updated.stdout + updated.stderr)
+            self.assertEqual(json.loads(updated.stdout)["operation"], "git-pull-ff-only-via-workspace")
+            self.assertEqual((code / "backend/app.py").read_text(encoding="utf-8"), "VALUE = 2\n")
+            self.assertEqual(run("git", "-C", str(code), "status", "--porcelain=v1").stdout, "")
+            self.assertEqual((code / ".git/config").read_bytes(), config_before)
+
+            (code / "backend/app.py").write_text("LOCAL = 3\n", encoding="utf-8")
+            blocked = run(
+                sys.executable,
+                str(ROOT / "scripts/workspace.py"),
+                "--root",
+                str(workspace),
+                "update-code",
+                env=env,
+            )
+            self.assertNotEqual(blocked.returncode, 0)
+            self.assertIn("локальные изменения", blocked.stdout)
 
     def test_create_workspace_can_skip_code(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

@@ -15,6 +15,7 @@ from workspace_entrypoint import embedded_harness_paths, write_local_entrypoint
 CONFIG_NAME = ".analyst-workspace.json"
 WORKSPACE_NAME = "analyst-workspace.code-workspace"
 PROJECT_PATHS = ("baseline", "context", "features", "planning", "releases")
+CODE_PUSH_DISABLED = "DISABLED_BY_ANALYST_HARNESS"
 
 
 def utc_now() -> str:
@@ -144,6 +145,21 @@ def ensure_clone(path: Path, url: str, label: str) -> None:
         raise ValueError(f"origin {label} не совпадает с сохранённым URL: {sorted(current)}")
 
 
+def disable_code_push(path: Path) -> None:
+    result = run("git", "-C", str(path), "config", "remote.origin.pushurl", CODE_PUSH_DISABLED)
+    if result.returncode != 0:
+        raise ValueError(f"Не удалось запретить отправку в кодовый репозиторий: {result.stderr.strip()}")
+
+
+def require_code_push_disabled(path: Path) -> None:
+    result = run("git", "-C", str(path), "remote", "get-url", "--push", "origin")
+    if result.returncode != 0 or result.stdout.strip() != CODE_PUSH_DISABLED:
+        raise ValueError(
+            "Для существующего кодового репозитория не закреплён запрет отправки; "
+            "аналитическая обвязка не будет менять его настройки"
+        )
+
+
 def ensure_content_only(path: Path) -> None:
     embedded = embedded_harness_paths(path)
     if embedded:
@@ -182,7 +198,12 @@ def ensure_code(root: Path, config: dict) -> Path | None:
         return None
     path = checked_path(root, config["path"], "Путь кодового репозитория")
     if config["mode"] == "clone":
+        created = not path.exists()
         ensure_clone(path, config["remote_url"], "кодовый репозиторий")
+        if created:
+            disable_code_push(path)
+        else:
+            require_code_push_disabled(path)
     else:
         path.mkdir(parents=True, exist_ok=True)
         if any(path.iterdir()) and git_root(path) != path:
@@ -191,10 +212,6 @@ def ensure_code(root: Path, config: dict) -> Path | None:
             result = run("git", "init", "-b", "main", str(path))
             if result.returncode != 0:
                 raise ValueError(f"Не удалось создать кодовый Git-репозиторий: {result.stderr.strip()}")
-    if config["mode"] == "clone":
-        result = run("git", "-C", str(path), "config", "remote.origin.pushurl", "DISABLED_BY_ANALYST_HARNESS")
-        if result.returncode != 0:
-            raise ValueError(f"Не удалось запретить отправку в кодовый репозиторий: {result.stderr.strip()}")
     return path
 
 
@@ -210,6 +227,12 @@ def write_code_registry(analytical: Path, analytical_config: dict, code: Path | 
             "id": "code",
             "purpose": "Кодовый репозиторий для проверки требований",
             "access": "read-only",
+            "write_policy": {
+                "mode": "operations-only",
+                "allowed_paths": [],
+                "allowed_operations": ["initial-clone-or-create", "git-pull-ff-only-via-workspace"],
+                "user_prompt_can_override": False,
+            },
             "location": {
                 "environment": "ANALYST_CODE_REPO",
                 "relative_to_analytical": os.path.relpath(code, analytical),
@@ -223,7 +246,7 @@ def write_code_registry(analytical: Path, analytical_config: dict, code: Path | 
             ],
         })
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "workspace": {
             "layout": "sibling-clones",
             "code_optional": True,
@@ -276,7 +299,14 @@ def bootstrap_command(args: argparse.Namespace) -> int:
         "prepared_at": utc_now(),
         "roles": {
             "analytics": {"path": str(analytical), "access": "read-write"},
-            "code": {"path": str(code) if code else None, "access": "read-only" if code else "disabled"},
+            "code": {
+                "path": str(code) if code else None,
+                "access": "read-only" if code else "disabled",
+                "allowed_paths": [],
+                "allowed_operations": (
+                    ["initial-clone-or-create", "git-pull-ff-only-via-workspace"] if code else []
+                ),
+            },
         },
         "project_root": str(analytical),
         "local_entrypoint": str(entrypoint),
@@ -321,6 +351,47 @@ def status_command(args: argparse.Namespace) -> int:
     return 0 if report["status"] == "ready" else 1
 
 
+def update_code_command(args: argparse.Namespace) -> int:
+    root = harness_root(args.root)
+    config = load_config(root)
+    code_config = config["code"]
+    if code_config["mode"] != "clone":
+        raise ValueError("Защищённый git pull доступен только для клонированного кодового репозитория")
+    code = checked_path(root, code_config["path"], "Путь кодового репозитория")
+    if git_root(code) != code:
+        raise ValueError("Кодовый репозиторий не развёрнут; сначала выполни bootstrap")
+    ensure_clone(code, code_config["remote_url"], "кодовый репозиторий")
+    require_code_push_disabled(code)
+    dirty = run("git", "-C", str(code), "status", "--porcelain=v1")
+    if dirty.returncode != 0 or dirty.stdout:
+        raise ValueError("Кодовый репозиторий содержит локальные изменения; git pull запрещён")
+    branch = run("git", "-C", str(code), "symbolic-ref", "--quiet", "--short", "HEAD")
+    if branch.returncode != 0:
+        raise ValueError("Кодовый репозиторий находится в detached HEAD; git pull запрещён")
+    name = branch.stdout.strip()
+    before = run("git", "-C", str(code), "rev-parse", "HEAD").stdout.strip()
+    pulled = run(
+        "git", "-C", str(code), "-c", "core.hooksPath=/dev/null",
+        "pull", "--ff-only", "--no-rebase", "origin", name,
+    )
+    if pulled.returncode != 0:
+        raise ValueError(f"Не удалось выполнить защищённый git pull кодового репозитория: {pulled.stderr.strip()}")
+    after_status = run("git", "-C", str(code), "status", "--porcelain=v1")
+    if after_status.returncode != 0 or after_status.stdout:
+        raise ValueError("Защищённый git pull оставил изменённое рабочее дерево; требуется владелец кода")
+    require_code_push_disabled(code)
+    after = run("git", "-C", str(code), "rev-parse", "HEAD").stdout.strip()
+    print(json.dumps({
+        "status": "updated" if before != after else "current",
+        "role": "code",
+        "branch": name,
+        "before": before,
+        "after": after,
+        "operation": "git-pull-ff-only-via-workspace",
+    }, ensure_ascii=False, indent=2))
+    return 0
+
+
 def project_root_command(args: argparse.Namespace) -> int:
     root = harness_root(args.root)
     require_clean_harness_boundary(root)
@@ -351,6 +422,8 @@ def parser() -> argparse.ArgumentParser:
     project_root_parser.set_defaults(handler=project_root_command)
     status = commands.add_parser("status")
     status.set_defaults(handler=status_command)
+    update_code = commands.add_parser("update-code")
+    update_code.set_defaults(handler=update_code_command)
     return result
 
 

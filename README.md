@@ -24,7 +24,7 @@ analyst-harness/
 
 Корневая обвязка хранит правила, режимы, инструменты и шаблоны. Аналитический репозиторий хранит только проектные данные. Кодовый репозиторий подключается только для ограниченного чтения и может отсутствовать.
 
-Назначение определяется ролью, а не именем каталога. Репозиторий роли `analytics` является `PROJECT_ROOT`; необязательный репозиторий роли `code` доступен только для чтения.
+Назначение определяется ролью, а не именем каталога. Репозиторий роли `analytics` является `PROJECT_ROOT`; необязательный репозиторий роли `code` доступен строго только для чтения за исключением первоначального создания или клонирования и защищённого `git pull --ff-only` через `workspace.py`. Вне этих операций обвязка не изменяет файлы, индекс, ветку, `HEAD` и настройки и не создаёт материалы. Реестр кода содержит пустой список разрешённых путей записи и явный список разрешённых служебных операций.
 
 В отслеживаемом Git-дереве роли `analytics` запрещены копии:
 
@@ -276,9 +276,10 @@ python3 scripts/harnessctl.py language-check <project> --feature <feature>
 python3 scripts/harnessctl.py requirements-check <project> --feature <feature>
 python3 scripts/sync-planning-gantt.py <project> <YYYY-QN>
 python3 scripts/harnessctl.py plan-approve <project> <YYYY-QN> --by <owner>
+python3 scripts/workspace.py update-code
 ```
 
-Пользователь не обязан помнить пути. LLM берёт `<project>` из `.analyst-workspace.json` и понимает короткие команды из `templates/workflow/command-catalog.template.md`.
+Пользователь не обязан помнить пути. LLM берёт `<project>` из `.analyst-workspace.json` и понимает короткие команды из `templates/workflow/command-catalog.template.md`. Команды `обнови код`, `обнови coda` и `обнови репу с кодом` означают только защищённый `git pull --ff-only`.
 
 ## Проверки
 
