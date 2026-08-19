@@ -4,19 +4,19 @@ This policy governs read-only use of a locally cloned code repository by analyst
 
 ## Repository layout
 
-The `analyst-harness` clone is the workspace root. It contains the harness, one configured analytical repository and, optionally, one configured code repository:
+The `analyst-harness` clone is `HARNESS_ROOT`. It contains the harness, one repository assigned role `analytics` and, optionally, one repository assigned role `code`:
 
 ```text
 <workspace>/
 ├── AGENTS.md
 ├── analyst-workspace.code-workspace
-├── <analytical-project>/
-└── <code>/
+├── <analytics-repository>/      # PROJECT_ROOT
+└── <code-repository>/           # optional, read-only
     ├── backend/
     └── frontend/
 ```
 
-The configured analytical project remains the requirements and planning repository. The optional code repository remains independent. Do not create submodules or symlinks between them.
+Role `analytics` remains the requirements and planning repository. Optional role `code` remains independent. Do not create submodules or symlinks between them.
 
 The common workspace gives the LLM filesystem access to the registered repositories. It does not authorize whole-repository reading and does not place all code into model context.
 

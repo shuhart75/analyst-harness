@@ -71,8 +71,16 @@ class AnalystWorkspaceTests(unittest.TestCase):
             )
             self.assertEqual(bootstrap.returncode, 0, bootstrap.stdout + bootstrap.stderr)
             analytical = workspace / "analytical-project"
-            for forbidden in (".workflow", ".vscode", "AGENTS.md"):
+            for forbidden in (".workflow", ".vscode"):
                 self.assertFalse((analytical / forbidden).exists())
+            entrypoint = analytical / "AGENTS.md"
+            self.assertTrue(entrypoint.is_file())
+            self.assertIn("analyst-harness-local-entrypoint:v1", entrypoint.read_text(encoding="utf-8"))
+            self.assertEqual(run("git", "-C", str(analytical), "check-ignore", "AGENTS.md").returncode, 0)
+            self.assertEqual(
+                run("git", "-C", str(analytical), "status", "--porcelain=v1", "--", "AGENTS.md").stdout,
+                "",
+            )
             self.assertTrue((analytical / "planning/team.md").is_file())
             self.assertEqual(
                 run("git", "-C", str(workspace / "code"), "remote", "get-url", "--push", "origin").stdout.strip(),
@@ -84,6 +92,16 @@ class AnalystWorkspaceTests(unittest.TestCase):
             self.assertEqual(set(registry["repositories"][0]["contours"]), {"backend", "frontend"})
             multi_root = json.loads((workspace / "analyst-workspace.code-workspace").read_text(encoding="utf-8"))
             self.assertEqual([item["name"] for item in multi_root["folders"]], ["analyst-harness", "analytical", "code-read-only"])
+            project_root = run(
+                sys.executable,
+                str(ROOT / "scripts/workspace.py"),
+                "--root",
+                str(workspace),
+                "project-root",
+                env=env,
+            )
+            self.assertEqual(project_root.returncode, 0, project_root.stdout + project_root.stderr)
+            self.assertEqual(Path(project_root.stdout.strip()), analytical)
 
     def test_create_workspace_can_skip_code(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

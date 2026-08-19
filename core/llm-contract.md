@@ -17,17 +17,17 @@ Before changing artifacts, read:
 9. `.workspace-state/run-state/session-brief.md` when present
 10. `.workspace-state/active-mode.md`
 11. `modes/<active-mode>.md`
-12. `<analytical-project>/README.md`
-13. `<analytical-project>/planning/team.md` before planning resources or regenerating actual-progress
-14. relevant `<analytical-project>/context/project-rules/*.md`
+12. `PROJECT_ROOT/README.md`
+13. `PROJECT_ROOT/planning/team.md` before planning resources or regenerating actual-progress
+14. relevant `PROJECT_ROOT/context/project-rules/*.md`
 15. relevant templates for the current action
-16. `<analytical-project>/baseline/current/` for the canonical deployed state when it exists
-17. relevant feature/slice source artifacts under the configured analytical project
-18. relevant `<analytical-project>/releases/` artifacts when finalizing a delivered change
+16. `PROJECT_ROOT/baseline/current/` for the canonical deployed state when it exists
+17. relevant feature/slice source artifacts under `PROJECT_ROOT`
+18. relevant `PROJECT_ROOT/releases/` artifacts when finalizing a delivered change
 
 If the user points to a folder with current-system docs/screenshots/change requests, inspect that folder first and keep source references in the produced artifacts.
 
-Unless a path explicitly starts with a harness directory such as `core/`, `modes/`, `scripts/`, `skills/`, `templates/` or `.workspace-state/`, resolve project paths such as `baseline/`, `context/`, `planning/`, `features/` and `releases/` under the analytical root stored in `.analyst-workspace.json`.
+`HARNESS_ROOT` is the `analyst-harness` repository. Resolve `PROJECT_ROOT` only through `python3 HARNESS_ROOT/scripts/workspace.py --root HARNESS_ROOT project-root`. Unless a path explicitly starts with a harness directory such as `core/`, `modes/`, `scripts/`, `skills/`, `templates/` or `.workspace-state/`, resolve project paths such as `baseline/`, `context/`, `planning/`, `features/` and `releases/` under `PROJECT_ROOT`, regardless of the directory from which the LLM was launched.
 
 
 ## Small-context operating rules
@@ -280,7 +280,7 @@ Partial rollback:
 
 - Never modify copied legacy/original source folders unless the user explicitly asks. For `changesWork`, read or copy only.
 - Preserve user edits; do not revert unrelated changes.
-- Run all workflow tools from the harness `scripts/` directory and pass the configured analytical repository as the project root.
+- Run all workflow tools from `HARNESS_ROOT/scripts/` and pass the resolved `PROJECT_ROOT` as the project root.
 - Before the final response after file edits, and always before a commit, review the current-turn diff for necessity, correctness and conciseness. Fix in-scope issues; report or ask about issues that are out of mode, touch unrelated user changes, or require a business decision.
 - After planning/execution gantt edits, run `scripts/sync-quarter-gantt.py <project>/planning/<quarter>/gantt` when available.
 - After structural edits, run `scripts/validate-structure.py <project>` and `scripts/validate-links.py <project>` when available.

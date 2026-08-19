@@ -9,10 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from workspace_paths import ensure_local_state, state_root
+from workspace_entrypoint import embedded_harness_paths, write_local_entrypoint
 
 
 CONFIG_NAME = ".analyst-workspace.json"
 WORKSPACE_NAME = "analyst-workspace.code-workspace"
+PROJECT_PATHS = ("baseline", "context", "features", "planning", "releases")
 
 
 def utc_now() -> str:
@@ -39,6 +41,20 @@ def git_root(path: Path) -> Path | None:
     if result.returncode != 0:
         return None
     return Path(result.stdout.strip()).resolve()
+
+
+def misplaced_project_paths(root: Path) -> list[str]:
+    return [name for name in PROJECT_PATHS if (root / name).exists()]
+
+
+def require_clean_harness_boundary(root: Path) -> None:
+    misplaced = misplaced_project_paths(root)
+    if misplaced:
+        raise ValueError(
+            "Проектные каталоги ошибочно созданы в корне обвязки: "
+            + ", ".join(misplaced)
+            + ". Перенеси их в репозиторий роли analytics до продолжения"
+        )
 
 
 def load_config(root: Path) -> dict:
@@ -129,7 +145,7 @@ def ensure_clone(path: Path, url: str, label: str) -> None:
 
 
 def ensure_content_only(path: Path) -> None:
-    embedded = [name for name in (".workflow", ".vscode", "AGENTS.md") if (path / name).exists()]
+    embedded = embedded_harness_paths(path)
     if embedded:
         raise ValueError(
             "Аналитический репозиторий содержит встроенную обвязку: "
@@ -245,15 +261,32 @@ def write_workspace(root: Path, analytical: Path, code: Path | None) -> Path:
 
 def bootstrap_command(args: argparse.Namespace) -> int:
     root = harness_root(args.root)
+    require_clean_harness_boundary(root)
     source = Path(__file__).resolve().parents[1]
     config = load_config(root)
     ensure_local_state()
     analytical = ensure_analytical(root, source, config["analytical"])
     code = ensure_code(root, config["code"])
+    entrypoint = write_local_entrypoint(analytical, root, code)
     registry = write_code_registry(analytical, config["analytical"], code, config["code"])
     workspace = write_workspace(root, analytical, code)
+    workspace_state = state_root() / "workspace.json"
+    workspace_state.write_text(json.dumps({
+        "schema_version": 1,
+        "prepared_at": utc_now(),
+        "roles": {
+            "analytics": {"path": str(analytical), "access": "read-write"},
+            "code": {"path": str(code) if code else None, "access": "read-only" if code else "disabled"},
+        },
+        "project_root": str(analytical),
+        "local_entrypoint": str(entrypoint),
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": "ready",
+        "roles": {
+            "analytics": str(analytical),
+            "code": str(code) if code else None,
+        },
         "analytical_repository": str(analytical),
         "code_repository": str(code) if code else None,
         "code_registry": str(registry),
@@ -265,7 +298,15 @@ def bootstrap_command(args: argparse.Namespace) -> int:
 def status_command(args: argparse.Namespace) -> int:
     root = harness_root(args.root)
     config = load_config(root)
-    report = {"status": "ready", "config": str(root / CONFIG_NAME), "repositories": []}
+    misplaced = misplaced_project_paths(root)
+    analytical = checked_path(root, config["analytical"]["path"], "Путь analytics")
+    report = {
+        "status": "invalid" if misplaced else "ready",
+        "config": str(root / CONFIG_NAME),
+        "project_root": str(analytical),
+        "misplaced_project_paths": misplaced,
+        "repositories": [],
+    }
     for key in ("analytical", "code"):
         item = config[key]
         if item["mode"] == "skip":
@@ -278,6 +319,17 @@ def status_command(args: argparse.Namespace) -> int:
         report["repositories"].append({"kind": key, "mode": item["mode"], "path": str(path), "state": state})
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["status"] == "ready" else 1
+
+
+def project_root_command(args: argparse.Namespace) -> int:
+    root = harness_root(args.root)
+    require_clean_harness_boundary(root)
+    config = load_config(root)
+    project = checked_path(root, config["analytical"]["path"], "Путь роли analytics")
+    if git_root(project) != project:
+        raise ValueError("Репозиторий роли analytics не развёрнут; сначала выполни bootstrap")
+    print(project)
+    return 0
 
 
 def parser() -> argparse.ArgumentParser:
@@ -295,6 +347,8 @@ def parser() -> argparse.ArgumentParser:
     configure.set_defaults(handler=configure_command)
     bootstrap = commands.add_parser("bootstrap")
     bootstrap.set_defaults(handler=bootstrap_command)
+    project_root_parser = commands.add_parser("project-root")
+    project_root_parser.set_defaults(handler=project_root_command)
     status = commands.add_parser("status")
     status.set_defaults(handler=status_command)
     return result

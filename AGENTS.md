@@ -16,9 +16,9 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 ## Ownership boundaries
 
-- Read the analytical root from `.analyst-workspace.json`; do not assume a fixed directory name in user interaction.
-- Change requirements, plans, packages and factual progress only in the configured analytical repository.
-- The analytical repository must not contain an embedded `.workflow`, `.vscode`, or root `AGENTS.md` harness copy.
+- The `analyst-harness` repository is `HARNESS_ROOT`. Resolve the repository assigned role `analytics` as `PROJECT_ROOT` with `python3 scripts/workspace.py project-root`; do not assume a fixed directory name or derive it from the current directory.
+- Change requirements, plans, packages and factual progress only under `PROJECT_ROOT`.
+- The tracked analytics tree must not contain an embedded `.workflow`, `.vscode`, or harness copy of `AGENTS.md`. A generated local `AGENTS.md` with marker `analyst-harness-local-entrypoint:v1` is allowed, ignored by Git, and must not be committed.
 - Keep contracts, modes, scripts, templates and local run state in this harness root.
 - Treat the optional code repository as read-only. Its local push URL is disabled when it was cloned by the harness.
 - If code is not configured, continue analytical work and state technical assumptions that require receiver-side verification.
@@ -39,9 +39,9 @@ This repository is the root of a configurable analyst workspace. The harness rem
 12. `.workspace-state/run-state/session-brief.md` when present
 13. `.workspace-state/active-mode.md`
 14. `modes/<active-mode>.md`
-15. `<analytical-project>/README.md`
-16. `<analytical-project>/planning/team.md` before planning resources
-17. relevant `<analytical-project>/context/project-rules/*.md`
+15. `PROJECT_ROOT/README.md`
+16. `PROJECT_ROOT/planning/team.md` before planning resources
+17. relevant `PROJECT_ROOT/context/project-rules/*.md`
 
 ## Mode boundary
 
@@ -77,8 +77,8 @@ This repository is the root of a configurable analyst workspace. The harness rem
 ## Commands and validation
 
 - Interpret short Russian commands through `templates/workflow/command-catalog.template.md` and `templates/workflow/command-cheatsheet.template.md`.
-- Run `python3 scripts/harnessctl.py session-brief <analytical-project>` for progressive context disclosure.
-- Run `python3 scripts/harnessctl.py doctor <analytical-project>` before broad workflow changes.
-- Run `python3 scripts/validate-language.py <analytical-project>` after changing requirements.
-- Run `python3 scripts/validate-requirements-profile.py <analytical-project>` for changed profiled root documents.
+- Run `python3 scripts/harnessctl.py session-brief "$PROJECT_ROOT"` for progressive context disclosure.
+- Run `python3 scripts/harnessctl.py doctor "$PROJECT_ROOT"` before broad workflow changes.
+- Run `python3 scripts/validate-language.py "$PROJECT_ROOT"` after changing requirements.
+- Run `python3 scripts/validate-requirements-profile.py "$PROJECT_ROOT"` for changed profiled root documents.
 - Preserve unrelated user changes and report any validation failure that cannot be resolved within the requested scope.
