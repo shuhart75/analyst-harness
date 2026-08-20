@@ -77,6 +77,23 @@ class AnalystWorkspaceTests(unittest.TestCase):
             self.assertTrue(entrypoint.is_file())
             self.assertIn("analyst-harness-local-entrypoint:v1", entrypoint.read_text(encoding="utf-8"))
             self.assertEqual(run("git", "-C", str(analytical), "check-ignore", "AGENTS.md").returncode, 0)
+            for local_path in (
+                ".codex/state",
+                ".gigacode/settings.json",
+                ".gigaide/settings",
+                ".idea/modules.xml",
+                "GIGACODE.md",
+                "local.iml",
+                "settings.json.orig",
+                "test-sync.md",
+                "test-reverse.patch",
+                "features/test-patch.md",
+            ):
+                self.assertEqual(
+                    run("git", "-C", str(analytical), "check-ignore", local_path).returncode,
+                    0,
+                    local_path,
+                )
             self.assertEqual(
                 run("git", "-C", str(analytical), "status", "--porcelain=v1", "--", "AGENTS.md").stdout,
                 "",

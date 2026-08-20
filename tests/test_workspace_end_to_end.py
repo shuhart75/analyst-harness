@@ -100,6 +100,8 @@ class AnalystWorkspaceEndToEndTests(unittest.TestCase):
             self.assertIn(f"PROJECT_ROOT = {analytics}", entrypoint_text)
             self.assertIn(f"CODE_ROOT = {code}", entrypoint_text)
             self.assertEqual(run("git", "check-ignore", "AGENTS.md", cwd=analytics).returncode, 0)
+            self.assertEqual(run("git", "check-ignore", ".idea/modules.xml", cwd=analytics).returncode, 0)
+            self.assertEqual(run("git", "check-ignore", ".gigacode/settings.json", cwd=analytics).returncode, 0)
             self.assertEqual(run("git", "status", "--porcelain=v1", cwd=analytics).stdout, "")
 
             root_project = run(sys.executable, "scripts/workspace.py", "project-root", cwd=harness)

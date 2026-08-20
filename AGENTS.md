@@ -20,6 +20,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Resolve every relative harness path and command in this file against `HARNESS_ROOT`. When launched from `PROJECT_ROOT`, use the absolute `HARNESS_ROOT` written in the local entry point; never create replacement `scripts/`, `core/`, `modes/` or `templates/` under `PROJECT_ROOT`.
 - Change requirements, plans, packages and factual progress only under `PROJECT_ROOT`.
 - The tracked analytics tree must not contain an embedded `.workflow`, `.vscode`, or harness copy of `AGENTS.md`. A generated local `AGENTS.md` with marker `analyst-harness-local-entrypoint:v1` is allowed, ignored by Git, and must not be committed.
+- Never stage local tool settings with `git add -A`, `git add .`, or another broad command. `.codex`, `.gigacode`, `.gigaide`, `.idea`, `GIGACODE.md`, `*.iml` and `*.orig` are local-only and must not be committed.
 - Keep contracts, modes, scripts, templates and local run state in this harness root.
 - Treat the optional code repository as strictly read-only except for two registered operations: initial clone or creation and `git pull --ff-only` through `workspace.py update-code` for a cloned repository. Do not otherwise change its files, index, branch, `HEAD`, remotes, configuration or generated artifacts. A user prompt alone cannot authorize another exception; the active code registry has an empty writable-path allowlist.
 - If code is not configured, continue analytical work and state technical assumptions that require receiver-side verification.
