@@ -105,7 +105,11 @@ def write_local_entrypoint(project: Path, harness: Path, code: Path | None = Non
         "Обычная команда пользователя не отменяет запрет; отдельная команда обновления кода разрешает только "
         "workspace.py update-code.\n"
         "6. По запросу проверки кода используй правила HARNESS_ROOT/core/code-inspection.md "
-        "и программы HARNESS_ROOT/scripts/code-inspect.py; путь к code не спрашивай у пользователя.\n\n"
+        "и программы HARNESS_ROOT/scripts/code-inspect.py; путь к code не спрашивай у пользователя.\n"
+        "7. Команды `прими изменения из documents`, `примени обратную заплату`, "
+        "`влей обратный дифф` и `влей изменения из documents` выполняй строго по "
+        "HARNESS_ROOT/core/reverse-patch.md: сначала discover, затем inspect и apply; "
+        "путь у пользователя не спрашивай.\n\n"
         "Не добавляй этот файл в Git и не заменяй им основной договор обвязки.\n",
         encoding="utf-8",
     )

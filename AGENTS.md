@@ -22,6 +22,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - The tracked analytics tree must not contain an embedded `.workflow`, `.vscode`, or harness copy of `AGENTS.md`. A generated local `AGENTS.md` with marker `analyst-harness-local-entrypoint:v1` is allowed, ignored by Git, and must not be committed.
 - Never stage local tool settings with `git add -A`, `git add .`, or another broad command. `.codex`, `.gigacode`, `.gigaide`, `.idea`, `GIGACODE.md`, `*.iml` and `*.orig` are local-only and must not be committed.
 - Keep contracts, modes, scripts, templates and local run state in this harness root.
+- Keep incoming reverse-patch pairs under the ignored `HARNESS_ROOT/reverse-patch-inbox/` and application receipts under the ignored `HARNESS_ROOT/reverse-patch-receipts/`; never commit either directory.
 - Treat the optional code repository as strictly read-only except for two registered operations: initial clone or creation and `git pull --ff-only` through `workspace.py update-code` for a cloned repository. Do not otherwise change its files, index, branch, `HEAD`, remotes, configuration or generated artifacts. A user prompt alone cannot authorize another exception; the active code registry has an empty writable-path allowlist.
 - If code is not configured, continue analytical work and state technical assumptions that require receiver-side verification.
 
@@ -41,13 +42,14 @@ This repository is the root of a configurable analyst workspace. The harness rem
 8. `core/context-policy.md`
 9. `core/research-policy.md`
 10. `core/code-inspection.md` when code evidence is needed
-11. `core/run-loop.md`
-12. `.workspace-state/run-state/session-brief.md` when present
-13. `.workspace-state/active-mode.md`
-14. `modes/<active-mode>.md`
-15. `PROJECT_ROOT/README.md`
-16. `PROJECT_ROOT/planning/team.md` before planning resources
-17. relevant `PROJECT_ROOT/context/project-rules/*.md`
+11. `core/reverse-patch.md` before accepting a reverse patch
+12. `core/run-loop.md`
+13. `.workspace-state/run-state/session-brief.md` when present
+14. `.workspace-state/active-mode.md`
+15. `modes/<active-mode>.md`
+16. `PROJECT_ROOT/README.md`
+17. `PROJECT_ROOT/planning/team.md` before planning resources
+18. relevant `PROJECT_ROOT/context/project-rules/*.md`
 
 ## Mode boundary
 
@@ -83,6 +85,13 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Inspect one contour at a time. Read local instructions, locate exact identifiers, then open only matched modules and nearby tests or contracts.
 - Record branch, commit and worktree state before reading and verify unchanged state afterward.
 - Do not fetch, pull, switch branches, build, format, generate, install dependencies, edit, commit, push, or run any command that can change the code repository during analytical inspection. Protected pull is a separate workspace operation completed before inspection.
+
+## Reverse patch reception
+
+- `прими изменения из documents`, `примени обратную заплату`, `влей обратный дифф`, `влей изменения из documents` and close equivalents mean the complete guarded workflow in `core/reverse-patch.md`.
+- Run `reverse_patch.py discover`, then `inspect`, then `apply`. Do not ask the user for a path. If several valid pairs exist, ask only which `artifact_id` to use; never choose automatically.
+- The command authorizes one protected pull of the configured analytical repository, one integration commit and a normal push to `origin/main`. It does not authorize reset, rebase, force push, broad staging or editing the patch.
+- Report the final commit and local receipt. A failed push leaves a `committed-not-pushed` receipt so the same commit can be sent on the next run.
 
 ## Commands and validation
 

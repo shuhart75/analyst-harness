@@ -75,7 +75,10 @@ class AnalystWorkspaceTests(unittest.TestCase):
                 self.assertFalse((analytical / forbidden).exists())
             entrypoint = analytical / "AGENTS.md"
             self.assertTrue(entrypoint.is_file())
-            self.assertIn("analyst-harness-local-entrypoint:v1", entrypoint.read_text(encoding="utf-8"))
+            entrypoint_text = entrypoint.read_text(encoding="utf-8")
+            self.assertIn("analyst-harness-local-entrypoint:v1", entrypoint_text)
+            self.assertIn("прими изменения из documents", entrypoint_text)
+            self.assertIn("core/reverse-patch.md", entrypoint_text)
             self.assertEqual(run("git", "-C", str(analytical), "check-ignore", "AGENTS.md").returncode, 0)
             for local_path in (
                 ".codex/state",

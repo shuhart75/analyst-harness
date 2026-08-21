@@ -79,6 +79,7 @@ RSCON-2445 завершена вчера, RSCON-2451 взял второй фр�
 | `занимаемся планированием` | `planning` | Switch into quarter planning and HLE mode. |
 | `делаем требования` | `requirements` | Switch into living requirements mode and use the requested requirements format. |
 | `сходи в код` | текущий аналитический режим | Выполнить ограниченное исследование одного контура локального `code` без изменения кода и привязать выводы к коммиту. |
+| `прими изменения из documents` | операция с репозиторием | Найти проверенную обратную заплату без запроса пути, сверить её и применить к чистой `main` с одним коммитом, push и квитанцией. |
 | `делаем презентационный прототип` | `scope-prototype` | Switch into common feature prototype mode and choose the visual base before generating. |
 | `делаем прототип для разработки` | `delivery-prototype` | Switch into slice handoff mode, but block any slice edits until the root feature prototype is explicitly approved. |
 | `обновляем прогресс` | `execution-update` | Switch into implementation tracking mode. |
@@ -175,6 +176,7 @@ Treat these as equivalent user phrasings.
 | `промоуть в baseline` | `обнови baseline`, `сделай baseline promotion`, `перенеси в baseline`, `зафиксируй новый baseline`, `обнови текущее состояние системы` |
 | `откати решение DEC-*` | `rollback DEC-*`, `отмени решение DEC-*`, `сделай rollback по DEC-*`, `откати DEC-*`, `верни решение DEC-*` |
 | `проверь workflow` | `проверь всё`, `прогони проверки`, `workflow check`, `проверь harness`, `сделай полный check`, `проверь структуру и ссылки` |
+| `прими изменения из documents` | `примени обратную заплату`, `влей обратный дифф`, `влей изменения из documents` |
 
 ## Modes
 
@@ -190,6 +192,7 @@ Treat these as equivalent user phrasings.
 | User command | Target mode | Required first action |
 |---|---|---|
 | `обнови код` | текущий аналитический режим | Выполнить только `workspace.py update-code`, то есть защищённый `git pull --ff-only`; другие изменения кода запрещены. |
+| `прими изменения из documents` | операция с репозиторием | Выполнить `reverse_patch.py discover`; при одном кандидате последовательно выполнить `inspect` и `apply`, при нескольких спросить только `artifact_id`. |
 | `новая фича` | `planning` | Switch mode, inspect source folder, run intake, do not scaffold yet. |
 | `занимаемся планированием` | `planning` | Switch mode, read baseline/current and current quarter planning. |
 | `делаем требования` | `requirements` | Switch mode, select the format, read baseline/current and author only the root feature requirements. |
