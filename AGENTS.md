@@ -42,14 +42,15 @@ This repository is the root of a configurable analyst workspace. The harness rem
 8. `core/context-policy.md`
 9. `core/research-policy.md`
 10. `core/code-inspection.md` when code evidence is needed
-11. `core/reverse-patch.md` before accepting a reverse patch
-12. `core/run-loop.md`
-13. `.workspace-state/run-state/session-brief.md` when present
-14. `.workspace-state/active-mode.md`
-15. `modes/<active-mode>.md`
-16. `PROJECT_ROOT/README.md`
-17. `PROJECT_ROOT/planning/team.md` before planning resources
-18. relevant `PROJECT_ROOT/context/project-rules/*.md`
+11. `core/collaboration.md` before starting, saving, updating, submitting or finishing feature work
+12. `core/reverse-patch.md` before accepting a reverse patch
+13. `core/run-loop.md`
+14. `.workspace-state/run-state/session-brief.md` when present
+15. `.workspace-state/active-mode.md`
+16. `modes/<active-mode>.md`
+17. `PROJECT_ROOT/README.md`
+18. `PROJECT_ROOT/planning/team.md` before planning resources
+19. relevant `PROJECT_ROOT/context/project-rules/*.md`
 
 ## Mode boundary
 
@@ -70,9 +71,19 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Never invent a business rule from code. Code observations are commit-bound technical evidence.
 - Only the user-owner may approve requirements or plans.
 
+## Collaboration
+
+- Multi-user feature branches are mandatory for requirements work. Missing `.workspace-state/collaboration.json` means migration is required; it never permits direct work in `PROJECT_ROOT/main`.
+- `начинаю работу над фичей <feature>` and documented synonyms mean: run bootstrap, check `collaboration.py status`, migrate once when required, then run `collaboration.py start --feature <feature>` before reading or editing the feature requirements.
+- `сохрани работу` and documented synonyms mean: review all changes, run applicable checks, then call `collaboration.py save` with every exact changed path and a semantic commit message. It pushes only the feature branch.
+- Bare `обнови` or `синкани` while feature work is active means `collaboration.py update`. Outside active work the phrase is ambiguous and requires one question.
+- `требования готовы к объединению` means validate, save, update, revalidate and call `collaboration.py submit`. It pushes the branch but does not create or accept a merge request.
+- `запрос на слияние принят` means `collaboration.py finish`, which must prove that the submitted commit is contained in `origin/main` before returning to local `main`.
+- Never work directly in `main`, rebase, reset, force push, use broad staging, or create delivery packages from an unaccepted feature branch.
+
 ## Developer handoff
 
-- Treat `сформируй пакет для разработки` and its documented synonyms as one complete action: validate requirements, repair only meaning-preserving issues, ask one semantic question at a time, and publish directly to `sent` when all checks pass.
+- Treat `сформируй пакет для разработки` and its documented synonyms as one complete action: first require `collaboration.py require-main-for-delivery --feature <feature>`, then validate requirements, repair only meaning-preserving issues, ask one semantic question at a time, and publish directly to `sent` when all checks pass.
 - Send one feature package containing root requirements and slices. Do not pre-author the final Jira decomposition under `features/<feature>/tasks/`.
 - Developers own confirmed `DEV-BE-*` and `DEV-FE-*` cards after inspecting their code and local SDD.
 - A confirmed decomposition snapshot is returned in the background and does not block implementation.
@@ -89,6 +100,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 ## Reverse patch reception
 
 - `прими изменения из documents`, `примени обратную заплату`, `влей обратный дифф`, `влей изменения из documents` and close equivalents mean the complete guarded workflow in `core/reverse-patch.md`.
+- Reverse-patch reception is allowed only on clean `PROJECT_ROOT/main` with no active collaboration work. Finish or explicitly resolve the feature session first.
 - Run `reverse_patch.py discover`, then `inspect`, then `apply`. Do not ask the user for a path. If several valid pairs exist, ask only which `artifact_id` to use; never choose automatically.
 - The command authorizes one protected pull of the configured analytical repository, one integration commit and a normal push to `origin/main`. It does not authorize reset, rebase, force push, broad staging or editing the patch.
 - Report the final commit and local receipt. A failed push leaves a `committed-not-pushed` receipt so the same commit can be sent on the next run.

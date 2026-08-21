@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -12,6 +13,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
 
 
 REVISION_STATES = {
@@ -730,8 +732,73 @@ def init_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def require_collaboration_main_for_handoff(project: Path, feature: str) -> None:
+    harness = Path(__file__).resolve().parents[1]
+    state_root = Path(
+        os.environ.get("ANALYST_HARNESS_STATE_ROOT", harness / ".workspace-state")
+    ).resolve()
+    state_path = state_root / "collaboration.json"
+    if not state_path.is_file():
+        workspace_path = state_root / "workspace.json"
+        if workspace_path.is_file():
+            workspace = load(workspace_path)
+            analytics = workspace.get("roles", {}).get("analytics", {})
+            analytics_path = analytics.get("path") if isinstance(analytics, dict) else None
+            if analytics_path and Path(analytics_path).resolve() == project:
+                raise ValueError(
+                    "Совместная работа ещё не настроена. Это незавершённая одноразовая миграция; "
+                    "до неё пакет и производные материалы создавать нельзя"
+                )
+        return
+    state = load(state_path)
+    if state.get("schema_version") != 1 or state.get("mode") != "multi-user-branches":
+        raise ValueError(f"Повреждена настройка совместной работы: {state_path}")
+    if state.get("active_work"):
+        raise ValueError(
+            f"Функциональность {feature} находится в незавершённой рабочей ветке; "
+            "пакет разрешено создавать только после принятия ветки в main"
+        )
+    branch = subprocess.run(
+        ("git", "-C", str(project), "symbolic-ref", "--quiet", "--short", "HEAD"),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if branch.returncode != 0 or branch.stdout.strip() != "main":
+        raise ValueError("Пакет для разработки разрешено создавать только из changeswork-copy/main")
+    fetched = subprocess.run(
+        ("git", "-C", str(project), "fetch", "origin", "main"),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if fetched.returncode != 0:
+        raise ValueError(
+            "Не удалось получить актуальную origin/main перед созданием пакета: "
+            f"{fetched.stderr.strip()}"
+        )
+    local = subprocess.run(
+        ("git", "-C", str(project), "rev-parse", "HEAD"),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    remote = subprocess.run(
+        ("git", "-C", str(project), "rev-parse", "origin/main"),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if local.returncode or remote.returncode or local.stdout.strip() != remote.stdout.strip():
+        raise ValueError(
+            "Локальная changeswork-copy/main не совпадает с актуальной origin/main; "
+            "перед созданием пакета выполни require-main-for-delivery"
+        )
+
+
 def init_feature_command(args: argparse.Namespace) -> int:
     project = Path(args.project).resolve()
+    require_collaboration_main_for_handoff(project, args.feature)
     root = project / "features" / args.feature / "handoffs" / args.package_id
     if root.exists():
         raise ValueError(f"Handoff root already exists: {root}")

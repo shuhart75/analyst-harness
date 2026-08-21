@@ -106,10 +106,15 @@ def write_local_entrypoint(project: Path, harness: Path, code: Path | None = Non
         "workspace.py update-code.\n"
         "6. По запросу проверки кода используй правила HARNESS_ROOT/core/code-inspection.md "
         "и программы HARNESS_ROOT/scripts/code-inspect.py; путь к code не спрашивай у пользователя.\n"
-        "7. Команды `прими изменения из documents`, `примени обратную заплату`, "
+        "7. Перед чтением или изменением существующей функциональности выполни bootstrap, "
+        "проверь HARNESS_ROOT/scripts/collaboration.py status и работай только в зарегистрированной "
+        "feature/<feature>/<analyst> ветке. Отсутствие collaboration.json требует одноразовой migration "
+        "и не разрешает прямую работу в main. Начало, сохранение, обновление, submit и finish выполняй "
+        "только через collaboration.py. Submit отправляет ветку, но не создаёт merge request.\n"
+        "8. Команды `прими изменения из documents`, `примени обратную заплату`, "
         "`влей обратный дифф` и `влей изменения из documents` выполняй строго по "
-        "HARNESS_ROOT/core/reverse-patch.md: сначала discover, затем inspect и apply; "
-        "путь у пользователя не спрашивай.\n\n"
+        "HARNESS_ROOT/core/reverse-patch.md: сначала discover, затем inspect и apply. "
+        "Приём разрешён только на чистой main без активной feature-сессии; путь у пользователя не спрашивай.\n\n"
         "Не добавляй этот файл в Git и не заменяй им основной договор обвязки.\n",
         encoding="utf-8",
     )

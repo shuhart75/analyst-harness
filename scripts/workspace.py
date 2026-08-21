@@ -119,6 +119,7 @@ def configure_command(args: argparse.Namespace) -> int:
             "mode": args.analytical_mode,
             "path": os.path.relpath(analytical, root),
             "remote_url": args.analytical_url,
+            "scaffold_mode": "none" if args.preserve_analytical_tree else "merge",
         },
         "code": {
             "mode": args.code_mode,
@@ -175,9 +176,15 @@ def ensure_analytical(root: Path, source: Path, config: dict) -> Path:
     if config["mode"] == "clone":
         ensure_clone(path, config["remote_url"], "аналитический репозиторий")
         ensure_content_only(path)
-        result = run("bash", str(source / "scripts/scaffold-project.sh"), str(path), "--merge")
-        if result.returncode != 0:
-            raise ValueError(f"Не удалось дополнить структуру проекта: {(result.stdout + result.stderr).strip()}")
+        scaffold_mode = config.get("scaffold_mode", "merge")
+        if scaffold_mode == "merge":
+            result = run("bash", str(source / "scripts/scaffold-project.sh"), str(path), "--merge")
+            if result.returncode != 0:
+                raise ValueError(
+                    f"Не удалось дополнить структуру проекта: {(result.stdout + result.stderr).strip()}"
+                )
+        elif scaffold_mode != "none":
+            raise ValueError(f"Неподдерживаемый analytical.scaffold_mode: {scaffold_mode}")
         return path
     if path.exists() and any(path.iterdir()) and git_root(path) != path:
         raise ValueError(f"Каталог аналитического репозитория не пуст: {path}")
@@ -298,7 +305,11 @@ def bootstrap_command(args: argparse.Namespace) -> int:
         "schema_version": 1,
         "prepared_at": utc_now(),
         "roles": {
-            "analytics": {"path": str(analytical), "access": "read-write"},
+            "analytics": {
+                "repository": analytical.name,
+                "path": str(analytical),
+                "access": "read-write",
+            },
             "code": {
                 "path": str(code) if code else None,
                 "access": "read-only" if code else "disabled",
@@ -411,6 +422,11 @@ def parser() -> argparse.ArgumentParser:
     configure.add_argument("--analytical-mode", choices=("clone", "create"), required=True)
     configure.add_argument("--analytical-url")
     configure.add_argument("--analytical-dir", default="analytical-project")
+    configure.add_argument(
+        "--preserve-analytical-tree",
+        action="store_true",
+        help="Подключить клонированный analytics без добавления scaffold-файлов",
+    )
     configure.add_argument("--code-mode", choices=("clone", "create", "skip"), required=True)
     configure.add_argument("--code-url")
     configure.add_argument("--code-dir", default="code")

@@ -1,5 +1,7 @@
 # Mode: requirements
 
+Before reading or changing an existing feature, require an active collaboration session for that feature and verify that the current branch matches `feature/<feature>/<analyst>`. Package preparation is allowed only after the branch is accepted into `origin/main`, collaboration is finished, and `require-main-for-delivery` passes.
+
 ## Goal
 
 Produce or update living requirement packs from canonical baseline, source materials and change requests.
