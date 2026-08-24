@@ -30,7 +30,13 @@ class ReversePatchTests(unittest.TestCase):
         self.git(repository, "config", "user.name", "Harness Test")
         self.git(repository, "config", "user.email", "harness@example.test")
 
-    def prepare(self, directory: Path, artifact_id: str = "20260821T120000000000Z") -> dict:
+    def prepare(
+        self,
+        directory: Path,
+        artifact_id: str = "20260821T120000000000Z",
+        *,
+        trailing_whitespace: bool = False,
+    ) -> dict:
         seed = directory / "seed"
         remote = directory / "changeswork-copy.git"
         root = directory / "analyst-harness"
@@ -56,10 +62,10 @@ class ReversePatchTests(unittest.TestCase):
 
         source_commit = self.git(repository, "rev-parse", "HEAD")
         source_tree = self.git(repository, "rev-parse", "HEAD^{tree}")
-        (target / "features/example/requirements.md").write_text(
-            "# Требования\n\nВерсия 2 после работы в documents.\n",
-            encoding="utf-8",
-        )
+        requirements = "# Требования\n\nВерсия 2 после работы в documents.\n"
+        if trailing_whitespace:
+            requirements += "\n| Поле | Значение |\n|---|---| \n"
+        (target / "features/example/requirements.md").write_text(requirements, encoding="utf-8")
         (target / "features/example/notes.md").write_text("# Примечания\n", encoding="utf-8")
         self.git(target, "add", "--", "features/example/requirements.md", "features/example/notes.md")
         self.git(target, "commit", "-m", "update example requirements")
@@ -101,6 +107,7 @@ class ReversePatchTests(unittest.TestCase):
                 {"commit": analytics_commit, "subject": "update example requirements"}
             ],
             "approved_source_deletions": [],
+            "diff_check_verified": True,
             "tree_verified": True,
             "content_policy_verified": True,
             "verified": True,
@@ -215,6 +222,42 @@ class ReversePatchTests(unittest.TestCase):
             self.assertIn("не воспроизводит целевое дерево", result.stdout)
             self.assert_source_unchanged(fixture)
 
+    def test_trailing_whitespace_is_blocked_during_inspect_without_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            fixture = self.prepare(Path(temp), trailing_whitespace=True)
+
+            inspected = self.tool(
+                fixture,
+                "inspect",
+                "--artifact-id",
+                fixture["metadata"]["artifact_id"],
+            )
+
+            self.assertEqual(inspected.returncode, 2, inspected.stdout + inspected.stderr)
+            payload = json.loads(inspected.stdout)
+            self.assertEqual(payload["status"], "not-applicable")
+            self.assertEqual(payload["reason"], "patch-validation-failed")
+            self.assertIn("пробельного оформления", payload["validation_error"])
+            self.assertIn("trailing whitespace", payload["validation_error"])
+            self.assert_source_unchanged(fixture)
+            receipt = (
+                fixture["root"]
+                / "reverse-patch-receipts"
+                / f"reverse-diff-{fixture['metadata']['artifact_id']}.receipt.json"
+            )
+            self.assertFalse(receipt.exists())
+
+            applied = self.tool(
+                fixture,
+                "apply",
+                "--artifact-id",
+                fixture["metadata"]["artifact_id"],
+            )
+            self.assertNotEqual(applied.returncode, 0)
+            self.assertIn("пробельного оформления", applied.stdout)
+            self.assert_source_unchanged(fixture)
+            self.assertFalse(receipt.exists())
+
     def test_changed_path_mismatch_rolls_back_applied_patch(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             fixture = self.prepare(Path(temp))
@@ -259,7 +302,13 @@ class ReversePatchTests(unittest.TestCase):
     def test_legacy_schema_two_metadata_is_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             fixture = self.prepare(Path(temp))
-            for key in ("source_branch", "analytics_branch", "included_features", "included_analytics_commits"):
+            for key in (
+                "source_branch",
+                "analytics_branch",
+                "included_features",
+                "included_analytics_commits",
+                "diff_check_verified",
+            ):
                 fixture["metadata"].pop(key)
             fixture["metadata_path"].write_text(
                 json.dumps(fixture["metadata"], ensure_ascii=False, indent=2) + "\n",

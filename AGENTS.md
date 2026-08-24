@@ -90,6 +90,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 - `прими изменения из documents`, `примени обратную заплату`, `влей обратный дифф`, `влей изменения из documents` and close equivalents mean the complete guarded workflow in `core/reverse-patch.md`.
 - Run `reverse_patch.py discover`, then `inspect`, then `apply`. Do not ask the user for a path. If several valid pairs exist, ask only which `artifact_id` to use; never choose automatically.
+- `inspect` must independently validate patch applicability, whitespace rules and exact target-tree reproduction in a temporary index. A failed inspection is final for that immutable pair: do not run `apply`, edit the pair or touch the project worktree; request a newly generated pair.
 - The command authorizes one protected pull of the configured analytical repository, one integration commit and a normal push to `origin/main`. It does not authorize reset, rebase, force push, broad staging or editing the patch.
 - Report the final commit and local receipt. A failed push leaves a `committed-not-pushed` receipt so the same commit can be sent on the next run.
 

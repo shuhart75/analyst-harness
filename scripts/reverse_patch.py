@@ -138,6 +138,8 @@ def validate_metadata(metadata_path: Path) -> tuple[dict, Path | None]:
     for key in ("verified", "tree_verified", "content_policy_verified"):
         if payload.get(key) is not True:
             raise ValueError(f"Обратная заплата не прошла обязательную проверку {key}")
+    if "diff_check_verified" in payload and payload["diff_check_verified"] is not True:
+        raise ValueError("Обратная заплата не прошла проверку пробельного оформления")
     source_commit = require_oid(payload, "source_commit")
     analytics_commit = require_oid(payload, "analytics_commit")
     source_tree = require_oid(payload, "source_tree")
@@ -363,12 +365,30 @@ def verify_patch_tree(repository: Path, patch: Path, expected_tree: str) -> None
     try:
         environment = {**os.environ, "GIT_INDEX_FILE": str(index)}
         read = git(repository, "read-tree", "HEAD", env=environment)
-        checked = git(repository, "apply", "--cached", "--check", "--binary", str(patch), env=environment)
-        applied = git(repository, "apply", "--cached", "--binary", str(patch), env=environment)
-        tree = git(repository, "write-tree", env=environment)
-        if read.returncode or checked.returncode or applied.returncode:
-            detail = checked.stderr.strip() or applied.stderr.strip() or read.stderr.strip()
+        if read.returncode != 0:
+            raise ValueError(f"Не удалось подготовить временный индекс: {read.stderr.strip()}")
+        checked = git(
+            repository,
+            "apply", "--cached", "--check", "--binary", "--whitespace=error-all",
+            str(patch),
+            env=environment,
+        )
+        if checked.returncode != 0:
+            detail = checked.stdout.strip() or checked.stderr.strip()
+            raise ValueError(
+                "Заплата не прошла предварительную проверку применимости "
+                f"и пробельного оформления: {detail}"
+            )
+        applied = git(
+            repository,
+            "apply", "--cached", "--binary", "--whitespace=error-all",
+            str(patch),
+            env=environment,
+        )
+        if applied.returncode != 0:
+            detail = applied.stdout.strip() or applied.stderr.strip()
             raise ValueError(f"Заплата не применима к временному индексу: {detail}")
+        tree = git(repository, "write-tree", env=environment)
         if tree.returncode != 0 or tree.stdout.strip() != expected_tree:
             raise ValueError("Применение заплаты не воспроизводит целевое дерево analytics")
     finally:
@@ -482,8 +502,23 @@ def inspect_command(args: argparse.Namespace) -> int:
     head = revision(repository, "HEAD")
     tree = revision(repository, "HEAD^{tree}")
     status = git(repository, "status", "--porcelain=v1")
+    applicable = (
+        branch == metadata.get("source_branch", DEFAULT_BRANCH)
+        and not status.stdout
+        and head == metadata["source_commit"]
+        and tree == metadata["source_tree"]
+    )
+    validation_error = None
+    if applicable and patch is not None:
+        try:
+            verify_patch_tree(repository, patch, metadata["analytics_tree"])
+        except ValueError as exc:
+            applicable = False
+            validation_error = str(exc)
     print(json.dumps({
-        "status": "applicable" if branch == metadata.get("source_branch", DEFAULT_BRANCH) and not status.stdout and head == metadata["source_commit"] and tree == metadata["source_tree"] else "not-applicable",
+        "status": "applicable" if applicable else "not-applicable",
+        "reason": "patch-validation-failed" if validation_error else None,
+        "validation_error": validation_error,
         "artifact_id": metadata["artifact_id"],
         "metadata": str(metadata_path),
         "patch": str(patch) if patch else None,
@@ -498,7 +533,7 @@ def inspect_command(args: argparse.Namespace) -> int:
         "target_tree": metadata["analytics_tree"],
         "included_features": metadata.get("included_features", []),
     }, ensure_ascii=False, indent=2))
-    return 0
+    return 0 if applicable else 2
 
 
 def apply_command(args: argparse.Namespace) -> int:
@@ -552,10 +587,17 @@ def apply_command(args: argparse.Namespace) -> int:
             identity = git(repository, "var", variable)
             if identity.returncode != 0:
                 raise ValueError(f"Не настроена Git-идентификация {variable}: {identity.stderr.strip()}")
-        checked = git(repository, "apply", "--index", "--check", "--binary", str(patch))
+        checked = git(
+            repository,
+            "apply", "--index", "--check", "--binary", "--whitespace=error-all",
+            str(patch),
+        )
         if checked.returncode != 0:
             raise ValueError(f"Заплата не применима к рабочему дереву: {checked.stderr.strip()}")
-        applied = git(repository, "apply", "--index", "--binary", str(patch))
+        applied = git(
+            repository,
+            "apply", "--index", "--binary", "--whitespace=error-all", str(patch),
+        )
         if applied.returncode != 0:
             raise ValueError(f"Не удалось применить заплату: {applied.stderr.strip()}")
         staged = git(repository, "diff", "--cached", "--name-only", "-z", "HEAD", "--", ".")
