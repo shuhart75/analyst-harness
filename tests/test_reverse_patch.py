@@ -159,6 +159,14 @@ class ReversePatchTests(unittest.TestCase):
         self.assertEqual(self.git(repository, "rev-parse", "HEAD"), fixture["metadata"]["source_commit"])
         self.assertEqual(run("git", "-C", str(repository), "status", "--porcelain=v1").stdout, "")
 
+    def object_files(self, repository: Path) -> set[str]:
+        objects = repository / ".git/objects"
+        return {
+            str(path.relative_to(objects))
+            for path in objects.rglob("*")
+            if path.is_file()
+        }
+
     def test_apply_push_and_repeat_are_safe(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             fixture = self.prepare(Path(temp))
@@ -177,6 +185,23 @@ class ReversePatchTests(unittest.TestCase):
             receipt = self.receipt(fixture)
             self.assertEqual(receipt["result_commit"], payload["result_commit"])
             self.assertEqual(receipt["result_tree"], fixture["metadata"]["analytics_tree"])
+
+    def test_inspect_does_not_write_git_objects_or_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            fixture = self.prepare(Path(temp))
+            objects_before = self.object_files(fixture["repository"])
+
+            inspected = self.tool(
+                fixture,
+                "inspect",
+                "--artifact-id",
+                fixture["metadata"]["artifact_id"],
+            )
+
+            self.assertEqual(inspected.returncode, 0, inspected.stdout + inspected.stderr)
+            self.assertEqual(json.loads(inspected.stdout)["status"], "applicable")
+            self.assert_source_unchanged(fixture)
+            self.assertEqual(self.object_files(fixture["repository"]), objects_before)
 
     def test_wrong_sha_is_blocked_without_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

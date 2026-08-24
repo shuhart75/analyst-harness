@@ -358,12 +358,27 @@ def base_receipt(metadata_path: Path, patch: Path | None, metadata: dict, reposi
 
 
 def verify_patch_tree(repository: Path, patch: Path, expected_tree: str) -> None:
-    descriptor, raw_index = tempfile.mkstemp(prefix="analyst-reverse-patch-index-")
-    os.close(descriptor)
-    index = Path(raw_index)
-    index.unlink(missing_ok=True)
-    try:
-        environment = {**os.environ, "GIT_INDEX_FILE": str(index)}
+    git_objects = git(repository, "rev-parse", "--git-path", "objects")
+    if git_objects.returncode != 0 or not git_objects.stdout.strip():
+        raise ValueError(f"Не удалось определить хранилище объектов Git: {git_objects.stderr.strip()}")
+    original_objects = Path(git_objects.stdout.strip())
+    if not original_objects.is_absolute():
+        original_objects = (repository / original_objects).resolve()
+    with tempfile.TemporaryDirectory(prefix="analyst-reverse-patch-") as raw_temporary:
+        temporary = Path(raw_temporary)
+        index = temporary / "index"
+        objects = temporary / "objects"
+        objects.mkdir()
+        alternates = [str(original_objects)]
+        inherited_alternates = os.environ.get("GIT_ALTERNATE_OBJECT_DIRECTORIES", "").strip()
+        if inherited_alternates:
+            alternates.append(inherited_alternates)
+        environment = {
+            **os.environ,
+            "GIT_INDEX_FILE": str(index),
+            "GIT_OBJECT_DIRECTORY": str(objects),
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES": os.pathsep.join(alternates),
+        }
         read = git(repository, "read-tree", "HEAD", env=environment)
         if read.returncode != 0:
             raise ValueError(f"Не удалось подготовить временный индекс: {read.stderr.strip()}")
@@ -391,8 +406,6 @@ def verify_patch_tree(repository: Path, patch: Path, expected_tree: str) -> None
         tree = git(repository, "write-tree", env=environment)
         if tree.returncode != 0 or tree.stdout.strip() != expected_tree:
             raise ValueError("Применение заплаты не воспроизводит целевое дерево analytics")
-    finally:
-        index.unlink(missing_ok=True)
 
 
 def rollback_patch(repository: Path, patch: Path) -> None:
