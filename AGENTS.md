@@ -76,7 +76,9 @@ This repository is the root of a configurable analyst workspace. The harness rem
 ## Developer handoff
 
 - `сформируй пакет для разработки`, `отправь требования в разработку`, `передай требования разработчикам`, `передай разрабам`, `отдай требования разрабам`, `отправь разрабам`, `отдаём в разработку` and `передаём в разработку` are exact delivery synonyms.
-- Treat each delivery synonym as one complete action: validate requirements, repair only meaning-preserving issues, ask one semantic question at a time, then run `requirements-exchange.py prepare` and publish directly to `sent` when all checks pass.
+- Treat each delivery synonym as a two-stage action. First run the mandatory audit in `core/requirements-profile.md`, repair only meaning-preserving issues, and ask one semantic question at a time. Then show the analyst the final audit report and request explicit confirmation. Do not create or publish a revision before that confirmation.
+- Record the completed audit with `requirementsctl.py record-audit`. Only an analyst reply that explicitly confirms both the shown audit and transfer authorizes `requirementsctl.py confirm-audit`; silence, an earlier transfer command, or approval of the requirements document itself is not confirmation of the audit.
+- After confirmation, publish the unchanged audited file directly to `sent`. If `requirements.md` changes at any point after the audit, repeat the audit and confirmation; `requirements-exchange.py prepare` enforces this checksum boundary.
 - Send only one immutable root `requirements.md` plus `manifest.json`. Do not create slices, contour packs or analyst-authored developer tasks.
 - Developers return their already agreed decomposition in `returns/tasks.md`, per-task factual results in `returns/tasks/<task-id>.md`, and final `REQ-*` coverage in `returns/summary.md`. Analyst review never gates development.
 - Preserve every sent input revision and its returns as immutable history.
