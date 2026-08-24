@@ -202,6 +202,20 @@ class HarnessTests(unittest.TestCase):
             self.assertEqual(located["matches"], ["backend/src/Registry.java"])
             self.assertFalse(located["truncated"])
 
+            result = run(
+                sys.executable,
+                str(tool),
+                "locate",
+                str(analytical),
+                "product(Code|Id)",
+                "--contour",
+                "backend",
+                "--regex",
+                env=env,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(json.loads(result.stdout)["matches"], ["backend/src/Registry.java"])
+
             state_home = root / "state"
             env = {**env, "XDG_STATE_HOME": str(state_home)}
             result = subprocess.run(
