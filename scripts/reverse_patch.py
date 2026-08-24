@@ -549,8 +549,34 @@ def inspect_command(args: argparse.Namespace) -> int:
     return 0 if applicable else 2
 
 
+def require_collaboration_ready_for_apply(root: Path) -> None:
+    local_state = state_root(root)
+    workspace_path = local_state / "workspace.json"
+    if not workspace_path.is_file():
+        return
+    collaboration_path = local_state / "collaboration.json"
+    if not collaboration_path.is_file():
+        raise ValueError(
+            "Совместная работа ещё не настроена; обратную заплату нельзя применять до одноразовой миграции"
+        )
+    collaboration = load_json(collaboration_path)
+    if (
+        collaboration.get("schema_version") != 1
+        or collaboration.get("mode") != "multi-user-branches"
+    ):
+        raise ValueError(f"Повреждена настройка совместной работы: {collaboration_path}")
+    active = collaboration.get("active_work")
+    if active:
+        branch = active.get("branch") if isinstance(active, dict) else "unknown"
+        raise ValueError(
+            f"Обратную заплату нельзя применять при активной рабочей сессии {branch}; "
+            "сначала заверши или разреши её"
+        )
+
+
 def apply_command(args: argparse.Namespace) -> int:
     root = root_path(args.root)
+    require_collaboration_ready_for_apply(root)
     with operation_lock(root):
         metadata_path, metadata, patch = resolve_input(root, args)
         repository = project_repository(root)

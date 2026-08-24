@@ -188,7 +188,11 @@ class RequirementsExchangeTests(unittest.TestCase):
 
     def test_missing_code_uses_analytics_and_creates_no_slices(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            project, _ = self.prepare_project(Path(temp))
+            project, feature = self.prepare_project(Path(temp))
+            (feature / "requirements_iso.md").write_text(
+                "# Архив прежних требований\n",
+                encoding="utf-8",
+            )
             result = self.prepare(project)
             self.assertEqual(result["destination_role"], "analytics")
             exchange = project / "requirements-exchange"
@@ -196,6 +200,11 @@ class RequirementsExchangeTests(unittest.TestCase):
             self.assertTrue((exchange / "AGENTS.md").is_file())
             self.assertTrue((exchange / "demo/manifest.json").is_file())
             self.assertTrue((exchange / "demo/revisions/001/requirements.md").is_file())
+            self.assertFalse((exchange / "demo/revisions/001/requirements_iso.md").exists())
+            self.assertNotIn(
+                "requirements_iso.md",
+                [path.name for path in (exchange / "demo/revisions/001").iterdir()],
+            )
             manifest = json.loads((exchange / "demo/manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["sdd_contract"], "../AGENTS.md")
             self.assertFalse((exchange / "demo/revisions/001/returns").exists())

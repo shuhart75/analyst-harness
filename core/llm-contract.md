@@ -17,17 +17,19 @@ Before changing artifacts, read:
 5. `core/tooling-policy.md`
 6. `core/context-policy.md`
 7. `core/research-policy.md`
-8. `core/run-loop.md`
-9. `.workspace-state/run-state/session-brief.md` when present
-10. `.workspace-state/active-mode.md`
-11. `modes/<active-mode>.md`
-12. `PROJECT_ROOT/README.md`
-13. `PROJECT_ROOT/planning/team.md` before planning resources or regenerating actual-progress
-14. relevant `PROJECT_ROOT/context/project-rules/*.md`
-15. relevant templates for the current action
-16. `PROJECT_ROOT/baseline/current/` for the canonical deployed state when it exists
-17. relevant feature source artifacts under `PROJECT_ROOT`
-18. relevant `PROJECT_ROOT/releases/` artifacts when finalizing a delivered change
+8. `core/collaboration.md` before feature work or delivery
+9. `core/reverse-patch.md` before accepting a reverse patch
+10. `core/run-loop.md`
+11. `.workspace-state/run-state/session-brief.md` when present
+12. `.workspace-state/active-mode.md`
+13. `modes/<active-mode>.md`
+14. `PROJECT_ROOT/README.md`
+15. `PROJECT_ROOT/planning/team.md` before planning resources or regenerating actual-progress
+16. relevant `PROJECT_ROOT/context/project-rules/*.md`
+17. relevant templates for the current action
+18. `PROJECT_ROOT/baseline/current/` for the canonical deployed state when it exists
+19. relevant feature source artifacts under `PROJECT_ROOT`
+20. relevant `PROJECT_ROOT/releases/` artifacts when finalizing a delivered change
 
 If the user points to a folder with current-system docs/screenshots/change requests, inspect that folder first and keep source references in the produced artifacts.
 
@@ -67,6 +69,10 @@ If the command references impacted requirements, prototypes, or rollback of a kn
 - `releases/*` and `baseline/current/` when relevant.
 
 If multiple commands conflict, prioritize the most recent explicit user instruction and state the assumption briefly.
+
+Commands that mean accepting a reverse patch are repository operations, not a workflow-mode switch. Follow `core/reverse-patch.md`: discover candidates without asking for paths, inspect the single selected `artifact_id`, then apply it through the guarded program. Never choose automatically when several identifiers are available.
+
+Feature requirements work uses the mandatory branch protocol in `core/collaboration.md`. Before reading or editing a named feature, bootstrap the workspace, check collaboration status and create or resume the registered `feature/<feature>/<analyst>` branch. Missing collaboration state is a migration blocker, not single-user permission. Delivery and reverse-patch reception require clean, current `main` and no active feature session.
 
 ## Feature intake rule
 

@@ -46,14 +46,15 @@ This repository is the root of a configurable analyst workspace. The harness rem
 8. `core/context-policy.md`
 9. `core/research-policy.md`
 10. `core/code-inspection.md` when code evidence is needed
-11. `core/reverse-patch.md` before accepting a reverse patch
-12. `core/run-loop.md`
-13. `.workspace-state/run-state/session-brief.md` when present
-14. `.workspace-state/active-mode.md`
-15. `modes/<active-mode>.md`
-16. `PROJECT_ROOT/README.md`
-17. `PROJECT_ROOT/planning/team.md` before planning resources
-18. relevant `PROJECT_ROOT/context/project-rules/*.md`
+11. `core/collaboration.md` before starting, saving, updating, submitting or finishing feature work
+12. `core/reverse-patch.md` before accepting a reverse patch
+13. `core/run-loop.md`
+14. `.workspace-state/run-state/session-brief.md` when present
+15. `.workspace-state/active-mode.md`
+16. `modes/<active-mode>.md`
+17. `PROJECT_ROOT/README.md`
+18. `PROJECT_ROOT/planning/team.md` before planning resources
+19. relevant `PROJECT_ROOT/context/project-rules/*.md`
 
 ## Mode boundary
 
@@ -65,6 +66,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 - Author requirements in Russian. Keep English only for exact code, paths, API and database identifiers, enum values, formats, fixed product names, and necessary technical terms.
 - Root requirements are authored. During ordinary work, change only `PROJECT_ROOT/features/<feature>/requirements.md`; do not create slices, contour detail packs, preliminary developer tasks or exchange revisions.
+- On an explicit one-time migration from the superseded ISO-shaped document, rename the former root to `requirements_iso.md`, create the new root from the readable template, and then treat the archive as immutable history. Never send `requirements_iso.md` or use it as the authored source.
 - Before editing an existing feature, run `requirementsctl.py status`. If it reports an unrecorded divergence from the last published revision, do not guess its origin: ask whether it came from analyst initiative or a registered developer result and record that answer first.
 - After every root requirement change, record its origin with `scripts/requirementsctl.py record-change`: `analyst` for an analyst-initiated change or `developer-result` with the stable `return_id` for accepted developer feedback.
 - A `developer-result` change never creates or offers an exchange revision. An analyst-initiated change after an existing publication may produce one offer to prepare a new revision. Record the offer before asking; if declined, persist the refusal and do not ask again until an explicit preparation command.
@@ -73,9 +75,20 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Never invent a business rule from code. Code observations are commit-bound technical evidence.
 - Only the user-owner may approve requirements or plans.
 
+## Collaboration
+
+- Multi-user feature branches are mandatory for requirements work. Missing `.workspace-state/collaboration.json` means migration is required; it never permits direct work in `PROJECT_ROOT/main`.
+- `начинаю работу над фичей <feature>` and documented synonyms mean: run bootstrap, check `collaboration.py status`, migrate once when required, then run `collaboration.py start --feature <feature>` before reading or editing the feature requirements.
+- `сохрани работу` and documented synonyms mean: review all changes, run applicable checks, then call `collaboration.py save` with every exact changed path and a semantic commit message. It pushes only the feature branch.
+- Bare `обнови` or `синкани` while feature work is active means `collaboration.py update`. Outside active work the phrase is ambiguous and requires one question.
+- `требования готовы к объединению` means validate, save, update, revalidate and call `collaboration.py submit`. It pushes the branch but does not create or accept a merge request.
+- `запрос на слияние принят` means `collaboration.py finish`, which must prove that the submitted commit is contained in `origin/main` before returning to local `main`.
+- Never work directly in `main`, rebase, reset, force push, use broad staging, or create delivery revisions from an unaccepted feature branch.
+
 ## Developer handoff
 
 - `сформируй пакет для разработки`, `отправь требования в разработку`, `передай требования разработчикам`, `передай разрабам`, `отдай требования разрабам`, `отправь разрабам`, `отдаём в разработку` and `передаём в разработку` are exact delivery synonyms.
+- Before beginning the audit, require `collaboration.py require-main-for-delivery --feature <feature>`. Delivery is allowed only from current `PROJECT_ROOT/main` after the feature branch has been accepted and the collaboration session has been finished.
 - Treat each delivery synonym as a two-stage action. First run the mandatory audit in `core/requirements-profile.md`, repair only meaning-preserving issues, and ask one semantic question at a time. Then show the analyst the final audit report and request explicit confirmation. Do not create or publish a revision before that confirmation.
 - Record the completed audit with `requirementsctl.py record-audit`. Only an analyst reply that explicitly confirms both the shown audit and transfer authorizes `requirementsctl.py confirm-audit`; silence, an earlier transfer command, or approval of the requirements document itself is not confirmation of the audit.
 - After confirmation, publish the unchanged audited file directly to `sent`. If `requirements.md` changes at any point after the audit, repeat the audit and confirmation; `requirements-exchange.py prepare` enforces this checksum boundary.
