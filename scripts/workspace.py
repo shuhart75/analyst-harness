@@ -229,8 +229,12 @@ def write_code_registry(analytical: Path, analytical_config: dict, code: Path | 
             "access": "read-only",
             "write_policy": {
                 "mode": "operations-only",
-                "allowed_paths": [],
-                "allowed_operations": ["initial-clone-or-create", "git-pull-ff-only-via-workspace"],
+                "allowed_paths": ["requirements-exchange/**"],
+                "allowed_operations": [
+                    "initial-clone-or-create",
+                    "git-pull-ff-only-via-workspace",
+                    "requirements-exchange-publish-via-isolated-clone",
+                ],
                 "user_prompt_can_override": False,
             },
             "location": {
@@ -302,9 +306,13 @@ def bootstrap_command(args: argparse.Namespace) -> int:
             "code": {
                 "path": str(code) if code else None,
                 "access": "read-only" if code else "disabled",
-                "allowed_paths": [],
+                "allowed_paths": ["requirements-exchange/**"] if code else [],
                 "allowed_operations": (
-                    ["initial-clone-or-create", "git-pull-ff-only-via-workspace"] if code else []
+                    [
+                        "initial-clone-or-create",
+                        "git-pull-ff-only-via-workspace",
+                        "requirements-exchange-publish-via-isolated-clone",
+                    ] if code else []
                 ),
             },
         },

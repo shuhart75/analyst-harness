@@ -4,38 +4,38 @@ This policy governs read-only use of a locally cloned code repository by analyst
 
 ## Repository layout
 
-The `analyst-harness` clone is `HARNESS_ROOT`. It contains the harness, one repository assigned role `analytics` and, optionally, one repository assigned role `code`:
+The `analyst-harness` clone is `HARNESS_ROOT`. It contains role `analytics` and may contain an independent role `code`; their directory names and remote addresses come from the saved first-launch configuration.
 
 ```text
-<workspace>/
+HARNESS_ROOT/
 ├── AGENTS.md
 ├── analyst-workspace.code-workspace
-├── <analytics-repository>/      # PROJECT_ROOT
-└── <code-repository>/           # optional, read-only
-    ├── backend/
-    └── frontend/
+├── <analytics>/                  # PROJECT_ROOT
+└── <code>/                       # optional, read-only for inspection
 ```
 
-Role `analytics` remains the requirements and planning repository. Optional role `code` remains independent. Do not create submodules or symlinks between them.
+Role `analytics` remains the requirements and planning repository. Role `code` remains an independent optional code repository. Do not create submodules or symlinks between them.
 
 The common workspace gives the LLM filesystem access to the registered repositories. It does not authorize whole-repository reading and does not place all code into model context.
 
 ## Resolution and setup
 
-Repository identity, accepted remotes, relative location and detected contours are stored locally in `.workspace-state/code-repos.json`. The committed template contains no product URL.
+Repository identity, accepted remotes, relative location and contours are stored in `.workspace-state/code-repos.json`. The committed template has no product-specific address.
 
 Resolution order:
 
 1. environment variable declared by the repository entry, normally `ANALYST_CODE_REPO`;
-2. configured path relative to the analytical repository.
+2. path relative to `PROJECT_ROOT` from the saved workspace configuration.
 
 The harness must not store analyst-machine absolute paths in committed project files.
 
 `python3 scripts/workspace.py bootstrap` prepares the configured repositories and `analyst-workspace.code-workspace`. Do not use `code-inspect.py setup` to replace the root `AGENTS.md`; the root contract belongs to this harness.
 
+If role `code` is skipped, code inspection is unavailable but all analytical work continues. Reconfiguration is an explicit user action; do not search for another clone or invent a path.
+
 ## Read-only contract
 
-During analyst planning and requirements work, `code` is strictly read-only. The generated code registry contains an empty write allowlist. A conversational user request does not extend it.
+During analyst planning and requirements research, role `code` is strictly read-only. The only path exception is `requirements-exchange/**`, and it is usable only by the explicit protected transfer operation from `requirements-exchange.py` when the root catalog was created in advance by developers. A conversational user request does not extend it.
 
 Before inspection:
 
@@ -46,9 +46,9 @@ Before inspection:
 
 After inspection, compare branch, commit, repository configuration and worktree entries with the initial snapshot. Any change blocks completion until it is handled by the code-repository owner. The analyst LLM must not repair, reset or clean it.
 
-Do not fetch, pull, switch branches, build, generate, format, install dependencies, run migrations, edit code or execute commands that may create files during inspection. Protected `git pull --ff-only` is a separate registered workspace operation performed only through `workspace.py update-code` before a new inspection snapshot. The writable-path allowlist remains empty.
+Do not fetch, pull, switch branches, build, generate, format, install dependencies, run migrations, edit code or execute commands that may create files during inspection. Protected `git pull --ff-only` is a separate registered workspace operation performed only through `workspace.py update-code` before a new inspection snapshot. Transfer through `requirements-exchange.py` is also separate from inspection and must not leave changes outside its registered path.
 
-This is a workflow guard, not an operating-system sandbox. Use a client-provided read-only mount for the `code` root when available, but still perform the before/after verification.
+This is a workflow guard, not an operating-system sandbox. Use a client-provided read-only mount for role `code` when available, but still perform the before/after verification.
 
 ## Bounded discovery
 
@@ -73,7 +73,7 @@ The LLM may inspect code without an extra confirmation when the action is read-o
 - check whether an expected capability already exists;
 - identify affected neighboring code before writing requirements;
 - resolve a factual mismatch between `baseline/current/`, requirements and implementation;
-- refresh previously recorded code evidence after the local `code` commit changes.
+- refresh previously recorded code evidence after the local role `code` commit changes.
 
 Do not inspect code merely to derive a business decision that the code does not own. Ask the analyst when evidence leaves a semantic choice.
 
@@ -89,10 +89,10 @@ When code findings affect requirements, use `features/<feature>/.research/code-e
 - relative paths, symbols and short observations without copying source code;
 - related requirement identifiers and transfer destination.
 
-Code evidence is auxiliary and commit-bound. During ordinary requirements work, transfer accepted requirement findings only into the root `requirements.md`; record deferred cross-feature propagation in the consistency backlog when necessary. Transfer findings into derived slice packs and `domain-impact.md` only during an explicitly authorized package-preparation pass. Do not update `baseline/current/` from code research outside the existing release-finalization rules.
+Code evidence is auxiliary and commit-bound. During ordinary requirements work, transfer accepted requirement findings only into the root `requirements.md`; record deferred cross-feature propagation in the consistency backlog when necessary. Explicit developer transfer copies that root document and never creates another requirements representation. Do not update `baseline/current/` from code research outside the existing release-finalization rules.
 
 ## Two-stage reconciliation
 
 Analyst-side inspection improves requirements against a recorded local code revision. It does not replace developer-side reconciliation.
 
-Before implementation, the receiving SDD repeats a targeted comparison against its current branch because the code may be newer, differently configured or already changed. Developer findings and actual delivery are returned through the existing decomposition and receipt lifecycle.
+Before implementation, the receiving SDD repeats a targeted comparison against its current branch because the code may be newer, differently configured or already changed. Developer findings and actual delivery are returned through `returns/tasks.md`, per-task results and the final summary of the active exchange revision.

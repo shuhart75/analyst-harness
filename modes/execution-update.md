@@ -6,15 +6,13 @@ Track real work after planning.
 
 ## Main artifacts
 
-- `features/*/slices/*/execution/tasks.md`
-- `features/*/slices/*/execution/tasks/*.md`
-- `features/*/slices/*/execution/task-candidates.md`
+- `features/*/execution/tasks.md`
+- `features/*/execution/tasks/*.md`
+- `features/*/execution/task-candidates.md`
 - `features/*/planning/actualization.md`
 - `features/*/execution-context.md`
-- `features/*/handoffs/*/revisions/*/returns/decomposition-snapshots/*`
-- `features/*/handoffs/*/revisions/*/returns/implementation-results/*`
-- `features/*/handoffs/*/revisions/*/returns/test-results/*`
-- `planning/team.md`
+- read-only developer results from `requirements-exchange/*/revisions/*/returns/`
+- `PROJECT_ROOT/planning/team.md`
 - `planning/*/gantt/actual-progress.puml`
 - `planning/*/gantt/actual-progress-confluence.puml`
 
@@ -31,10 +29,10 @@ Track real work after planning.
 - milestones and factual notes in actual-progress gantt
 - execution context notes that explain current fact state and plan-vs-fact decisions
 - confirmed or proposed task candidates discovered after planning approval
-- confirmed developer decomposition snapshots received through feature handoff packages
-- optional materialization of selected returned cards into task candidates or actual execution tasks
+- agreed developer task lists received through the exchange catalog
+- optional materialization of selected returned tasks into task candidates or actual execution tasks
 
-When a returned development card is materialized into real work, keep the confirmed package snapshot as the implementation source. The analyst may use or replace optional developer estimates and may link Jira keys, but does not edit the confirmed card or block development.
+When a returned developer task is materialized into real work, keep `returns/tasks.md` as the factual source. The analyst may use or replace optional developer estimates and may link Jira keys, but does not edit the returned decomposition or block development.
 
 ## Actual-progress scheduling rules
 
@@ -42,7 +40,7 @@ When a returned development card is materialized into real work, keep the confir
 - Not-started execution tasks are tasks with `Progress % = 0` and no actual dates. They may be `real` or `virtual`.
 - Not-started tasks must not render before the current date marker. On each regeneration, if their planned date is stale, the generator shifts only the rendered bar to today or the next open day.
 - Inside a feature, not-started backend/API tasks lead frontend tasks. Frontend bars start no earlier than 3 open days after the earliest not-started backend/API bar in the same feature.
-- Not-started tasks must be capacity-scheduled by `planning/team.md`: no resource lane above 100% on an open workday, and available resources should be used before pushing work later.
+- Not-started tasks must be capacity-scheduled by `PROJECT_ROOT/planning/team.md`: no resource lane above 100% on an open workday, and available resources should be used before pushing work later.
 - If executor is empty, `TBD_*`, or a non-roster lane, let the generator auto-assign by role/task prefix/summary. Valid explicit lanes such as `B2` are preserved, with dates shifted if needed to avoid overload.
 - Actual started or completed tasks keep their actual dates, even when those dates are in the past.
 - Keep `PLAN ...` story bars visible; they are the commander-plan baseline, not a replacement for the execution task layer.
@@ -55,7 +53,7 @@ Execution updates must keep enough fact context for a small-window LLM to contin
 
 For `обнови реальный прогресс`, `обновляем прогресс`, `задача X завершена`, `задачу X взял Y`, `добавь реальные задачи вместо story X`, and `сравни план и факт`, automatically:
 
-- collect current planning stories, `actualization.md`, execution tasks and `planning/team.md`;
+- collect current planning stories, `actualization.md`, execution tasks and `PROJECT_ROOT/planning/team.md`;
 - preserve commander/quarter plan story bars as the baseline for plan-vs-fact comparison;
 - update story-to-task mapping in markdown, not only in generated PlantUML;
 - avoid duplicating a real task that maps to multiple stories;
@@ -66,7 +64,7 @@ Do not change quarter-plan or commander-plan baselines while only updating real 
 
 ## Resource rules
 
-- Prefer canonical executor/resource lanes from `planning/team.md`: `A1-A3`, `B1-B3`, `F1-F2`, `Q1-Q3`.
+- Prefer canonical executor/resource lanes from `PROJECT_ROOT/planning/team.md`: `A1-A3`, `B1-B3`, `F1-F2`, `Q1-Q3`.
 - Use `TBD_A`, `TBD_B`, `TBD_F`, `TBD_Q` when the role is known but the person/resource is not assigned yet.
 - Accepted input aliases are normalized on render:
   - analyst: `A`, `AN`, `analyst`, `аналитик`;

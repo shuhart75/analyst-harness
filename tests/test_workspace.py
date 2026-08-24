@@ -109,7 +109,10 @@ class AnalystWorkspaceTests(unittest.TestCase):
             registry = json.loads((workspace / ".workspace-state/code-repos.json").read_text(encoding="utf-8"))
             self.assertEqual(registry["schema_version"], 3)
             self.assertEqual(registry["repositories"][0]["id"], "code")
-            self.assertEqual(registry["repositories"][0]["write_policy"]["allowed_paths"], [])
+            self.assertEqual(
+                registry["repositories"][0]["write_policy"]["allowed_paths"],
+                ["requirements-exchange/**"],
+            )
             self.assertEqual(registry["repositories"][0]["location"]["relative_to_analytical"], "../code")
             self.assertEqual(set(registry["repositories"][0]["contours"]), {"backend", "frontend"})
             multi_root = json.loads((workspace / "analyst-workspace.code-workspace").read_text(encoding="utf-8"))

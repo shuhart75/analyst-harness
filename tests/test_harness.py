@@ -252,7 +252,7 @@ class HarnessTests(unittest.TestCase):
 
             result = run(sys.executable, str(tool), "setup", str(analytical), env=env)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("configure и bootstrap", result.stdout)
+            self.assertIn("workspace.py bootstrap", result.stdout)
             self.assertFalse((root / "AGENTS.md").exists())
             self.assertFalse((root / "rscon-analyst.code-workspace").exists())
 
@@ -308,7 +308,7 @@ class HarnessTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("поиск заблокирован", result.stdout)
 
-    def test_scaffold_contains_per_item_developer_handoff_contract(self) -> None:
+    def test_scaffold_contains_legacy_handoff_compatibility(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
             contract = ROOT / "core/developer-handoff.md"
@@ -317,13 +317,13 @@ class HarnessTests(unittest.TestCase):
             self.assertTrue(contract.exists())
             self.assertTrue(receipt.exists())
             self.assertTrue(manifest.exists())
-            self.assertIn("delivered-with-deviations", contract.read_text(encoding="utf-8"))
+            self.assertIn("неизменяемая редакция `requirements.md`", contract.read_text(encoding="utf-8"))
             self.assertEqual(json.loads(receipt.read_text(encoding="utf-8"))["schema_version"], 4)
             self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["delivery_policy"]["input"], "immutable-comparison-point")
             self.assertTrue((ROOT / "scripts/handoffctl.py").exists())
             self.assertFalse((project / ".workflow").exists())
 
-    def test_scaffold_contains_feature_delivery_contract(self) -> None:
+    def test_scaffold_contains_requirements_exchange_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
             templates = ROOT / "templates/handoff"
@@ -360,17 +360,32 @@ class HarnessTests(unittest.TestCase):
             self.assertTrue((ROOT / "core/code-inspection.md").is_file())
             self.assertTrue((ROOT / "scripts/code-inspect.py").is_file())
             self.assertTrue((ROOT / "templates/research/code-evidence.template.yaml").is_file())
+            exchange_templates = ROOT / "templates/exchange"
+            for name in (
+                "AGENTS.template.md",
+                "README.template.md",
+                "tasks.template.md",
+                "task-result.template.md",
+                "summary.template.md",
+            ):
+                self.assertTrue((exchange_templates / name).is_file(), name)
             contract = (ROOT / "core/developer-handoff.md").read_text(encoding="utf-8")
-            self.assertIn("returns/decomposition-snapshots/", contract)
-            self.assertIn("returns/implementation-results/", contract)
-            self.assertIn("returns/test-results/", contract)
+            self.assertIn("requirements-exchange/", contract)
+            self.assertIn("returns/tasks.md", contract)
+            self.assertIn("returns/tasks/<task-id>.md", contract)
+            self.assertIn("returns/summary.md", contract)
+            self.assertIn("только уже согласованную разработчиками разбивку", contract)
+            self.assertIn("Отдельные срезы", contract)
+            self.assertTrue((ROOT / "scripts/requirements-exchange.py").is_file())
             commands = (ROOT / "templates/workflow/command-cheatsheet.template.md").read_text(encoding="utf-8")
             self.assertIn("сформируй пакет для разработки", commands)
             self.assertIn("передаём в разработку", commands)
             self.assertIn("отдаём требования разработчикам", commands)
-            self.assertIn("подготовь пакет функциональности для технической декомпозиции", commands)
-            self.assertIn("декомпозиция подтверждена разработкой", commands)
-            self.assertIn("возьми срез <id> в тестирование", commands)
+            self.assertIn("проверь результаты разработки", commands)
+            self.assertIn("покажи все результаты разработки", commands)
+            self.assertNotIn("подготовь пакет функциональности для технической декомпозиции", commands)
+            self.assertNotIn("декомпозиция подтверждена разработкой", commands)
+            self.assertNotIn("возьми срез <id> в тестирование", commands)
             self.assertNotIn("features/<feature>/tasks/", commands)
 
     def test_scaffold_contains_requirements_profile(self) -> None:
@@ -380,10 +395,13 @@ class HarnessTests(unittest.TestCase):
             self.assertTrue((ROOT / "scripts/validate-requirements-profile.py").exists())
             readable = (ROOT / "templates/requirements/feature-requirements.readable.template.md").read_text(encoding="utf-8")
             detailed = (ROOT / "templates/requirements/feature-requirements.template.md").read_text(encoding="utf-8")
-            for text in (readable, detailed):
-                self.assertIn("ISO/IEC/IEEE 29148:2018", text)
-                self.assertIn("## Нефункциональные требования", text)
-                self.assertIn("## Трассировка", text)
+            self.assertIn("Формат: **последовательный человекочитаемый**", readable)
+            self.assertIn("## Нефункциональные требования", readable)
+            self.assertIn("## Сводная трассировка", readable)
+            self.assertNotIn("ISO/IEC/IEEE 29148:2018", readable)
+            self.assertNotIn("Карточка среза", readable)
+            self.assertIn("Устаревший шаблон", detailed)
+            self.assertIn("feature-requirements.readable.template.md", detailed)
 
     def test_requirements_profile_validator_checks_opted_in_analytical(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -391,14 +409,14 @@ class HarnessTests(unittest.TestCase):
             requirements = project / "features/demo/requirements.md"
             requirements.parent.mkdir(parents=True)
             sections = [
-                "Назначение и границы",
-                "Текущее состояние",
-                "Участники и внешние системы",
-                "Термины и данные",
+                "Кратко о функциональности",
+                "Цель и ожидаемый результат",
+                "Границы",
+                "Текущее и требуемое состояние",
+                "Участники, внешние системы и данные",
                 "Нефункциональные требования",
                 "Доработки затронутых функциональностей",
-                "Зависимости и предположения",
-                "Критерии завершённости",
+                "Подчистка устаревшего поведения",
                 "Открытые вопросы",
             ]
             body = "\n\n".join(f"## {title}\n\nЗаполнено." for title in sections)
@@ -406,21 +424,23 @@ class HarnessTests(unittest.TestCase):
                 "# Требования\n\n"
                 "Статус: **черновик**\n"
                 "Редакция: `1`\n"
-                "Профиль требований: **ISO-like / ISO/IEC/IEEE 29148:2018**\n\n"
+                "Формат: **последовательный человекочитаемый**\n"
+                "Функциональность: `demo`\n\n"
                 f"{body}\n\n"
-                "## Функциональные требования\n\n"
-                "| Идентификатор | Нормативное требование | Обоснование | Источник | Приоритет | Проверка |\n"
-                "|---|---|---|---|---|---|\n"
-                "| REQ-DEMO-001 | Система должна сохранить результат. | Цель | Решение | обязательный | TEST-DEMO-001 |\n\n"
-                "## Сценарии\n\n"
-                "| Идентификатор | Начальные условия | Действие | Результат | Ошибки | Требования |\n"
-                "|---|---|---|---|---|---|\n"
-                "| SCN-DEMO-001 | Есть данные | Сохранение | Данные сохранены | Ошибка показана | REQ-DEMO-001 |\n\n"
-                "## Трассировка\n\n"
-                "| Идентификатор | Источник | Срез | Задача | Проверка | Пакет | Квитанция |\n"
-                "|---|---|---|---|---|---|---|\n"
-                "| REQ-DEMO-001 | Решение | core | не сформирована | TEST-DEMO-001 | не сформирована | не получена |\n"
-                "| SCN-DEMO-001 | Решение | core | не сформирована | TEST-DEMO-001 | не сформирована | не получена |\n",
+                "## Работа с результатом\n\n"
+                "**REQ-DEMO-001. Сохранение результата**\n\n"
+                "Система должна сохранить результат.\n\n"
+                "**AC-DEMO-001. Успешное сохранение**\n\n"
+                "- Дано: есть данные.\n"
+                "- Когда: выполняется сохранение.\n"
+                "- Тогда: данные сохранены.\n"
+                "- Требования: `REQ-DEMO-001`.\n\n"
+                "## Общие правила\n\nЗаполнено.\n\n"
+                "## Ошибки и пограничные случаи\n\nЗаполнено.\n\n"
+                "## Сводная трассировка\n\n"
+                "| Требование | Источник | Примеры приёмки | Задачи разработки | Результат реализации |\n"
+                "|---|---|---|---|---|\n"
+                "| REQ-DEMO-001 | Решение | AC-DEMO-001 | задача не получена | результат не получен |\n",
                 encoding="utf-8",
             )
             tool = ROOT / "scripts/validate-requirements-profile.py"
@@ -429,7 +449,7 @@ class HarnessTests(unittest.TestCase):
             requirements.write_text(requirements.read_text(encoding="utf-8").replace("Система должна сохранить", "Система может сохранить"), encoding="utf-8")
             result = run(sys.executable, str(tool), str(project), "--feature", "demo")
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("явную нормативную форму", result.stdout)
+            self.assertIn("явная нормативная форма", result.stdout)
 
     def test_handoff_validator_accepts_per_item_package(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

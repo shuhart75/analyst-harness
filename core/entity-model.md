@@ -18,11 +18,10 @@ Main knowledge container for a business change.
 
 Contains:
 - planning artifacts
-- slice definitions
 - requirements
 - prototypes
 - execution tasks
-- feature delivery packages
+- references to exchange revisions and returned development results
 - domain impact note
 
 ## Planning story
@@ -44,33 +43,23 @@ Actualization states:
 
 Mapping fields:
 - `replaced_by`: implementation task ids that replace the planning story.
-- `mapping_mode`: `explicit` when the user stated the replacement, `inferred` when LLM mapped it by feature/slice/role/summary.
+- `mapping_mode`: `explicit` when the user stated the replacement, `inferred` when LLM mapped it by feature/role/summary.
 - `residual_virtual_tasks`: virtual execution items that remain visible on actual-progress.
 
-## Slice
+## Exchange revision
 
-A thematic subdivision of a feature.
-
-A slice may contain:
-- FE requirements
-- BE requirements
-- delivery prototype
-- test design and test receipts
-
-## Development card
-
-Developer-owned technical decomposition artifact stored in a confirmed feature-package snapshot.
+Immutable developer input selected by a feature manifest.
 
 Contains:
-- stable `DEV-BE-*` or `DEV-FE-*` id
-- one code contour
-- independently implementable technical result
-- full linked requirements, scenarios and impacts
-- code evidence, scope, exclusions, dependencies and checks
-- optional one-executor estimate and optional Jira key
-- decomposition state only
+- one complete `requirements.md`;
+- revision number, checksum and state in `manifest.json`;
+- developer-owned `returns/` with the agreed task list, task results and final coverage.
 
-A confirmed development card is immutable. Implementation and testing states are recorded in separate receipts. The analyst may materialize a card into an implementation task for actual-progress, but the two artifacts remain distinct.
+## Developer task result
+
+Developer-owned factual report linked directly to `REQ-*` and one agreed task.
+
+It records existing behavior, implemented behavior, differences, remaining work, commits, paths and checks. The analyst may materialize the returned task into an implementation task for actual-progress, but the returned report and analyst planning artifact remain distinct.
 
 ## Implementation task
 
@@ -80,7 +69,7 @@ Analyst-side actual execution tracking artifact with fields such as:
 - kind: `real` or `virtual`
 - role: `AN`, `BE`, `FE`, or `QA`
 - estimate
-- executor/resource lane from `planning/team.md`: canonical `A<N>`, `B<N>`, `F<N>`, `Q<N>`, or `TBD_A` / `TBD_B` / `TBD_F` / `TBD_Q`
+- executor/resource lane from `PROJECT_ROOT/planning/team.md`: canonical `A<N>`, `B<N>`, `F<N>`, `Q<N>`, or `TBD_A` / `TBD_B` / `TBD_F` / `TBD_Q`
 - planned dates
 - actual dates
 - status
@@ -88,7 +77,7 @@ Analyst-side actual execution tracking artifact with fields such as:
 - related/replaced planning stories
 - optional description
 
-Not-started implementation tasks have `Progress % = 0` and no actual dates. In generated actual-progress gantt views, not-started tasks are rendered no earlier than the current date marker, frontend tasks are delayed until backend/API work in the same feature has had a 3-open-day lead, and resources are capacity-scheduled from `planning/team.md` at no more than 100% per open workday.
+Not-started implementation tasks have `Progress % = 0` and no actual dates. In generated actual-progress gantt views, not-started tasks are rendered no earlier than the current date marker, frontend tasks are delayed until backend/API work in the same feature has had a 3-open-day lead, and resources are capacity-scheduled from `PROJECT_ROOT/planning/team.md` at no more than 100% per open workday.
 
 ## Domain impact note
 

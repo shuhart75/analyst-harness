@@ -58,7 +58,7 @@ def repository_entry(registry: dict, repository_id: str) -> dict:
             }
             if (
                 not isinstance(policy, dict)
-                or policy.get("allowed_paths") != []
+                or policy.get("allowed_paths") not in ([], ["requirements-exchange/**"])
                 or policy.get("user_prompt_can_override") is not False
             ):
                 raise ValueError(f"Для {repository_id} задана небезопасная политика записи")
@@ -108,7 +108,7 @@ def analytical_identity(project: Path, registry: dict) -> dict:
     remote_urls = [line.strip() for line in remotes.stdout.splitlines() if line.strip()]
     accepted = entry.get("accepted_remote_urls", [])
     return {
-        "repository": entry.get("id", "analytical"),
+        "repository": entry.get("id", "analytics"),
         "root": str(project),
         "head": head.stdout.strip() if head.returncode == 0 else None,
         "branch": branch.stdout.strip() if branch.returncode == 0 else None,
@@ -266,7 +266,7 @@ def begin_command(args: argparse.Namespace) -> int:
     if not snapshot["branch_matches"]:
         raise ValueError(f"Ожидалась ветка {snapshot['expected_branch']}, найдена {snapshot['branch']}")
     if snapshot["worktree_state"] != "clean":
-        raise ValueError("Рабочее дерево кодового репозитория изменено; для исследования нужен чистый клон")
+        raise ValueError("Рабочее дерево роли code изменено; для исследования нужен чистый клон")
     state_dir = inspection_state_dir(project)
     state_dir.mkdir(parents=True, exist_ok=True)
     name = f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{entry['id']}-{args.contour or 'root'}-{uuid.uuid4().hex[:8]}.json"
@@ -321,7 +321,7 @@ def locate_command(args: argparse.Namespace) -> int:
     repository = resolve_repository(project, entry)
     snapshot = git_snapshot(repository, entry, args.contour)
     if snapshot["worktree_state"] != "clean":
-        raise ValueError("Рабочее дерево кодового репозитория изменено; поиск заблокирован до вмешательства владельца кода")
+        raise ValueError("Рабочее дерево роли code изменено; поиск заблокирован до вмешательства владельца кода")
     search_root = Path(snapshot["contour_root"])
     command = [
         "git",
@@ -362,8 +362,8 @@ def locate_command(args: argparse.Namespace) -> int:
 
 def setup_command(args: argparse.Namespace) -> int:
     raise ValueError(
-        "рабочая область настраивается только командами configure и bootstrap "
-        "из корня analyst-harness"
+        "рабочая область создаётся только командой "
+        "python3 scripts/workspace.py bootstrap из корня analyst-harness"
     )
 
 
@@ -378,13 +378,13 @@ def parser() -> argparse.ArgumentParser:
     status = commands.add_parser("status")
     status.add_argument("project")
     status.add_argument("--repository", default="code")
-    status.add_argument("--contour")
+    status.add_argument("--contour", choices=("backend", "frontend"))
     status.set_defaults(handler=status_command)
 
     begin = commands.add_parser("begin")
     begin.add_argument("project")
     begin.add_argument("--repository", default="code")
-    begin.add_argument("--contour")
+    begin.add_argument("--contour", choices=("backend", "frontend"))
     begin.add_argument("--feature")
     begin.add_argument("--query")
     begin.set_defaults(handler=begin_command)
@@ -397,7 +397,7 @@ def parser() -> argparse.ArgumentParser:
     locate.add_argument("project")
     locate.add_argument("query")
     locate.add_argument("--repository", default="code")
-    locate.add_argument("--contour", required=True)
+    locate.add_argument("--contour", required=True, choices=("backend", "frontend"))
     locate.add_argument("--regex", action="store_true")
     locate.add_argument("--max-results", type=int, default=50)
     locate.set_defaults(handler=locate_command)

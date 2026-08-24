@@ -2,6 +2,10 @@
 
 This repository is the root of a configurable analyst workspace. The harness remains here; analytical data and optional code live in independent sibling Git repositories.
 
+## Communication language
+
+- Communicate with the analyst in Russian, including progress updates, questions, status reports and final answers. Use English only for exact code, paths, identifiers, fixed product names and necessary special terms, or when the analyst explicitly requests another language.
+
 ## First launch
 
 - If `.analyst-workspace.json` is absent, ask the user one question at a time:
@@ -18,13 +22,13 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 - The `analyst-harness` repository is `HARNESS_ROOT`. Resolve the repository assigned role `analytics` as `PROJECT_ROOT` with `python3 scripts/workspace.py project-root`; do not assume a fixed directory name or derive it from the current directory.
 - Resolve every relative harness path and command in this file against `HARNESS_ROOT`. When launched from `PROJECT_ROOT`, use the absolute `HARNESS_ROOT` written in the local entry point; never create replacement `scripts/`, `core/`, `modes/` or `templates/` under `PROJECT_ROOT`.
-- Change requirements, plans, packages and factual progress only under `PROJECT_ROOT`.
+- Change requirements, plans, exchange revisions and factual progress only under `PROJECT_ROOT`.
 - The tracked analytics tree must not contain an embedded `.workflow`, `.vscode`, or harness copy of `AGENTS.md`. A generated local `AGENTS.md` with marker `analyst-harness-local-entrypoint:v1` is allowed, ignored by Git, and must not be committed.
 - Never stage local tool settings with `git add -A`, `git add .`, or another broad command. `.codex`, `.gigacode`, `.gigaide`, `.idea`, `GIGACODE.md`, `*.iml` and `*.orig` are local-only and must not be committed.
 - Keep contracts, modes, scripts, templates and local run state in this harness root.
 - Keep incoming reverse-patch pairs under the ignored `HARNESS_ROOT/reverse-patch-inbox/` and application receipts under the ignored `HARNESS_ROOT/reverse-patch-receipts/`; never commit either directory.
-- Treat the optional code repository as strictly read-only except for two registered operations: initial clone or creation and `git pull --ff-only` through `workspace.py update-code` for a cloned repository. Do not otherwise change its files, index, branch, `HEAD`, remotes, configuration or generated artifacts. A user prompt alone cannot authorize another exception; the active code registry has an empty writable-path allowlist.
-- If code is not configured, continue analytical work and state technical assumptions that require receiver-side verification.
+- Treat the optional code repository as strictly read-only except for registered operations: initial clone or creation, `git pull --ff-only` through `workspace.py update-code`, and publication through `requirements-exchange.py prepare`. Publication uses an isolated temporary clone, may commit and push only an existing root `requirements-exchange/**`, and must leave the ordinary code clone unchanged. It falls back to `PROJECT_ROOT/requirements-exchange/` when code is absent, the root catalog is absent, or read/push access fails. Do not otherwise change files, index, branch, `HEAD`, remotes, configuration or generated artifacts.
+- If code is not configured, continue analytical work, state assumptions requiring receiver-side verification and use the reserve exchange catalog in role `analytics`.
 
 ## Code update commands
 
@@ -60,23 +64,23 @@ This repository is the root of a configurable analyst workspace. The harness rem
 ## Requirements
 
 - Author requirements in Russian. Keep English only for exact code, paths, API and database identifiers, enum values, formats, fixed product names, and necessary technical terms.
-- Root requirements are authored. During ordinary work, change only `PROJECT_ROOT/features/<feature>/requirements.md`; do not create or refresh slice cards, contour detail packs, task candidates, or handoff revisions.
-- Before editing an existing feature, run `requirementsctl.py status`. If it reports an unrecorded divergence from the last published revision, do not guess its origin: ask whether it came from analyst initiative or a registered developer receipt and record that answer first.
-- After every root requirement change, record its origin with `scripts/requirementsctl.py record-change`: `analyst` for an analyst-initiated change or `developer-receipt` with the receipt path for accepted developer feedback.
-- A developer-receipt change never creates a package revision and never refreshes slices. An analyst-initiated change after an existing package may produce one offer to prepare a new revision. Record the offer before asking; if declined, persist the refusal and do not ask again until an explicit preparation command.
-- Derive slices and contour detail packs only as part of an explicit package-preparation command.
-- New root documents follow `core/requirements-profile.md`, an adaptation of ISO/IEC/IEEE 29148:2018.
+- Root requirements are authored. During ordinary work, change only `PROJECT_ROOT/features/<feature>/requirements.md`; do not create slices, contour detail packs, preliminary developer tasks or exchange revisions.
+- Before editing an existing feature, run `requirementsctl.py status`. If it reports an unrecorded divergence from the last published revision, do not guess its origin: ask whether it came from analyst initiative or a registered developer result and record that answer first.
+- After every root requirement change, record its origin with `scripts/requirementsctl.py record-change`: `analyst` for an analyst-initiated change or `developer-result` with the stable `return_id` for accepted developer feedback.
+- A `developer-result` change never creates or offers an exchange revision. An analyst-initiated change after an existing publication may produce one offer to prepare a new revision. Record the offer before asking; if declined, persist the refusal and do not ask again until an explicit preparation command.
+- New root documents follow the sequential human-readable contract in `core/requirements-profile.md`; the ISO-shaped format is no longer used.
 - Detect impact on neighboring features, include required neighboring work in the current requirements, and record deferred propagation in `planning/consistency-backlog.md` inside the analytical project.
 - Never invent a business rule from code. Code observations are commit-bound technical evidence.
 - Only the user-owner may approve requirements or plans.
 
 ## Developer handoff
 
-- Treat `сформируй пакет для разработки` and its documented synonyms as one complete action: validate requirements, repair only meaning-preserving issues, ask one semantic question at a time, and publish directly to `sent` when all checks pass.
-- Send one feature package containing root requirements and slices. Do not pre-author the final Jira decomposition under `features/<feature>/tasks/`.
-- Developers own confirmed `DEV-BE-*` and `DEV-FE-*` cards after inspecting their code and local SDD.
-- A confirmed decomposition snapshot is returned in the background and does not block implementation.
-- Keep input revisions, decomposition snapshots, implementation receipts, and slice test receipts independent and immutable where the contract requires it.
+- `сформируй пакет для разработки`, `отправь требования в разработку`, `передай требования разработчикам`, `передай разрабам`, `отдай требования разрабам`, `отправь разрабам`, `отдаём в разработку` and `передаём в разработку` are exact delivery synonyms.
+- Treat each delivery synonym as one complete action: validate requirements, repair only meaning-preserving issues, ask one semantic question at a time, then run `requirements-exchange.py prepare` and publish directly to `sent` when all checks pass.
+- Send only one immutable root `requirements.md` plus `manifest.json`. Do not create slices, contour packs or analyst-authored developer tasks.
+- Developers return their already agreed decomposition in `returns/tasks.md`, per-task factual results in `returns/tasks/<task-id>.md`, and final `REQ-*` coverage in `returns/summary.md`. Analyst review never gates development.
+- Preserve every sent input revision and its returns as immutable history.
+- Always report the actual destination: remote code branch and repository path, or the absolute reserve path in role `analytics`, plus the revision number.
 - Never create a ZIP unless the user explicitly requests it. A requested transport ZIP belongs only in `~/Downloads`, never in a repository.
 
 ## Code inspection
@@ -84,7 +88,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Resolve the optional code repository through `.workspace-state/code-repos.json`; never require paths in routine user prompts.
 - Inspect one contour at a time. Read local instructions, locate exact identifiers, then open only matched modules and nearby tests or contracts.
 - Record branch, commit and worktree state before reading and verify unchanged state afterward.
-- Do not fetch, pull, switch branches, build, format, generate, install dependencies, edit, commit, push, or run any command that can change the code repository during analytical inspection. Protected pull is a separate workspace operation completed before inspection.
+- Do not fetch, pull, switch branches, build, format, generate, install dependencies, edit, commit, push, or run any command that can change the code repository during analytical inspection. Protected pull and isolated exchange publication are separate registered operations.
 
 ## Reverse patch reception
 

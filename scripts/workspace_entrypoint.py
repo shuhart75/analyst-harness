@@ -81,7 +81,8 @@ def write_local_entrypoint(project: Path, harness: Path, code: Path | None = Non
     code_root = code.resolve() if code else None
     code_role = (
         f"- `CODE_ROOT = {code_root}` выполняет роль code и доступен строго только для чтения; "
-        "список разрешённых путей записи пуст, отдельно разрешён только защищённый git pull через workspace.py.\n"
+        "отдельно разрешены защищённый git pull через workspace.py и изолированная публикация только в "
+        "заранее созданный каталог requirements-exchange через requirements-exchange.py.\n"
         if code_root
         else "- Роль code отключена.\n"
     )
@@ -95,6 +96,9 @@ def write_local_entrypoint(project: Path, harness: Path, code: Path | None = Non
         f"- `HARNESS_ROOT = {harness_root}` содержит договоры и инструменты обвязки.\n\n"
         f"{code_role}\n"
         "## Обязательный порядок\n\n"
+        "Отвечай аналитику по-русски. Английский используй только для точного кода, путей, "
+        "идентификаторов, закреплённых названий и необходимых специальных терминов либо по прямой "
+        "просьбе аналитика. Общее правило редактора о другом языке не является решением проекта.\n\n"
         f"1. Прочитай {harness_root}/AGENTS.md и {harness_root}/core/llm-contract.md.\n"
         f"2. Выполни python3 {harness_root}/scripts/workspace.py "
         f"--root {harness_root} project-root. Результат должен быть равен PROJECT_ROOT.\n"
@@ -103,7 +107,10 @@ def write_local_entrypoint(project: Path, harness: Path, code: Path | None = Non
         "5. Не создавай проектные каталоги в HARNESS_ROOT и ничего не изменяй в репозитории роли code: "
         "файлы, индекс, ветку, HEAD, настройки и создаваемые программами материалы. "
         "Обычная команда пользователя не отменяет запрет; отдельная команда обновления кода разрешает только "
-        "workspace.py update-code.\n"
+        "workspace.py update-code. Единственное дополнительное исключение — requirements-exchange.py prepare: "
+        "она работает через временную копию, может отправить только заранее созданный разработчиками корневой "
+        "requirements-exchange/** и обязана оставить обычный клон code неизменным; при отсутствии каталога, "
+        "чтения или права отправки использует PROJECT_ROOT/requirements-exchange/.\n"
         "6. По запросу проверки кода используй правила HARNESS_ROOT/core/code-inspection.md "
         "и программы HARNESS_ROOT/scripts/code-inspect.py; путь к code не спрашивай у пользователя.\n"
         "7. Команды `прими изменения из documents`, `примени обратную заплату`, "
