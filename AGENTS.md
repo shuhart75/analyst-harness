@@ -40,21 +40,23 @@ This repository is the root of a configurable analyst workspace. The harness rem
 2. `.analyst-workspace.json`
 3. `core/llm-contract.md`
 4. `core/requirements-profile.md` before authoring or substantially rewriting requirements
-5. `core/agent-delegation.md`
-6. `core/skills-policy.md`
-7. `core/tooling-policy.md`
-8. `core/context-policy.md`
-9. `core/research-policy.md`
-10. `core/code-inspection.md` when code evidence is needed
-11. `core/collaboration.md` before starting, saving, updating, submitting or finishing feature work
-12. `core/reverse-patch.md` before accepting a reverse patch
-13. `core/run-loop.md`
-14. `.workspace-state/run-state/session-brief.md` when present
-15. `.workspace-state/active-mode.md`
-16. `modes/<active-mode>.md`
-17. `PROJECT_ROOT/README.md`
-18. `PROJECT_ROOT/planning/team.md` before planning resources
-19. relevant `PROJECT_ROOT/context/project-rules/*.md`
+5. `core/requirements-wording.md` before writing or checking requirement prose
+6. `core/requirements-audit.md` before checking or delivering requirements
+7. `core/agent-delegation.md`
+8. `core/skills-policy.md`
+9. `core/tooling-policy.md`
+10. `core/context-policy.md`
+11. `core/research-policy.md`
+12. `core/code-inspection.md` when code evidence is needed
+13. `core/collaboration.md` before starting, saving, updating, submitting or finishing feature work
+14. `core/reverse-patch.md` before accepting a reverse patch
+15. `core/run-loop.md`
+16. `.workspace-state/run-state/session-brief.md` when present
+17. `.workspace-state/active-mode.md`
+18. `modes/<active-mode>.md`
+19. `PROJECT_ROOT/README.md`
+20. `PROJECT_ROOT/planning/team.md` before planning resources
+21. relevant `PROJECT_ROOT/context/project-rules/*.md`
 
 ## Mode boundary
 
@@ -70,7 +72,9 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Before editing an existing feature, run `requirementsctl.py status`. If it reports an unrecorded divergence from the last published revision, do not guess its origin: ask whether it came from analyst initiative or a registered developer result and record that answer first.
 - After every root requirement change, record its origin with `scripts/requirementsctl.py record-change`: `analyst` for an analyst-initiated change or `developer-result` with the stable `return_id` for accepted developer feedback.
 - A `developer-result` change never creates or offers an exchange revision. An analyst-initiated change after an existing publication may produce one offer to prepare a new revision. Record the offer before asking; if declined, persist the refusal and do not ask again until an explicit preparation command.
-- New root documents follow the sequential human-readable contract in `core/requirements-profile.md`; the ISO-shaped format is no longer used.
+- New root documents follow the compact specification contract in `core/requirements-profile.md`; the ISO-shaped and former sequential profiles are no longer used for new delivery revisions.
+- Requirement prose follows `core/requirements-wording.md`. Use explicit quantities and named referents; every scenario must identify a concrete state, event and observable result. Run `validate-requirements-wording.py` after substantive edits and before showing the document as checked.
+- Do not reproduce the developer's technical `spec.md`. Write a business contract with stable `REQ-*` headings and nested Russian `Когда`/`Тогда` scenarios; the receiving SDD derives its own technical delta from it and the code.
 - Detect impact on neighboring features, include required neighboring work in the current requirements, and record deferred propagation in `planning/consistency-backlog.md` inside the analytical project.
 - Never invent a business rule from code. Code observations are commit-bound technical evidence.
 - Only the user-owner may approve requirements or plans.
@@ -89,10 +93,11 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 - `сформируй пакет для разработки`, `отправь требования в разработку`, `передай требования разработчикам`, `передай разрабам`, `отдай требования разрабам`, `отправь разрабам`, `отдаём в разработку` and `передаём в разработку` are exact delivery synonyms.
 - Before beginning the audit, require `collaboration.py require-main-for-delivery --feature <feature>`. Delivery is allowed only from current `PROJECT_ROOT/main` after the feature branch has been accepted and the collaboration session has been finished.
-- Treat each delivery synonym as a two-stage action. First run the mandatory audit in `core/requirements-profile.md`, repair only meaning-preserving issues, and ask one semantic question at a time. Then show the analyst the final audit report and request explicit confirmation. Do not create or publish a revision before that confirmation.
+- Treat each delivery synonym as a two-stage action. First run all three audit levels in `core/requirements-audit.md`: individual rules, cross-requirement system reasoning and delivery readiness. Repair only meaning-preserving issues, ask one semantic question at a time, recheck affected relations after each answer, then rerun all three levels over the complete document. Show the final audit report and request explicit confirmation. Do not create or publish a revision before that confirmation.
 - Record the completed audit with `requirementsctl.py record-audit`. Only an analyst reply that explicitly confirms both the shown audit and transfer authorizes `requirementsctl.py confirm-audit`; silence, an earlier transfer command, or approval of the requirements document itself is not confirmation of the audit.
 - After confirmation, publish the unchanged audited file directly to `sent`. If `requirements.md` changes at any point after the audit, repeat the audit and confirmation; `requirements-exchange.py prepare` enforces this checksum boundary.
-- Send only one immutable root `requirements.md` plus `manifest.json`. Do not create slices, contour packs or analyst-authored developer tasks.
+- Send only one immutable root `requirements.md` plus `manifest.json`. Do not create slices, contour packs, analyst-authored developer tasks or local OpenSpec artifacts on behalf of developers.
+- The receiver treats `requirements.md` as an upstream business contract, compares it with current code and creates its own local SDD artifacts separately for backend and frontend. Mixed backend/frontend tasks are forbidden; one `REQ-*` may map to multiple contour tasks.
 - Developers return their already agreed decomposition in `returns/tasks.md`, per-task factual results in `returns/tasks/<task-id>.md`, and final `REQ-*` coverage in `returns/summary.md`. Analyst review never gates development.
 - Preserve every sent input revision and its returns as immutable history.
 - Always report the actual destination: remote code branch and repository path, or the absolute reserve path in role `analytics`, plus the revision number.
@@ -120,4 +125,5 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Run `python3 scripts/harnessctl.py doctor "$PROJECT_ROOT"` before broad workflow changes.
 - Run `python3 scripts/validate-language.py "$PROJECT_ROOT"` after changing requirements.
 - Run `python3 scripts/validate-requirements-profile.py "$PROJECT_ROOT"` for changed profiled root documents.
+- Run `python3 scripts/validate-requirements-wording.py "$PROJECT_ROOT"` for changed compact requirements. A successful script result never replaces the isolated-reader review from `core/requirements-wording.md`.
 - Preserve unrelated user changes and report any validation failure that cannot be resolved within the requested scope.

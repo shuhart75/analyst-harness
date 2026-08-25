@@ -395,55 +395,54 @@ class HarnessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
             self.assertTrue((ROOT / "core/requirements-profile.md").exists())
+            self.assertTrue((ROOT / "core/requirements-audit.md").exists())
+            self.assertTrue((ROOT / "core/requirements-wording.md").exists())
             self.assertTrue((ROOT / "scripts/validate-requirements-profile.py").exists())
-            readable = (ROOT / "templates/requirements/feature-requirements.readable.template.md").read_text(encoding="utf-8")
-            detailed = (ROOT / "templates/requirements/feature-requirements.template.md").read_text(encoding="utf-8")
-            self.assertIn("Формат: **последовательный человекочитаемый**", readable)
-            self.assertIn("## Нефункциональные требования", readable)
-            self.assertIn("## Сводная трассировка", readable)
-            self.assertNotIn("ISO/IEC/IEEE 29148:2018", readable)
-            self.assertNotIn("Карточка среза", readable)
-            self.assertIn("Устаревший шаблон", detailed)
-            self.assertIn("feature-requirements.readable.template.md", detailed)
+            self.assertTrue((ROOT / "scripts/validate-requirements-wording.py").exists())
+            active = (ROOT / "templates/requirements/feature-requirements.template.md").read_text(encoding="utf-8")
+            legacy = (ROOT / "templates/requirements/feature-requirements.readable.template.md").read_text(encoding="utf-8")
+            self.assertIn("Формат: **компактная спецификация функциональности**", active)
+            self.assertIn("### REQ-<FEATURE>-001", active)
+            self.assertIn("#### Сценарий:", active)
+            self.assertIn("**Когда**", active)
+            self.assertIn("## Влияние на соседние функциональности", active)
+            self.assertNotIn("## Сводная трассировка", active)
+            self.assertNotIn("ISO/IEC/IEEE 29148:2018", active)
+            self.assertNotIn("Карточка среза", active)
+            self.assertIn("Устаревшее имя шаблона", legacy)
+            audit = (ROOT / "core/requirements-audit.md").read_text(encoding="utf-8")
+            self.assertIn("Уровень 1. Отдельные правила", audit)
+            self.assertIn("Уровень 2. Взаимодействие всего набора", audit)
+            self.assertIn("Уровень 3. Готовность к передаче", audit)
+            self.assertIn("проверку изолированного читателя", audit)
+            run_loop = (ROOT / "core/run-loop.md").read_text(encoding="utf-8")
+            self.assertIn("`Влияние на соседние функциональности`", run_loop)
+            self.assertNotIn("`Доработки затронутых функциональностей`", run_loop)
+            commands = (ROOT / "templates/workflow/command-catalog.template.md").read_text(encoding="utf-8")
+            self.assertIn("проверь формулировки требований", commands)
+            self.assertIn("validate-requirements-wording.py", commands)
 
     def test_requirements_profile_validator_checks_opted_in_analytical(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             project = self.scaffold(Path(temp))
             requirements = project / "features/demo/requirements.md"
             requirements.parent.mkdir(parents=True)
-            sections = [
-                "Кратко о функциональности",
-                "Цель и ожидаемый результат",
-                "Границы",
-                "Текущее и требуемое состояние",
-                "Участники, внешние системы и данные",
-                "Нефункциональные требования",
-                "Доработки затронутых функциональностей",
-                "Подчистка устаревшего поведения",
-                "Открытые вопросы",
-            ]
-            body = "\n\n".join(f"## {title}\n\nЗаполнено." for title in sections)
             requirements.write_text(
                 "# Требования\n\n"
                 "Статус: **черновик**\n"
                 "Редакция: `1`\n"
-                "Формат: **последовательный человекочитаемый**\n"
+                "Формат: **компактная спецификация функциональности**\n"
                 "Функциональность: `demo`\n\n"
-                f"{body}\n\n"
-                "## Работа с результатом\n\n"
-                "**REQ-DEMO-001. Сохранение результата**\n\n"
+                "## Назначение\n\nПолучить сохранённый результат.\n\n"
+                "## Границы\n\nВходит только сохранение результата.\n\n"
+                "## Требования\n\n"
+                "### REQ-DEMO-001. Сохранение результата\n\n"
                 "Система должна сохранить результат.\n\n"
-                "**AC-DEMO-001. Успешное сохранение**\n\n"
-                "- Дано: есть данные.\n"
-                "- Когда: выполняется сохранение.\n"
-                "- Тогда: данные сохранены.\n"
-                "- Требования: `REQ-DEMO-001`.\n\n"
-                "## Общие правила\n\nЗаполнено.\n\n"
-                "## Ошибки и пограничные случаи\n\nЗаполнено.\n\n"
-                "## Сводная трассировка\n\n"
-                "| Требование | Источник | Примеры приёмки | Задачи разработки | Результат реализации |\n"
-                "|---|---|---|---|---|\n"
-                "| REQ-DEMO-001 | Решение | AC-DEMO-001 | задача не получена | результат не получен |\n",
+                "#### Сценарий: успешное сохранение\n\n"
+                "**Когда** пользователь сохраняет данные.\n\n"
+                "**Тогда** система сохраняет результат.\n\n"
+                "## Влияние на соседние функциональности\n\nВлияний нет.\n\n"
+                "## Источники и открытые вопросы\n\nИсточник: решение. Вопросов нет.\n",
                 encoding="utf-8",
             )
             tool = ROOT / "scripts/validate-requirements-profile.py"
@@ -452,7 +451,7 @@ class HarnessTests(unittest.TestCase):
             requirements.write_text(requirements.read_text(encoding="utf-8").replace("Система должна сохранить", "Система может сохранить"), encoding="utf-8")
             result = run(sys.executable, str(tool), str(project), "--feature", "demo")
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("явная нормативная форма", result.stdout)
+            self.assertIn("явная русская нормативная форма", result.stdout)
 
     def test_handoff_validator_accepts_per_item_package(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
