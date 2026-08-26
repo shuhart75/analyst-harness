@@ -48,15 +48,16 @@ This repository is the root of a configurable analyst workspace. The harness rem
 10. `core/context-policy.md`
 11. `core/research-policy.md`
 12. `core/code-inspection.md` when code evidence is needed
-13. `core/collaboration.md` before starting, saving, updating, submitting or finishing feature work
-14. `core/reverse-patch.md` before accepting a reverse patch
-15. `core/run-loop.md`
-16. `.workspace-state/run-state/session-brief.md` when present
-17. `.workspace-state/active-mode.md`
-18. `modes/<active-mode>.md`
-19. `PROJECT_ROOT/README.md`
-20. `PROJECT_ROOT/planning/team.md` before planning resources
-21. relevant `PROJECT_ROOT/context/project-rules/*.md`
+13. `core/tracker-reading.md` when the user asks to read or compare task trackers
+14. `core/collaboration.md` before starting, saving, updating, submitting or finishing feature work
+15. `core/reverse-patch.md` before accepting a reverse patch
+16. `core/run-loop.md`
+17. `.workspace-state/run-state/session-brief.md` when present
+18. `.workspace-state/active-mode.md`
+19. `modes/<active-mode>.md`
+20. `PROJECT_ROOT/README.md`
+21. `PROJECT_ROOT/planning/team.md` before planning resources
+22. relevant `PROJECT_ROOT/context/project-rules/*.md`
 
 ## Mode boundary
 
@@ -110,6 +111,16 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Inspect one contour at a time. Read local instructions, locate exact identifiers, then open only matched modules and nearby tests or contracts.
 - Record branch, commit and worktree state before reading and verify unchanged state afterward.
 - Do not fetch, pull, switch branches, build, format, generate, install dependencies, edit, commit, push, or run any command that can change the code repository during analytical inspection. Protected pull and isolated exchange publication are separate registered operations.
+
+## Task tracker reading
+
+- `прочитай задачи из трекеров`, `проверь задачи в трекерах`, `сверь SberTrek и Jira`, `покажи текущее состояние по трекерам` and close equivalents mean the read-only workflow in `core/tracker-reading.md`.
+- Discover MCP tools by task-search, issue-read and history-read capabilities; never depend on a fixed MCP server name and never store MCP names or credentials in Git.
+- Read SberTrek first as the primary source. Use Jira only to fill missing fields and merge history. A conflicting populated Jira field never silently replaces SberTrek.
+- Treat epic and release as independent grouping dimensions. Never infer that an epic equals an analytical feature without an explicit mapping.
+- Apply the handoff rule only to tracker types explicitly configured as development work items; this may include a tracker Story. An explicit excluded or completed status takes precedence. Otherwise infer development completion only from history proving the latest handoff from a mapped developer to a mapped non-developer.
+- Starting from known task keys, inspect the other tasks in each discovered epic as bounded candidates. Analyze their title and description; propose directly evidenced matches and ask about ambiguous matches. Report releases missing from actual-progress as proposals only.
+- The read command may write only ignored runtime artifacts under `.workspace-state/tracker-runs/`. It must not change trackers, `PROJECT_ROOT`, requirements, plans, actual-progress or Git state.
 
 ## Reverse patch reception
 
