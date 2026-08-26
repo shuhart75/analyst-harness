@@ -181,6 +181,15 @@ class CollaborationTests(unittest.TestCase):
             self.assertIn("HARNESS_ROOT/scripts/collaboration.py status", entrypoint)
             self.assertIn("feature/<feature>/<analyst>", entrypoint)
 
+            restarted = self.collaboration(
+                workspace, environment, "start", "--feature", "registry"
+            )
+            self.assertEqual(restarted["branch"], "feature/registry/ivan-2")
+            self.assertEqual(
+                self.git(analytics, "rev-parse", "HEAD"),
+                self.git(remote, "rev-parse", "main"),
+            )
+
     def test_migration_preserves_dirty_requirements_in_feature_branch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             workspace, analytics, _, environment = self.prepare_workspace(Path(temporary))

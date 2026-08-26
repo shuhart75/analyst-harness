@@ -72,7 +72,7 @@ If multiple commands conflict, prioritize the most recent explicit user instruct
 
 Commands that mean accepting a reverse patch are repository operations, not a workflow-mode switch. Follow `core/reverse-patch.md`: discover candidates without asking for paths, inspect the single selected `artifact_id`, then apply it through the guarded program. Never choose automatically when several identifiers are available.
 
-Feature requirements work uses the mandatory branch protocol in `core/collaboration.md`. Before reading or editing a named feature, bootstrap the workspace, check collaboration status and create or resume the registered `feature/<feature>/<analyst>` branch. Missing collaboration state is a migration blocker, not single-user permission. Delivery and reverse-patch reception require clean, current `main` and no active feature session.
+Feature requirements work uses the mandatory branch protocol in `core/collaboration.md`. Before reading or editing a named feature, bootstrap the workspace, check collaboration status and create or resume the registered `feature/<feature>/<analyst>` branch. A later cycle for the same feature uses the next free `-2`, `-3` suffix instead of deleting or overwriting an earlier branch. Missing collaboration state is a migration blocker, not single-user permission. Delivery and reverse-patch reception require clean, current `main` and no active feature session.
 
 ## Feature intake rule
 
@@ -184,6 +184,7 @@ Store story/task links in markdown, not as visual PlantUML dependencies.
 - Write requirements by the harness template in `templates/requirements/`, not freeform.
 - Start from `features/<feature>/requirements.md` as the primary feature-level requirement page and only place where feature requirements are authored from scratch.
 - Use `templates/requirements/feature-requirements.template.md` for new or consciously migrated documents. Existing older documents remain readable history, but the live root must use the compact profile before its next exchange revision.
+- Do not add a `Статус` field to compact `requirements.md`. Read authoring and audit state from `requirements-state.json`, and the immutable delivery revision state from its exchange `manifest.json`.
 - Requirement diagrams must be PlantUML; do not introduce Mermaid blocks.
 - During ordinary requirement work, edit only the root `requirements.md`. Do not create exchange revisions after each change.
 - After changing the root document, record the change origin in `features/<feature>/requirements-state.json` through `scripts/requirementsctl.py record-change`.
