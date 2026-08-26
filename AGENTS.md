@@ -6,6 +6,14 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 - Communicate with the analyst in Russian, including progress updates, questions, status reports and final answers. Use English only for exact code, paths, identifiers, fixed product names and necessary special terms, or when the analyst explicitly requests another language.
 
+## Mandatory tracker stop gate
+
+- Before any tracker MCP discovery, search, issue read, history read or delegation, run `python3 scripts/trackerctl.py config-status` as a standalone command. Do not pipe or filter it through `head`, `tail`, `grep`, `jq` or another command: the exit code is part of the guard contract.
+- Exit code `3` with `must_stop: true` permits exactly one next action: ask the analyst the single returned `next_question`. The reply must contain only that question. Do not call MCP tools, search analytical files for tasks, create a task list, delegate work or present tracker facts until the answer is saved and the gate becomes ready.
+- Commands that save one configuration answer return exit code `0` and another status payload. When that payload still has `must_stop: true`, ask only its `next_question`; do not bypass it with discovery or reading.
+- Tracker MCP calls may start only after a ready status and successful `trackerctl.py begin` returning a `run_id`. The main agent performs all tracker reads itself; subagent delegation is forbidden for this workflow.
+- A tracker summary is allowed only after `trackerctl.py reconcile` returns `status: tracker-read-reconciled` for that `run_id`. Without it, report no task facts or manually assembled counts.
+
 ## First launch
 
 - If `.analyst-workspace.json` is absent, ask the user one question at a time:
