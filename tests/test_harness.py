@@ -364,6 +364,7 @@ class HarnessTests(unittest.TestCase):
             for name in (
                 "AGENTS.template.md",
                 "README.template.md",
+                "receipt.template.json",
                 "tasks.template.md",
                 "task-result.template.md",
                 "summary.template.md",
@@ -374,8 +375,11 @@ class HarnessTests(unittest.TestCase):
             self.assertIn("обязательный аудит", contract)
             self.assertIn("контрольной суммой", contract)
             self.assertIn("returns/tasks.md", contract)
+            self.assertIn("returns/receipt.json", contract)
             self.assertIn("returns/tasks/<task-id>.md", contract)
             self.assertIn("returns/summary.md", contract)
+            self.assertIn("`new`", contract)
+            self.assertIn("`completed`", contract)
             self.assertIn("только уже согласованную разработчиками разбивку", contract)
             self.assertIn("Отдельные срезы", contract)
             self.assertTrue((ROOT / "scripts/requirements-exchange.py").is_file())
