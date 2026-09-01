@@ -74,6 +74,8 @@ Commands that mean accepting a reverse patch are repository operations, not a wo
 
 Feature requirements work uses the mandatory branch protocol in `core/collaboration.md`. Before reading or editing a named feature, bootstrap the workspace, check collaboration status and create or resume the registered `feature/<feature>/<analyst>` branch. A later cycle for the same feature uses the next free `-2`, `-3` suffix instead of deleting or overwriting an earlier branch. Missing collaboration state is a migration blocker, not single-user permission. Delivery and reverse-patch reception require clean, current `main` and no active feature session.
 
+Git commit messages are a strict privacy boundary. Never put a task number or tracker identifier in the subject or body, including generated, merge and squash messages and identifiers embedded in branch names or URLs. A semantic description is required instead. This rule does not remove identifiers from tracker evidence, branch names or project artifacts where they are operationally necessary. Validate the complete proposed message before every programmatic commit and keep the bootstrap-installed `commit-msg` hook active; if an existing hook configuration prevents enforcement, stop instead of bypassing or weakening the rule.
+
 ## Feature intake rule
 
 Treat `новая фича` as a first-class planning command.

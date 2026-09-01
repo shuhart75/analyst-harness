@@ -11,6 +11,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from commit_message_policy import require_valid_commit_message
+
 
 BRANCH = "main"
 
@@ -263,12 +265,14 @@ def update_feature_command(args: argparse.Namespace) -> int:
     if operation.endswith("fast-forward"):
         merged = git(repository, "merge", "--ff-only", f"origin/{BRANCH}")
     else:
+        merge_message = f"Merge origin/{BRANCH} into {branch}"
+        require_valid_commit_message(merge_message)
         merged = git(
             repository,
             "-c", "user.name=Analyst Harness",
             "-c", "user.email=analyst-harness@local.invalid",
             "merge", "--no-ff", f"origin/{BRANCH}",
-            "-m", f"Merge origin/{BRANCH} into {branch}",
+            "-m", merge_message,
         )
     if merged.returncode != 0:
         snapshot = archive_conflicts(root, repository, snapshot)

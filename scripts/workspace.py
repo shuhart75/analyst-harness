@@ -4,18 +4,54 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
+import stat
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
 from workspace_paths import ensure_local_state, state_root
 from workspace_entrypoint import embedded_harness_paths, write_local_entrypoint
+from commit_message_policy import HOOK_MARKER
 
 
 CONFIG_NAME = ".analyst-workspace.json"
 WORKSPACE_NAME = "analyst-workspace.code-workspace"
 PROJECT_PATHS = ("baseline", "context", "features", "planning", "releases")
 CODE_PUSH_DISABLED = "DISABLED_BY_ANALYST_HARNESS"
+
+
+def install_commit_message_hook(repository: Path, policy_script: Path) -> Path:
+    configured = run("git", "-C", str(repository), "config", "--get", "core.hooksPath")
+    hook_result = run(
+        "git", "-C", str(repository), "rev-parse", "--path-format=absolute",
+        "--git-path", "hooks/commit-msg",
+    )
+    if hook_result.returncode != 0 or not hook_result.stdout.strip():
+        raise ValueError("Не удалось определить путь Git hook commit-msg")
+    hook = Path(hook_result.stdout.strip()).resolve()
+    existing = hook.read_text(encoding="utf-8") if hook.is_file() else ""
+    if configured.returncode == 0 and configured.stdout.strip() and HOOK_MARKER not in existing:
+        raise ValueError(
+            "Настроен несовместимый core.hooksPath; bootstrap остановлен, потому что "
+            "запрет идентификаторов трекеров в сообщениях коммитов нельзя гарантировать"
+        )
+    if existing and HOOK_MARKER not in existing:
+        raise ValueError(
+            "Обнаружен сторонний commit-msg hook; bootstrap не будет его перезаписывать "
+            "и не продолжит работу без обязательной защиты сообщений коммитов"
+        )
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    content = (
+        "#!/bin/sh\n"
+        f"# {HOOK_MARKER}\n"
+        f"exec python3 {shlex.quote(str(policy_script.resolve()))} \"$1\"\n"
+    )
+    temporary = hook.with_name(f".{hook.name}.analyst-harness.tmp")
+    temporary.write_text(content, encoding="utf-8")
+    temporary.chmod(temporary.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    temporary.replace(hook)
+    return hook
 
 
 def utc_now() -> str:
@@ -300,6 +336,14 @@ def bootstrap_command(args: argparse.Namespace) -> int:
     config = load_config(root)
     ensure_local_state()
     analytical = ensure_analytical(root, source, config["analytical"])
+    commit_message_hooks = []
+    if git_root(root) == root:
+        commit_message_hooks.append(
+            install_commit_message_hook(root, source / "scripts/commit_message_policy.py")
+        )
+    commit_message_hooks.append(
+        install_commit_message_hook(analytical, source / "scripts/commit_message_policy.py")
+    )
     code = ensure_code(root, config["code"])
     entrypoint = write_local_entrypoint(analytical, root, code)
     registry = write_code_registry(analytical, config["analytical"], code, config["code"])
@@ -329,6 +373,7 @@ def bootstrap_command(args: argparse.Namespace) -> int:
         },
         "project_root": str(analytical),
         "local_entrypoint": str(entrypoint),
+        "commit_message_hooks": [str(path) for path in commit_message_hooks],
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": "ready",
@@ -339,6 +384,7 @@ def bootstrap_command(args: argparse.Namespace) -> int:
         "analytical_repository": str(analytical),
         "code_repository": str(code) if code else None,
         "code_registry": str(registry),
+        "commit_message_hooks": [str(path) for path in commit_message_hooks],
         "workspace": str(workspace),
     }, ensure_ascii=False, indent=2))
     return 0

@@ -71,6 +71,24 @@ class AnalystWorkspaceTests(unittest.TestCase):
             )
             self.assertEqual(bootstrap.returncode, 0, bootstrap.stdout + bootstrap.stderr)
             analytical = workspace / "analytical-project"
+            hook_path = Path(run(
+                "git", "-C", str(analytical), "rev-parse", "--path-format=absolute",
+                "--git-path", "hooks/commit-msg",
+            ).stdout.strip())
+            self.assertTrue(hook_path.is_file())
+            self.assertTrue(os.access(hook_path, os.X_OK))
+            self.assertIn("analyst-harness-commit-message-policy:v1", hook_path.read_text(encoding="utf-8"))
+            blocked_commit = run(
+                "git", "-C", str(analytical), "commit", "--allow-empty",
+                "-m", "Обновить RSCON-123",
+            )
+            self.assertNotEqual(blocked_commit.returncode, 0)
+            self.assertIn("Сообщение коммита отклонено", blocked_commit.stderr)
+            valid_commit = run(
+                "git", "-C", str(analytical), "commit", "--allow-empty",
+                "-m", "Проверить смысловое сообщение",
+            )
+            self.assertEqual(valid_commit.returncode, 0, valid_commit.stdout + valid_commit.stderr)
             for forbidden in (".workflow", ".vscode"):
                 self.assertFalse((analytical / forbidden).exists())
             entrypoint = analytical / "AGENTS.md"

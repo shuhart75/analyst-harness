@@ -127,6 +127,23 @@ class CollaborationTests(unittest.TestCase):
                 "# Требования\n\nРабочая версия аналитика.\n",
                 encoding="utf-8",
             )
+            before_blocked_save = self.git(analytics, "rev-parse", "HEAD")
+            blocked_save = run(
+                sys.executable,
+                str(COLLABORATION),
+                "--root",
+                str(workspace),
+                "save",
+                "--message",
+                "Уточнить RSCON-123",
+                "--path",
+                requirements,
+                env=environment,
+            )
+            self.assertNotEqual(blocked_save.returncode, 0)
+            self.assertIn("Сообщение коммита отклонено", blocked_save.stdout)
+            self.assertEqual(self.git(analytics, "rev-parse", "HEAD"), before_blocked_save)
+            self.assertEqual(self.git(analytics, "diff", "--cached", "--name-only"), "")
             saved = self.collaboration(
                 workspace,
                 environment,

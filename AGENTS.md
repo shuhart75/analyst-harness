@@ -92,6 +92,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 ## Collaboration
 
+- Commit subjects and bodies must never contain task numbers or tracker identifiers, in any case or spelling. This prohibition also applies to generated, merge and squash commit messages. Use only a semantic description of the change. Task identifiers may remain in tracker data, branches and project artifacts where required, but never in Git commit messages. Before any commit, validate the complete subject and body; never bypass the managed `commit-msg` hook. Bootstrap must fail closed if that hook cannot be installed without replacing an existing custom hook.
 - Multi-user feature branches are mandatory for requirements work. Missing `.workspace-state/collaboration.json` means migration is required; it never permits direct work in `PROJECT_ROOT/main`.
 - `начинаю работу над фичей <feature>` and documented synonyms mean: run bootstrap, check `collaboration.py status`, migrate once when required, then run `collaboration.py start --feature <feature>` before reading or editing the feature requirements.
 - `сохрани работу` and documented synonyms mean: review all changes, run applicable checks, then call `collaboration.py save` with every exact changed path and a semantic commit message. It pushes only the feature branch.

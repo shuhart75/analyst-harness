@@ -13,6 +13,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
+from commit_message_policy import require_valid_commit_message
+
 
 CONFIG_NAME = ".analyst-workspace.json"
 DEFAULT_BRANCH = "main"
@@ -626,6 +628,14 @@ def apply_command(args: argparse.Namespace) -> int:
             identity = git(repository, "var", variable)
             if identity.returncode != 0:
                 raise ValueError(f"Не настроена Git-идентификация {variable}: {identity.stderr.strip()}")
+        features = ", ".join(metadata.get("included_features", [])) or "нет"
+        commit_subject = f"sync: применить обратную заплату {metadata['artifact_id']}"
+        commit_body = (
+            f"Analytics-Commit: {metadata['analytics_commit']}\n"
+            f"Analytics-Tree: {metadata['analytics_tree']}\n"
+            f"Included-Features: {features}"
+        )
+        require_valid_commit_message(f"{commit_subject}\n\n{commit_body}")
         checked = git(
             repository,
             "apply", "--index", "--check", "--binary", "--whitespace=error-all",
@@ -651,17 +661,11 @@ def apply_command(args: argparse.Namespace) -> int:
             if whitespace.returncode != 0:
                 detail = whitespace.stdout.strip() or whitespace.stderr.strip()
                 raise ValueError(f"Проверка применённых изменений завершилась ошибкой: {detail}")
-            features = ", ".join(metadata.get("included_features", [])) or "нет"
             committed = git(
                 repository,
-                "-c", "core.hooksPath=/dev/null",
                 "commit",
-                "-m", f"sync: применить обратную заплату {metadata['artifact_id']}",
-                "-m", (
-                    f"Analytics-Commit: {metadata['analytics_commit']}\n"
-                    f"Analytics-Tree: {metadata['analytics_tree']}\n"
-                    f"Included-Features: {features}"
-                ),
+                "-m", commit_subject,
+                "-m", commit_body,
             )
             if committed.returncode != 0:
                 raise ValueError(f"Не удалось создать интеграционный коммит: {committed.stderr.strip()}")
