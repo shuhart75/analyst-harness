@@ -78,6 +78,9 @@ class AnalystWorkspaceTests(unittest.TestCase):
             self.assertTrue(hook_path.is_file())
             self.assertTrue(os.access(hook_path, os.X_OK))
             self.assertIn("analyst-harness-commit-message-policy:v1", hook_path.read_text(encoding="utf-8"))
+            for key, value in (("user.name", "Harness Test"), ("user.email", "harness@example.test")):
+                configured = run("git", "-C", str(analytical), "config", key, value)
+                self.assertEqual(configured.returncode, 0, configured.stdout + configured.stderr)
             blocked_commit = run(
                 "git", "-C", str(analytical), "commit", "--allow-empty",
                 "-m", "Обновить RSCON-123",
