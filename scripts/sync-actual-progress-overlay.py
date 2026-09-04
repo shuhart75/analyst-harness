@@ -90,6 +90,7 @@ ROLE_ALIASES = {
 
 NOT_STARTED_STATUSES = {"proposed", "предложен", "planned", "todo", "open", "backlog"}
 FE_AFTER_BE_OPEN_DAYS = 3
+QA_AFTER_PARENT_OPEN_DAYS = 3
 
 
 @dataclass
@@ -546,6 +547,28 @@ def task_duration(task: Task) -> int:
     return max(math.ceil(task.estimate), 1)
 
 
+def task_role_suffix(task_id: str) -> tuple[str, str]:
+    match = re.fullmatch(r"(.+)/(AN|BE|FE|QA)", clean_cell(task_id), re.IGNORECASE)
+    if not match:
+        return task_id, ""
+    return match.group(1), match.group(2).upper()
+
+
+def qa_parent_id(task_id: str, tasks: dict[str, Task]) -> str:
+    base, suffix = task_role_suffix(task_id)
+    if suffix != "QA":
+        return ""
+    candidates = [
+        candidate_id
+        for candidate_id, candidate in tasks.items()
+        if task_role_suffix(candidate_id)[0] == base and role_for_task(candidate) != "QA"
+    ]
+    if not candidates:
+        return ""
+    role_priority = {"FE": 0, "BE": 1, "AN": 2}
+    return min(candidates, key=lambda candidate_id: (role_priority.get(role_for_task(tasks[candidate_id]), 9), candidate_id))
+
+
 def open_days_between(start: date, finish: date, closed_days: set[date]) -> list[date]:
     if finish < start:
         return []
@@ -686,7 +709,8 @@ def task_schedules(
     occupied: dict[str, set[date]] = {}
 
     def task_scope(task_key: str) -> str:
-        return task_key.split("/", 1)[0] if "/" in task_key else ""
+        base, suffix = task_role_suffix(task_key)
+        return base if suffix else task_key
 
     for task_id, task in tasks.items():
         if is_not_started(task):
@@ -743,6 +767,27 @@ def task_schedules(
         be_starts = be_starts_by_scope.get(task_scope(task_id), [])
         fe_min_start = add_open_day_offset(min(be_starts), FE_AFTER_BE_OPEN_DAYS, closed_days) if be_starts else None
         earliest = max(start, fe_min_start) if fe_min_start else start
+        schedules[task_id] = schedule_not_started_task(
+            task,
+            earliest,
+            shifted or earliest != start,
+            occupied,
+            closed_days,
+            team_resources,
+        )
+
+    for task_id, task, start, shifted in sorted(
+        [item for item in not_started if item[0] not in schedules and role_for_task(item[1]) == "QA"],
+        key=lambda item: (item[2] or date.max, item[0]),
+    ):
+        parent_id = qa_parent_id(task_id, tasks)
+        parent = schedules.get(parent_id)
+        if not parent or not parent.finish:
+            continue
+        lag_start = add_open_day_offset(parent.start, QA_AFTER_PARENT_OPEN_DAYS, closed_days)
+        after_finish = next_open_day(parent.finish + timedelta(days=1), closed_days)
+        target = min(lag_start, after_finish)
+        earliest = max(start, target)
         schedules[task_id] = schedule_not_started_task(
             task,
             earliest,
@@ -985,14 +1030,32 @@ def render_feature(
     if active_tasks:
         task_order = {task_id: index for index, task_id in enumerate(tasks)}
         lines.append("' Execution task layer")
-        for task in sorted(
+        sorted_tasks = sorted(
             active_tasks,
             key=lambda item: (
                 schedules[item.task_id].start if item.task_id in schedules else date.max,
                 ROLE_ORDER.get(role_for_task(item), 90),
                 task_order.get(item.task_id, 0),
             ),
-        ):
+        )
+        children: dict[str, list[Task]] = {}
+        orphan_qa: list[Task] = []
+        for task in sorted_tasks:
+            parent_id = qa_parent_id(task.task_id, tasks)
+            if parent_id and parent_id in tasks:
+                children.setdefault(parent_id, []).append(task)
+            elif role_for_task(task) == "QA":
+                orphan_qa.append(task)
+
+        ordered_tasks: list[Task] = []
+        for task in sorted_tasks:
+            if qa_parent_id(task.task_id, tasks):
+                continue
+            ordered_tasks.append(task)
+            ordered_tasks.extend(children.get(task.task_id, []))
+        ordered_tasks.extend(task for task in orphan_qa if task not in ordered_tasks)
+
+        for task in ordered_tasks:
             lines.extend(render_task(task, schedules))
             lines.append("")
 

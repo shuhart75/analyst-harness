@@ -83,5 +83,85 @@ class ActualProgressRoleWorkItemsTests(unittest.TestCase):
                 OVERLAY.load_tasks(feature)
 
 
+def task(task_id: str, role: str, estimate: int, start: str, executor: str) -> object:
+    return OVERLAY.Task(
+        task_id=task_id,
+        tracker_key=task_role_suffix(task_id)[0],
+        summary=task_id,
+        kind="real",
+        role=role,
+        estimate=estimate,
+        executor=executor,
+        planned_start=start,
+        planned_finish="",
+        actual_start="",
+        actual_finish="",
+        status="planned",
+        progress=0,
+        related_stories=["STORY-ONE"],
+    )
+
+
+def task_role_suffix(task_id: str) -> tuple[str, str]:
+    return OVERLAY.task_role_suffix(task_id)
+
+
+class QaChildSchedulingTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.resources = {"AN": ["A1"], "BE": ["B1"], "FE": ["F1"], "QA": ["Q1"]}
+
+    def test_qa_starts_three_open_days_after_long_parent_starts(self) -> None:
+        tasks = {
+            "ITEM/FE": task("ITEM/FE", "FE", 5, "2026-09-21", "F1"),
+            "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
+        }
+
+        schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
+
+        self.assertEqual(date(2026, 9, 24), schedules["ITEM/QA"].start)
+
+    def test_qa_starts_after_short_parent_finishes(self) -> None:
+        tasks = {
+            "ITEM/FE": task("ITEM/FE", "FE", 2, "2026-09-21", "F1"),
+            "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
+        }
+
+        schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
+
+        self.assertEqual(date(2026, 9, 23), schedules["ITEM/QA"].start)
+
+    def test_qa_child_is_rendered_immediately_after_parent(self) -> None:
+        tasks = {
+            "ITEM/FE": task("ITEM/FE", "FE", 5, "2026-09-21", "F1"),
+            "OTHER/FE": task("OTHER/FE", "FE", 7, "2026-09-21", "F1"),
+            "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
+        }
+        schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
+        feature_dir = Path(self.id())
+
+        original_story_loader = OVERLAY.load_story_map
+        try:
+            OVERLAY.load_story_map = lambda _: [
+                OVERLAY.StoryMap("STORY-ONE", "Story", "2026-09-21", 5, "materialized", "explicit", list(tasks), [], [])
+            ]
+            rendered = OVERLAY.render_feature(feature_dir, "feature", set(), tasks, schedules)
+        finally:
+            OVERLAY.load_story_map = original_story_loader
+
+        assert rendered
+        self.assertLess(rendered.index("TASK_ITEM_FE"), rendered.index("TASK_ITEM_QA"))
+        self.assertLess(rendered.index("TASK_ITEM_QA"), rendered.index("TASK_OTHER_FE"))
+
+    def test_unrelated_unsuffixed_be_does_not_delay_explicit_fe_start(self) -> None:
+        tasks = {
+            "feature/BACKEND-ONE": task("BACKEND-ONE", "BE", 5, "2026-09-07", "B1"),
+            "feature/FRONTEND-ONE": task("FRONTEND-ONE", "FE", 2, "2026-09-07", "F1"),
+        }
+
+        schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
+
+        self.assertEqual(date(2026, 9, 7), schedules["feature/FRONTEND-ONE"].start)
+
+
 if __name__ == "__main__":
     unittest.main()
