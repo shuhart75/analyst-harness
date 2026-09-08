@@ -42,7 +42,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Never stage local tool settings with `git add -A`, `git add .`, or another broad command. `.codex`, `.gigacode`, `.gigaide`, `.idea`, `GIGACODE.md`, `*.iml` and `*.orig` are local-only and must not be committed.
 - Keep contracts, modes, scripts, templates and local run state in this harness root.
 - Keep incoming reverse-patch pairs under the ignored `HARNESS_ROOT/reverse-patch-inbox/` and application receipts under the ignored `HARNESS_ROOT/reverse-patch-receipts/`; never commit either directory.
-- Treat the optional code repository as strictly read-only except for registered operations: initial clone or creation, `git pull --ff-only` through `workspace.py update-code`, and publication through `requirements-exchange.py prepare`. Publication uses an isolated temporary clone, may commit and push only an existing root `requirements-exchange/**`, and must leave the ordinary code clone unchanged. It falls back to `PROJECT_ROOT/requirements-exchange/` when code is absent, the root catalog is absent, or read/push access fails. Do not otherwise change files, index, branch, `HEAD`, remotes, configuration or generated artifacts.
+- Treat the optional code repository as strictly read-only except for registered operations: initial clone or creation, `git pull --ff-only` through `workspace.py update-code`, and publication through `requirements-exchange.py prepare`. Publication uses an isolated temporary clone, may commit only an existing root `requirements-exchange/**` and push only a separate review branch, and must leave the ordinary code clone unchanged. Human PR/MR acceptance is required; never push the target branch. It falls back to `PROJECT_ROOT/requirements-exchange/` when code or the root catalog is absent, or access is unavailable; an unknown push outcome blocks fallback until checked. Do not otherwise change files, index, branch, `HEAD`, remotes, configuration or generated artifacts.
 - If code is not configured, continue analytical work, state assumptions requiring receiver-side verification and use the reserve exchange catalog in role `analytics`.
 
 ## Code update commands
@@ -67,12 +67,16 @@ This repository is the root of a configurable analyst workspace. The harness rem
 14. `core/collaboration.md` before starting, saving, updating, submitting or finishing feature work
 15. `core/reverse-patch.md` before accepting a reverse patch
 16. `core/run-loop.md`
-17. `.workspace-state/run-state/session-brief.md` when present
-18. `.workspace-state/active-mode.md`
-19. `modes/<active-mode>.md`
-20. `PROJECT_ROOT/README.md`
-21. `PROJECT_ROOT/planning/team.md` before planning resources
-22. relevant `PROJECT_ROOT/context/project-rules/*.md`
+17. `core/developer-handoff.md` before acknowledging, reviewing or promoting a developer return
+18. `core/entity-model.md` before planning-story, actualization-mapping or actual-progress work
+19. `core/workflow.md` before changing workflow layers, containers or artifact types
+20. `core/naming.md` before scaffolding, renaming or creating project files
+21. `.workspace-state/run-state/session-brief.md` when present
+22. `.workspace-state/active-mode.md`
+23. `modes/<active-mode>.md`
+24. `PROJECT_ROOT/README.md`
+25. `PROJECT_ROOT/planning/team.md` before planning resources
+26. relevant `PROJECT_ROOT/context/project-rules/*.md`
 
 ## Mode boundary
 
@@ -109,11 +113,13 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 ## Developer handoff
 
+- The analyst with product-owner authority approves the current delivery scope; developer SDD owns technical decomposition and must not silently reduce that scope.
+- Review final results per `REQ-*` under `core/developer-handoff.md`, separating implementation, verification, analyst acceptance and deployment. Record detailed decisions with `record-processed --decision reviewed --review-file ...`; receipt and report completion are not business acceptance. Baseline records deployed facts, including rejected deviations with limitations; accepted scope and residual follow-up are independent decisions.
 - `сформируй пакет для разработки`, `отправь требования в разработку`, `передай требования разработчикам`, `передай разрабам`, `отдай требования разрабам`, `отправь разрабам`, `отдаём в разработку` and `передаём в разработку` are exact delivery synonyms.
 - Before beginning the audit, require `collaboration.py require-main-for-delivery --feature <feature>`. Delivery is allowed only from current `PROJECT_ROOT/main` after the feature branch has been accepted and the collaboration session has been finished.
 - Treat each delivery synonym as a two-stage action. First run all three audit levels in `core/requirements-audit.md`: individual rules, cross-requirement system reasoning and delivery readiness. Repair only meaning-preserving issues, ask one semantic question at a time, recheck affected relations after each answer, then rerun all three levels over the complete document. Show the final audit report and request explicit confirmation. Do not create or publish a revision before that confirmation.
 - Record the completed audit with `requirementsctl.py record-audit`. Only an analyst reply that explicitly confirms both the shown audit and transfer authorizes `requirementsctl.py confirm-audit`; silence, an earlier transfer command, or approval of the requirements document itself is not confirmation of the audit.
-- After confirmation, publish the unchanged audited file directly to `sent`. If `requirements.md` changes at any point after the audit, repeat the audit and confirmation; `requirements-exchange.py prepare` enforces this checksum boundary.
+- After confirmation, prepare the unchanged audited file with manifest state `sent`. For code, push only a separate review branch, never the target branch; `awaiting-merge` is not delivery. The human creates and accepts the PR/MR. Repeat `prepare` after acceptance and call `mark-published` only with `publication_confirmed=true`; analytics fallback records local placement instead. If `requirements.md` changes after the audit, repeat the audit and confirmation.
 - Send only one immutable root `requirements.md` plus `manifest.json`. Do not create slices, contour packs, analyst-authored developer tasks or local OpenSpec artifacts on behalf of developers.
 - The receiver treats `requirements.md` as an upstream business contract, compares it with current code and creates its own local SDD artifacts separately for backend and frontend. Mixed backend/frontend tasks are forbidden; one `REQ-*` may map to multiple contour tasks.
 - Developers first acknowledge the exact revision and checksum with immutable `returns/receipt.json`, then return their already agreed decomposition in `returns/tasks.md`, per-task factual results in `returns/tasks/<task-id>.md`, and final `REQ-*` coverage in `returns/summary.md`. A new revision always requires its own receipt; analyst review never gates development.

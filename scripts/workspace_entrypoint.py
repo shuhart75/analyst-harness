@@ -82,7 +82,9 @@ def write_local_entrypoint(project: Path, harness: Path, code: Path | None = Non
     code_role = (
         f"- `CODE_ROOT = {code_root}` выполняет роль code и доступен строго только для чтения; "
         "отдельно разрешены защищённый git pull через workspace.py и изолированная публикация только в "
-        "заранее созданный каталог requirements-exchange через requirements-exchange.py.\n"
+        "заранее созданный каталог requirements-exchange через requirements-exchange.py, только в отдельную "
+        "ветку для человеческого PR/MR. До подтверждения слияния передача ожидает рассмотрения; "
+        "целевую ветку и обычный клон кода обвязка не изменяет.\n"
         if code_root
         else "- Роль code отключена.\n"
     )

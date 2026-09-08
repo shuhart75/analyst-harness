@@ -63,9 +63,12 @@ class AnalystWorkspaceEndToEndTests(unittest.TestCase):
                     ("git", "apply"), cwd=harness, input=working_diff, text=True, capture_output=True, check=False
                 )
                 self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
-            untracked = run("git", "ls-files", "--others", "--exclude-standard", cwd=ROOT)
+            untracked = run("git", "ls-files", "-z", "--others", "--exclude-standard", cwd=ROOT)
             self.assertEqual(untracked.returncode, 0, untracked.stdout + untracked.stderr)
-            for relative in untracked.stdout.splitlines():
+            harness_directories = {"adapters", "core", "examples", "modes", "prompts", "scripts", "skills", "templates", "tests"}
+            for relative in untracked.stdout.split("\0"):
+                if not relative or relative.split("/", 1)[0] not in harness_directories:
+                    continue
                 source = ROOT / relative
                 target = harness / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
