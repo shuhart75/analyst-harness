@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -94,7 +94,7 @@ ROLE_ALIASES = {
 
 NOT_STARTED_STATUSES = {"proposed", "предложен", "planned", "todo", "open", "backlog"}
 FE_AFTER_BE_OPEN_DAYS = 3
-QA_AFTER_PARENT_OPEN_DAYS = 3
+QA_BEFORE_FE_FINISH_OPEN_DAYS = 1
 
 
 @dataclass
@@ -110,6 +110,9 @@ class StoryMap:
     depends_on: list[str]
     baseline_state: str | None = "present"
     follow_up_quarter: str = ""
+    role: str = ""
+    additional_tasks: list[str] = field(default_factory=list)
+    follow_up_notes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -309,14 +312,12 @@ def load_story_map(feature_dir: Path) -> list[StoryMap]:
         return []
     rows = [row for table in parse_tables(path) for row in table if "Story ID" in row]
     result: list[StoryMap] = []
+    follow_ups: list[StoryMap] = []
     story_ids: set[str] = set()
     for row in rows:
         story_id = clean_cell(row.get("Story ID", ""))
-        if not story_id:
+        if not split_list(story_id):
             raise ValueError(f"{path}: требуется Story ID")
-        if story_id in story_ids:
-            raise ValueError(f"{path}: Duplicate Story ID: {story_id}")
-        story_ids.add(story_id)
         duration = clean_cell(row.get("Baseline Duration (дн)", ""))
         baseline_start = clean_cell(row.get("Baseline Start", ""))
         follow_up_quarter = ""
@@ -330,6 +331,11 @@ def load_story_map(feature_dir: Path) -> list[StoryMap]:
                 raise ValueError(f"{path}: {story_id}: неверный Quarter в follow-up")
             baseline_state = None
         else:
+            if len(split_list(story_id)) != 1:
+                raise ValueError(f"{path}: определение должно содержать один Story ID: {story_id}")
+            if story_id in story_ids:
+                raise ValueError(f"{path}: Duplicate Story ID: {story_id}")
+            story_ids.add(story_id)
             baseline_state = clean_cell(row.get("Baseline State", "present")).lower()
             if baseline_state not in {"present", "absent"}:
                 raise ValueError(f"{path}: Baseline State должен быть present или absent")
@@ -339,7 +345,10 @@ def load_story_map(feature_dir: Path) -> list[StoryMap]:
             raise ValueError(f"{path}: требуется положительная целая Baseline Duration (дн)")
         if clean_cell(row.get("Actualization State", "")).lower() not in {"virtual", "mixed", "materialized", "done", "real"}:
             raise ValueError(f"{path}: неизвестный Actualization State")
-        result.append(
+        role = normalize_role(row.get("Role", ""))
+        if role and role not in ROLE_COLORS:
+            raise ValueError(f"{path}: {story_id}: неизвестный Role")
+        (follow_ups if follow_up_quarter else result).append(
             StoryMap(
                 story_id=story_id,
                 summary=clean_cell(row.get("Summary", story_id)),
@@ -352,8 +361,24 @@ def load_story_map(feature_dir: Path) -> list[StoryMap]:
                 depends_on=split_list(row.get("Depends On", "")),
                 baseline_state=baseline_state,
                 follow_up_quarter=follow_up_quarter,
+                role=role,
             )
         )
+    by_id = {story.story_id: story for story in result}
+    for follow_up in follow_ups:
+        references = split_list(follow_up.story_id)
+        if len(references) == 1 and references[0] not in by_id:
+            by_id[follow_up.story_id] = follow_up
+            result.append(follow_up)
+            continue
+        for reference in references:
+            if reference not in by_id:
+                raise ValueError(f"{path}: follow-up ссылается на неизвестную историю: {reference}")
+            story = by_id[reference]
+            if story.follow_up_quarter:
+                raise ValueError(f"{path}: Duplicate Story ID: {reference}")
+            story.additional_tasks = list(dict.fromkeys(story.additional_tasks + follow_up.replaced_by + follow_up.residual_virtual_tasks))
+            story.follow_up_notes.append(f"{follow_up.follow_up_quarter}: {follow_up.summary}; tasks={', '.join(follow_up.replaced_by)}")
     return result
 
 
@@ -635,28 +660,6 @@ def task_duration(task: Task) -> int:
     return max(math.ceil(task.estimate), 1)
 
 
-def task_role_suffix(task_id: str) -> tuple[str, str]:
-    match = re.fullmatch(r"(.+)/(AN|BE|FE|QA)", clean_cell(task_id), re.IGNORECASE)
-    if not match:
-        return task_id, ""
-    return match.group(1), match.group(2).upper()
-
-
-def qa_parent_id(task_id: str, tasks: dict[str, Task]) -> str:
-    base, suffix = task_role_suffix(task_id)
-    if suffix != "QA":
-        return ""
-    candidates = [
-        candidate_id
-        for candidate_id, candidate in tasks.items()
-        if task_role_suffix(candidate_id)[0] == base and role_for_task(candidate) != "QA"
-    ]
-    if not candidates:
-        return ""
-    role_priority = {"FE": 0, "BE": 1, "AN": 2}
-    return min(candidates, key=lambda candidate_id: (role_priority.get(role_for_task(tasks[candidate_id]), 9), candidate_id))
-
-
 def open_days_between(start: date, finish: date, closed_days: set[date]) -> list[date]:
     if finish < start:
         return []
@@ -797,8 +800,7 @@ def task_schedules(
     occupied: dict[str, set[date]] = {}
 
     def task_scope(task_key: str) -> str:
-        base, suffix = task_role_suffix(task_key)
-        return base if suffix else task_key
+        return task_key.removesuffix(tasks[task_key].task_id).rstrip("/")
 
     for task_id, task in tasks.items():
         if is_not_started(task):
@@ -868,13 +870,25 @@ def task_schedules(
         [item for item in not_started if item[0] not in schedules and role_for_task(item[1]) == "QA"],
         key=lambda item: (item[2] or date.max, item[0]),
     ):
-        parent_id = qa_parent_id(task_id, tasks)
-        parent = schedules.get(parent_id)
-        if not parent or not parent.finish:
-            continue
-        lag_start = add_open_day_offset(parent.start, QA_AFTER_PARENT_OPEN_DAYS, closed_days)
-        after_finish = next_open_day(parent.finish + timedelta(days=1), closed_days)
-        target = min(lag_start, after_finish)
+        feature_schedules = [
+            (item, schedules[item_id]) for item_id, item in tasks.items()
+            if item_id in schedules and task_scope(item_id) == task_scope(task_id)
+            and item.status.lower() != "superseded" and role_for_task(item) != "QA"
+        ]
+        frontend = [scheduled for item, scheduled in feature_schedules if role_for_task(item) == "FE" and scheduled.finish]
+        if frontend:
+            first = min(frontend, key=lambda scheduled: scheduled.finish)
+            target = first.finish
+            for _ in range(QA_BEFORE_FE_FINISH_OPEN_DAYS):
+                target -= timedelta(days=1)
+                while not is_open_day(target, closed_days):
+                    target -= timedelta(days=1)
+            target = max(first.start, target)
+        else:
+            finishes = [scheduled.finish for _, scheduled in feature_schedules if scheduled.finish]
+            if not finishes:
+                continue
+            target = next_open_day(min(finishes) + timedelta(days=1), closed_days)
         earliest = max(start, target)
         schedules[task_id] = schedule_not_started_task(
             task,
@@ -935,48 +949,19 @@ def role_prefixed_summary(task: Task) -> str:
 
 
 def story_type(story: StoryMap, tasks: dict[str, Task]) -> str:
-    summary = story.summary.lower()
-    fe_keywords = [
-        "страница",
-        "список",
-        "форма",
-        "detail",
-        "деталь",
-        "детальная",
-        "ui",
-        "frontend",
-        "workspace",
-        "view",
-    ]
-    be_keywords = [
-        "backend",
-        "core",
-        "жизненный цикл",
-        "жц",
-        "api",
-        "бд",
-        "integration",
-        "интеграция",
-        "model",
-        "модель",
-        "контракты",
-        "logic",
-        "логика",
-    ]
-    if any(keyword in summary for keyword in fe_keywords):
-        return "FE"
-    if any(keyword in summary for keyword in be_keywords):
-        return "BE"
-
-    counts: dict[str, int] = {}
-    for task_id in mapped_task_ids(story, tasks):
-        role = role_for_task(tasks[task_id])
-        if not role:
-            continue
-        counts[role] = counts.get(role, 0) + 1
-    if counts:
-        ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-        return ordered[0][0]
+    if story.role:
+        return story.role
+    suffix = re.search(r"(?:^|[-_/])(AN|BE|FE|QA)$", story.story_id, re.IGNORECASE)
+    if suffix:
+        return suffix.group(1).upper()
+    prefix = normalize_role(re.split(r"[\s:]+", story.summary.strip("[] "), maxsplit=1)[0])
+    if prefix in ROLE_COLORS:
+        return prefix
+    roles = {role_for_task(tasks[task_id]) for task_id in mapped_task_ids(story, tasks)}
+    if len(roles) > 1:
+        roles.discard("QA")
+    if len(roles) == 1 and roles <= ROLE_COLORS.keys():
+        return next(iter(roles))
     return "GEN"
 
 
@@ -1001,7 +986,7 @@ def render_task(task: Task, schedules: dict[str, ScheduledTask]) -> list[str]:
 
 
 def mapped_task_ids(story: StoryMap, tasks: dict[str, Task]) -> list[str]:
-    references = list(story.replaced_by)
+    references = story.replaced_by + story.additional_tasks
     if story.state == "mixed":
         references.extend(story.residual_virtual_tasks)
     ids: list[str] = []
@@ -1018,15 +1003,25 @@ def mapped_task_ids(story: StoryMap, tasks: dict[str, Task]) -> list[str]:
     return unique
 
 
+def plan_task_ids(story: StoryMap, tasks: dict[str, Task]) -> list[str]:
+    role = story_type(story, tasks)
+    if role in ROLE_COLORS:
+        return [task_id for task_id, task in tasks.items() if role_for_task(task) == role
+                and task.kind != "candidate" and task.status.lower() != "superseded"]
+    return [task_id for task_id in mapped_task_ids(story, tasks) if role_for_task(tasks[task_id]) != "QA"]
+
+
 def story_progress(story: StoryMap, tasks: dict[str, Task]) -> int:
-    task_ids = mapped_task_ids(story, tasks)
+    task_ids = plan_task_ids(story, tasks)
     if not task_ids:
         return 0
     total = 0
     weighted = 0
     for task_id in task_ids:
         task = tasks[task_id]
-        estimate = max(task.estimate, 1.0)
+        estimate = task.estimate
+        if not math.isfinite(estimate) or estimate <= 0:
+            raise ValueError(f"{task_id}: требуется положительная оценка для расчёта прогресса")
         total += estimate
         weighted += estimate * max(0, min(task.progress, 100))
     return round(weighted / total) if total else 0
@@ -1040,26 +1035,13 @@ def story_dates(
     closed_days: set[date],
 ) -> tuple[date | None, date | None]:
     baseline_start = parse_date(story.baseline_start)
-    baseline_finish = add_open_days(baseline_start, max(story.baseline_duration, 1), closed_days) if baseline_start else None
-    task_ids = mapped_task_ids(story, tasks)
+    if story.baseline_duration is None:
+        return None, None
+    task_ids = plan_task_ids(story, tasks)
+    actual_starts = [parse_date(tasks[task_id].actual_start) for task_id in task_ids if tasks[task_id].actual_start]
     starts = [schedules[task_id].start for task_id in task_ids if task_id in schedules]
-    finishes = [schedules[task_id].finish for task_id in task_ids if task_id in schedules]
-    starts = [item for item in starts if item]
-    finishes = [item for item in finishes if item]
-
-    if finishes:
-        start_candidates = list(starts)
-        if baseline_start:
-            start_candidates.append(baseline_start)
-        return min(start_candidates) if start_candidates else baseline_start, max(finishes)
-
-    if story.depends_on:
-        dep_finishes = [story_ends[dep] for dep in story.depends_on if dep in story_ends]
-        if dep_finishes:
-            start = next_open_day(max(dep_finishes) + timedelta(days=1), closed_days)
-            return start, add_open_days(start, max(story.baseline_duration, 1), closed_days)
-
-    return baseline_start, baseline_finish
+    start = min(actual_starts or starts, default=baseline_start)
+    return start, add_open_days(start, story.baseline_duration, closed_days) if start else None
 
 
 def render_story(
@@ -1070,7 +1052,7 @@ def render_story(
     closed_days: set[date],
 ) -> tuple[list[str], date | None]:
     if story.baseline_state != "present":
-        task_ids = mapped_task_ids(story, tasks)
+        task_ids = plan_task_ids(story, tasks)
         finishes = [schedules[task_id].finish for task_id in task_ids if task_id in schedules and schedules[task_id].finish]
         label = f"Follow-up {story.follow_up_quarter}; baseline not declared" if story.follow_up_quarter else "No approved baseline"
         return [
@@ -1082,7 +1064,7 @@ def render_story(
     alias = f"STORY_{to_alias(story.story_id)}"
     label = plantuml_label(f"PLAN {story_type(story, tasks)} {story.summary}")
     progress = story_progress(story, tasks)
-    color = "LightSteelBlue" if story.state == "virtual" else "Gainsboro"
+    color = "Gainsboro"
     lines = [
         f"[{label}] as [{alias}] starts {fmt_date(start)}",
     ]
@@ -1125,6 +1107,9 @@ def render_feature(
     for story in stories:
         rendered, finish = render_story(story, tasks, schedules, story_ends, closed_days)
         lines.append(f"' Story {story.story_id}: {story.state}, mapping={story.mapping_mode}")
+        lines.extend(f"' Follow-up link: {note}" for note in story.follow_up_notes)
+        if story_type(story, tasks) == "GEN":
+            lines.append("' Legacy mixed-role baseline: role is unresolved; only recorded non-QA links are used")
         lines.extend(rendered)
         lines.append("")
         if finish:
@@ -1142,24 +1127,7 @@ def render_feature(
                 task_order.get(item.task_id, 0),
             ),
         )
-        children: dict[str, list[Task]] = {}
-        orphan_qa: list[Task] = []
         for task in sorted_tasks:
-            parent_id = qa_parent_id(task.task_id, tasks)
-            if parent_id and parent_id in tasks:
-                children.setdefault(parent_id, []).append(task)
-            elif role_for_task(task) == "QA":
-                orphan_qa.append(task)
-
-        ordered_tasks: list[Task] = []
-        for task in sorted_tasks:
-            if qa_parent_id(task.task_id, tasks):
-                continue
-            ordered_tasks.append(task)
-            ordered_tasks.extend(children.get(task.task_id, []))
-        ordered_tasks.extend(task for task in orphan_qa if task not in ordered_tasks)
-
-        for task in ordered_tasks:
             lines.extend(render_task(task, schedules))
             lines.append("")
 
@@ -1217,13 +1185,13 @@ def prepare_outputs(project_root: Path, quarter_id: str, feature_slugs: list[str
             aliases.add(alias)
             if story.baseline_state == "present" and (not parse_date(story.baseline_start) or not story.baseline_duration):
                 raise ValueError(f"{feature_dir}: неверные исходные даты истории {story.story_id}")
-            references = story.replaced_by + story.residual_virtual_tasks
+            references = story.replaced_by + story.residual_virtual_tasks + story.additional_tasks
             for reference in references:
                 if reference in tasks and any(task.task_id != reference and task.tracker_key == reference for task in tasks.values()):
                     raise ValueError(f"{feature_dir}: неоднозначная ссылка Task ID/Jira {reference}")
                 if reference not in tasks and not any(task.tracker_key == reference for task in tasks.values()):
                     raise ValueError(f"{feature_dir}: история {story.story_id} ссылается на отсутствующую задачу {reference}")
-            if (story.baseline_state != "present" or story.state in {"materialized", "mixed", "done", "real"}) and not mapped_task_ids(story, tasks):
+            if (story.baseline_state != "present" or story.state in {"materialized", "mixed", "done", "real"}) and not plan_task_ids(story, tasks):
                 raise ValueError(f"{feature_dir}: отсутствует состав истории {story.story_id}")
             if any(dependency not in story_ids for dependency in story.depends_on):
                 raise ValueError(f"{feature_dir}: неизвестная зависимость истории {story.story_id}")

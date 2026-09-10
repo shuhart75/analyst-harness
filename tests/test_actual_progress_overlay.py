@@ -103,14 +103,14 @@ def task(task_id: str, role: str, estimate: int, start: str, executor: str) -> o
 
 
 def task_role_suffix(task_id: str) -> tuple[str, str]:
-    return OVERLAY.task_role_suffix(task_id)
+    return tuple(task_id.rsplit("/", 1)) if "/" in task_id else (task_id, "")
 
 
-class QaChildSchedulingTest(unittest.TestCase):
+class QaFeatureSchedulingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.resources = {"AN": ["A1"], "BE": ["B1"], "FE": ["F1"], "QA": ["Q1"]}
 
-    def test_qa_starts_three_open_days_after_long_parent_starts(self) -> None:
+    def test_qa_starts_one_open_day_before_first_fe_finishes(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 5, "2026-09-21", "F1"),
             "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
@@ -120,7 +120,7 @@ class QaChildSchedulingTest(unittest.TestCase):
 
         self.assertEqual(date(2026, 9, 24), schedules["ITEM/QA"].start)
 
-    def test_qa_starts_after_short_parent_finishes(self) -> None:
+    def test_qa_can_overlap_short_fe_work(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 2, "2026-09-21", "F1"),
             "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
@@ -128,9 +128,9 @@ class QaChildSchedulingTest(unittest.TestCase):
 
         schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
 
-        self.assertEqual(date(2026, 9, 23), schedules["ITEM/QA"].start)
+        self.assertEqual(date(2026, 9, 21), schedules["ITEM/QA"].start)
 
-    def test_qa_child_is_rendered_immediately_after_parent(self) -> None:
+    def test_qa_is_rendered_in_chronological_order(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 5, "2026-09-21", "F1"),
             "OTHER/FE": task("OTHER/FE", "FE", 7, "2026-09-21", "F1"),
@@ -152,7 +152,7 @@ class QaChildSchedulingTest(unittest.TestCase):
         self.assertLess(rendered.index("TASK_ITEM_FE"), rendered.index("TASK_ITEM_QA"))
         self.assertLess(rendered.index("TASK_ITEM_QA"), rendered.index("TASK_OTHER_FE"))
 
-    def test_unrelated_unsuffixed_be_does_not_delay_explicit_fe_start(self) -> None:
+    def test_feature_scope_applies_be_lead_to_unsuffixed_tasks(self) -> None:
         tasks = {
             "feature/BACKEND-ONE": task("BACKEND-ONE", "BE", 5, "2026-09-07", "B1"),
             "feature/FRONTEND-ONE": task("FRONTEND-ONE", "FE", 2, "2026-09-07", "F1"),
@@ -160,7 +160,7 @@ class QaChildSchedulingTest(unittest.TestCase):
 
         schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
 
-        self.assertEqual(date(2026, 9, 7), schedules["feature/FRONTEND-ONE"].start)
+        self.assertEqual(date(2026, 9, 10), schedules["feature/FRONTEND-ONE"].start)
 
 
 if __name__ == "__main__":
