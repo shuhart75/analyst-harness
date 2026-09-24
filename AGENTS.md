@@ -205,6 +205,8 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 ## Code inspection
 
+- Start every product-code question with `workspace.py project-root`, then `code-inspect.py route PROJECT_ROOT` (scripts under HARNESS_ROOT). Use its registered absolute root and choose one contour before begin/locate/verify. Never infer code absence from a harness search or guess a clone path. Zero matches mean only no match for this query in this contour at this commit. Answer in Russian with the inspected commit and file references. An ad hoc code question does not start feature work.
+
 - Resolve the optional code repository through `.workspace-state/code-repos.json`; never require paths in routine user prompts.
 - Inspect one contour at a time. Read local instructions, locate exact identifiers, then open only matched modules and nearby tests or contracts.
 - Record branch, commit and worktree state before reading and verify unchanged state afterward.
