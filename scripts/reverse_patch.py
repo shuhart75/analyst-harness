@@ -9,7 +9,7 @@ import os
 import re
 import subprocess
 import tempfile
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
@@ -32,7 +32,8 @@ def run(*args: str, cwd: Path | None = None, env: dict[str, str] | None = None) 
 
 
 def git(repository: Path, *args: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    return run("git", "-C", str(repository), *args, env=env)
+    environment = {**os.environ, "GIT_OPTIONAL_LOCKS": "0", **(env or {})}
+    return run("git", "-C", str(repository), *args, env=environment)
 
 
 def root_path(explicit: str | None) -> Path:
@@ -45,8 +46,8 @@ def state_root(root: Path) -> Path:
 
 
 @contextmanager
-def operation_lock(root: Path):
-    path = state_root(root) / "reverse-patch-apply.lock"
+def operation_lock(root: Path, filename: str = "reverse-patch-apply.lock"):
+    path = state_root(root) / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = path.open("w", encoding="utf-8")
     try:
@@ -359,7 +360,7 @@ def base_receipt(metadata_path: Path, patch: Path | None, metadata: dict, reposi
     }
 
 
-def verify_patch_tree(repository: Path, patch: Path, expected_tree: str) -> None:
+def verify_patch_tree(repository: Path, patch: Path, expected_tree: str, expected_paths: list[str] | None = None) -> None:
     git_objects = git(repository, "rev-parse", "--git-path", "objects")
     if git_objects.returncode != 0 or not git_objects.stdout.strip():
         raise ValueError(f"Не удалось определить хранилище объектов Git: {git_objects.stderr.strip()}")
@@ -408,6 +409,10 @@ def verify_patch_tree(repository: Path, patch: Path, expected_tree: str) -> None
         tree = git(repository, "write-tree", env=environment)
         if tree.returncode != 0 or tree.stdout.strip() != expected_tree:
             raise ValueError("Применение заплаты не воспроизводит целевое дерево analytics")
+        if expected_paths is not None:
+            changed = git(repository, "diff", "--cached", "--name-only", "-z", "HEAD", env=environment)
+            if changed.returncode != 0 or sorted(filter(None, changed.stdout.split("\0"))) != sorted(expected_paths):
+                raise ValueError("Состав применённых путей не совпадает с квитанцией")
 
 
 def rollback_patch(repository: Path, patch: Path) -> None:
@@ -420,13 +425,18 @@ def rollback_patch(repository: Path, patch: Path) -> None:
     require_clean(repository)
 
 
-def finalize_push(root: Path, repository: Path, receipt: dict, no_push: bool) -> dict:
+def finalize_push(root: Path, repository: Path, receipt: dict, no_push: bool, before_push=None) -> dict:
     branch = str(receipt["source_branch"])
     result_commit = str(receipt["result_commit"])
     if no_push:
         receipt.update({"status": "applied-locally", "pushed": False, "remote_commit": remote_head(repository, branch)})
         path = write_receipt(root, receipt)
         return {**receipt, "receipt": str(path)}
+    if before_push is not None:
+        before_push()
+    if revision(repository, "HEAD") != result_commit or revision(repository, "HEAD^{tree}") != receipt["analytics_tree"]:
+        raise ValueError("Изменился подготовленный интеграционный коммит; отправка запрещена")
+    require_clean(repository)
     pushed = git(repository, "push", "origin", f"HEAD:{branch}")
     if pushed.returncode != 0:
         receipt.update({
@@ -459,6 +469,7 @@ def existing_receipt_result(
     repository: Path,
     metadata: dict,
     no_push: bool,
+    before_push=None,
 ) -> dict | None:
     path = receipt_path(root, str(metadata["artifact_id"]))
     if not path.is_file():
@@ -468,6 +479,9 @@ def existing_receipt_result(
         ("artifact_id", metadata["artifact_id"]),
         ("analytics_tree", metadata["analytics_tree"]),
         ("patch_sha256", metadata.get("patch_sha256")),
+        ("expected_source_commit", metadata["source_commit"]),
+        ("expected_source_tree", metadata["source_tree"]),
+        ("source_remote", git(repository, "remote", "get-url", "origin").stdout.strip()),
     ):
         if receipt.get(key) != expected:
             raise ValueError(f"Существующая квитанция применения не совпадает по полю {key}")
@@ -490,7 +504,118 @@ def existing_receipt_result(
         return {**receipt, "status": "already-applied", "receipt": str(receipt_file)}
     if revision(repository, "HEAD") != result_commit:
         raise ValueError("После местного применения появились другие коммиты; автоматическая отправка запрещена")
-    return finalize_push(root, repository, receipt, no_push)
+    return finalize_push(root, repository, receipt, no_push, before_push)
+
+
+def working_snapshot(root: Path, repository: Path) -> dict:
+    require_clean(repository)
+    collaboration_path = state_root(root) / "collaboration.json"
+    if not collaboration_path.is_file():
+        raise ValueError("Изолированный приём требует настроенной совместной работы")
+    collaboration = load_json(collaboration_path)
+    if collaboration.get("schema_version") != 1 or collaboration.get("mode") != "multi-user-branches":
+        raise ValueError("Повреждена настройка совместной работы")
+    branch = current_branch(repository)
+    active = collaboration.get("active_work")
+    if active:
+        if not isinstance(active, dict) or active.get("status") not in {"active", "awaiting-merge"} or active.get("branch") != branch:
+            raise ValueError("Рабочая ветка не соответствует активной сессии")
+        if branch == DEFAULT_BRANCH:
+            raise ValueError("Активная работа не может находиться в main")
+    elif branch != DEFAULT_BRANCH:
+        raise ValueError("Рабочая ветка не зарегистрирована")
+    result = {"branch": branch, "head": revision(repository, "HEAD"), "tree": revision(repository, "HEAD^{tree}")}
+    for name, command in (("refs", ("show-ref",)), ("diff", ("diff", "--binary", "HEAD", "--"))):
+        checked = git(repository, *command)
+        if checked.returncode != 0:
+            raise ValueError(f"Не удалось проверить {name} рабочего репозитория")
+        result[name + "_sha256"] = hashlib.sha256(checked.stdout.encode()).hexdigest()
+    paths = {
+        "collaboration": collaboration_path,
+        "mode": state_root(root) / "active-mode.md",
+        "workspace": state_root(root) / "workspace.json",
+        "configuration": root / CONFIG_NAME,
+    }
+    for name in ("index", "config", "HEAD"):
+        resolved = git(repository, "rev-parse", "--git-path", name)
+        if resolved.returncode != 0:
+            raise ValueError(f"Не удалось определить {name} рабочего репозитория")
+        path = Path(resolved.stdout.strip())
+        paths[name] = path if path.is_absolute() else repository / path
+    for name, path in paths.items():
+        result[name + "_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+    return result
+
+
+def require_snapshot(root: Path, repository: Path, expected: dict) -> None:
+    if working_snapshot(root, repository) != expected:
+        raise ValueError("Рабочая область изменилась во время изолированного приёма; продолжение запрещено")
+
+
+def clone_main(repository: Path, destination: Path) -> None:
+    remote = git(repository, "remote", "get-url", "origin")
+    if remote.returncode != 0 or not remote.stdout.strip():
+        raise ValueError("Для рабочего репозитория не настроен origin")
+    result = run("git", "-c", "core.hooksPath=/dev/null", "clone", "--no-local", "--single-branch",
+                 "--branch", DEFAULT_BRANCH, "--", remote.stdout.strip(), str(destination))
+    if result.returncode != 0:
+        raise ValueError(f"Не удалось создать изолированный клон: {result.stderr.strip()}")
+    push_url = git(repository, "remote", "get-url", "--push", "origin")
+    if push_url.returncode != 0 or git(destination, "remote", "set-url", "--push", "origin", push_url.stdout.strip()).returncode != 0:
+        raise ValueError("Не удалось настроить адрес отправки изолированного клона")
+
+
+@contextmanager
+def isolated_repository(root: Path, repository: Path, metadata: dict, *, persistent: bool):
+    with operation_lock(root, "workspace-operation.lock"), ExitStack() as stack:
+        before = working_snapshot(root, repository)
+        if persistent:
+            parent = state_root(root) / "reverse-patch-clones"
+            parent.mkdir(parents=True, exist_ok=True)
+            clone = parent / metadata["artifact_id"]
+        else:
+            temporary = stack.enter_context(tempfile.TemporaryDirectory(prefix="reverse-patch-inspect-"))
+            clone = Path(temporary).resolve() / "repository"
+        if clone.resolve() != clone or clone == repository or repository in clone.parents:
+            raise ValueError("Небезопасный путь изолированного клона")
+        try:
+            if not clone.exists():
+                if persistent and receipt_path(root, metadata["artifact_id"]).exists():
+                    raise ValueError("Клон изолированного приёма потерян, но квитанция существует; новый коммит не создаётся")
+                clone_main(repository, clone)
+            top = git(clone, "rev-parse", "--show-toplevel")
+            if top.returncode != 0 or Path(top.stdout.strip()).resolve() != clone or not (clone / ".git").is_dir() or (clone / ".git").is_symlink():
+                raise ValueError("Изолированный клон отсутствует или повреждён; он не пересоздаётся автоматически")
+            common = git(clone, "rev-parse", "--git-common-dir")
+            common_path = (clone / common.stdout.strip()).resolve()
+            if common.returncode != 0 or common_path != clone / ".git" or (clone / ".git/objects/info/alternates").exists():
+                raise ValueError("Изолированный клон не должен использовать общее хранилище Git")
+            for arguments in (("get-url", "origin"), ("get-url", "--push", "origin")):
+                current = git(repository, "remote", *arguments)
+                isolated = git(clone, "remote", *arguments)
+                if current.returncode != 0 or isolated.returncode != 0 or current.stdout != isolated.stdout:
+                    raise ValueError("Origin изолированного клона не совпадает с рабочим репозиторием")
+            if current_branch(clone) != DEFAULT_BRANCH:
+                raise ValueError("Изолированный клон должен оставаться в main")
+            require_clean(clone)
+            if persistent:
+                from workspace import install_commit_message_hook
+                hook_setting = git(clone, "config", "--get", "core.hooksPath")
+                if hook_setting.returncode not in {0, 1} or hook_setting.stdout.strip():
+                    raise ValueError("В изолированном клоне настроен сторонний core.hooksPath")
+                if (clone / ".git/hooks").resolve() != clone / ".git/hooks":
+                    raise ValueError("Каталог hooks должен находиться внутри изолированного клона")
+                for name in ("user.name", "user.email"):
+                    value = git(repository, "config", "--get", name)
+                    if value.returncode != 0 or not value.stdout.strip():
+                        raise ValueError(f"Не настроена Git-идентификация {name}")
+                    configured = git(clone, "config", "--local", name, value.stdout.strip())
+                    if configured.returncode != 0:
+                        raise ValueError(f"Не удалось настроить {name} в изолированном клоне")
+                install_commit_message_hook(clone, Path(__file__).with_name("commit_message_policy.py"))
+            yield clone, before
+        finally:
+            require_snapshot(root, repository, before)
 
 
 def discover_command(args: argparse.Namespace) -> int:
@@ -513,6 +638,14 @@ def inspect_command(args: argparse.Namespace) -> int:
     root = root_path(args.root)
     metadata_path, metadata, patch = resolve_input(root, args)
     repository = project_repository(root)
+    if args.isolated:
+        with operation_lock(root), isolated_repository(root, repository, metadata, persistent=False) as (clone, before):
+            return inspect_repository(clone, metadata_path, metadata, patch, repository, before)
+    return inspect_repository(repository, metadata_path, metadata, patch)
+
+
+def inspect_repository(repository: Path, metadata_path: Path, metadata: dict, patch: Path | None,
+                       working_repository: Path | None = None, protected_state: dict | None = None) -> int:
     branch = current_branch(repository)
     head = revision(repository, "HEAD")
     tree = revision(repository, "HEAD^{tree}")
@@ -526,7 +659,7 @@ def inspect_command(args: argparse.Namespace) -> int:
     validation_error = None
     if applicable and patch is not None:
         try:
-            verify_patch_tree(repository, patch, metadata["analytics_tree"])
+            verify_patch_tree(repository, patch, metadata["analytics_tree"], metadata["changed_paths"])
         except ValueError as exc:
             applicable = False
             validation_error = str(exc)
@@ -547,6 +680,9 @@ def inspect_command(args: argparse.Namespace) -> int:
         "expected_source_tree": metadata["source_tree"],
         "target_tree": metadata["analytics_tree"],
         "included_features": metadata.get("included_features", []),
+        "isolated": working_repository is not None,
+        "working_repository": str(working_repository) if working_repository else None,
+        "protected_working_state": protected_state,
     }, ensure_ascii=False, indent=2))
     return 0 if applicable else 2
 
@@ -578,10 +714,19 @@ def require_collaboration_ready_for_apply(root: Path) -> None:
 
 def apply_command(args: argparse.Namespace) -> int:
     root = root_path(args.root)
-    require_collaboration_ready_for_apply(root)
-    with operation_lock(root):
+    if not args.isolated:
+        require_collaboration_ready_for_apply(root)
+    with operation_lock(root), ExitStack() as stack:
         metadata_path, metadata, patch = resolve_input(root, args)
         repository = project_repository(root)
+        isolation = {}
+        before_push = None
+        if args.isolated:
+            working_repository = repository
+            repository, protected_state = stack.enter_context(isolated_repository(root, repository, metadata, persistent=True))
+            before_push = lambda: require_snapshot(root, working_repository, protected_state)
+            isolation = {"isolated": True, "working_repository": str(working_repository),
+                         "protected_working_state": protected_state}
         require_clean(repository)
         branch = current_branch(repository)
         expected_branch = metadata.get("source_branch", DEFAULT_BRANCH)
@@ -597,14 +742,20 @@ def apply_command(args: argparse.Namespace) -> int:
         if pulled.returncode != 0:
             raise ValueError(f"Не удалось безопасно обновить {branch}: {pulled.stderr.strip()}")
         require_clean(repository)
-        existing = existing_receipt_result(root, repository, metadata, args.no_push)
+        current_metadata, current_patch = validate_metadata(metadata_path)
+        if current_metadata != metadata or current_patch != patch:
+            raise ValueError("Входная пара изменилась во время подготовки; применение запрещено")
+        existing = existing_receipt_result(root, repository, metadata, args.no_push, before_push)
         if existing is not None:
             print(json.dumps(existing, ensure_ascii=False, indent=2))
             return 0
         head = revision(repository, "HEAD")
         tree = revision(repository, "HEAD^{tree}")
         if tree == metadata["analytics_tree"]:
+            if not is_ancestor(repository, head, revision(repository, f"origin/{branch}")):
+                raise ValueError("Целевое дерево есть только локально, но квитанция отсутствует; автоматическая отправка запрещена")
             receipt = base_receipt(metadata_path, patch, metadata, repository)
+            receipt.update(isolation)
             receipt.update({
                 "status": "observed-already-integrated",
                 "result_commit": head,
@@ -623,7 +774,7 @@ def apply_command(args: argparse.Namespace) -> int:
             )
         if patch is None:
             raise ValueError("Квитанция не содержит заплату, но текущее дерево не совпадает с целевым")
-        verify_patch_tree(repository, patch, metadata["analytics_tree"])
+        verify_patch_tree(repository, patch, metadata["analytics_tree"], metadata["changed_paths"])
         for variable in ("GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"):
             identity = git(repository, "var", variable)
             if identity.returncode != 0:
@@ -679,6 +830,7 @@ def apply_command(args: argparse.Namespace) -> int:
             raise ValueError("Созданный коммит не совпадает с целевым деревом analytics")
         require_clean(repository)
         receipt = base_receipt(metadata_path, patch, metadata, repository)
+        receipt.update(isolation)
         receipt.update({
             "status": "committed-not-pushed",
             "result_commit": result_commit,
@@ -687,7 +839,7 @@ def apply_command(args: argparse.Namespace) -> int:
             "pushed": False,
         })
         write_receipt(root, receipt)
-        result = finalize_push(root, repository, receipt, args.no_push)
+        result = finalize_push(root, repository, receipt, args.no_push, before_push)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
 
@@ -696,6 +848,7 @@ def add_input_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--metadata", help="Путь к reverse-diff-*.json")
     command.add_argument("--artifact-id", help="Идентификатор найденной заплаты")
     command.add_argument("--directory", action="append", default=[], help="Дополнительный каталог поиска")
+    command.add_argument("--isolated", action="store_true", help="Проверять и применять в отдельном клоне origin/main, не меняя активную рабочую область")
 
 
 def parser() -> argparse.ArgumentParser:

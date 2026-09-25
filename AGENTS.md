@@ -239,6 +239,7 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - `inspect` must independently validate patch applicability, whitespace rules and exact target-tree reproduction in a temporary index. A failed inspection is final for that immutable pair: do not run `apply`, edit the pair or touch the project worktree; request a newly generated pair.
 - The command authorizes one protected pull of the configured analytical repository, one integration commit and a normal push to `origin/main`. It does not authorize reset, rebase, force push, broad staging or editing the patch.
 - Report the final commit and local receipt. A failed push leaves a `committed-not-pushed` receipt so the same commit can be sent on the next run.
+- On explicit analyst approval, `inspect --isolated` and `apply --isolated` may receive the same immutable pair in an independent clone of current `origin/main` while feature work continues. Follow `core/reverse-patch.md`: preserve the working repository, local refs, index, files, mode and collaboration state; retain the isolated clone and receipt for push retries. This changes only the application context and never bypasses failed checksum, path, whitespace, base or target-tree validation. Never switch or finish the active feature session to make reception pass.
 
 ## Commands and validation
 
