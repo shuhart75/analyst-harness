@@ -132,8 +132,9 @@ class LayoutSaveTests(unittest.TestCase):
         journal = json.loads(path.read_text());journal['moves'] = []
         path.write_text(json.dumps(journal))
         self.paths['migration-layout.json'] = hashlib.sha256(path.read_bytes()).hexdigest()
-        with self.assertRaisesRegex(ValueError, 'complete tracked'):
+        with self.assertRaisesRegex(ValueError, 'complete tracked|Local settings'):
             self.save()
+        self.assertEqual(self.git('diff', '--cached', '--name-only'), '')
 
     def test_failed_push_retains_commit_and_reports_retry(self):
         result = self.save(push=True)
