@@ -1,5 +1,17 @@
 # LLM Contract
 
+## Quarter delivery layout
+
+For projects containing `delivery-index.json`, read `core/quarter-deliveries.md`
+before resolving artifacts. Its layout and delivery ownership rules take priority
+over legacy `features/<feature>` and `planning/<quarter>` examples in this contract.
+Resolve paths with `scripts/project_layout.py`; preserve historical identities and
+approved artifact bytes. The authored root belongs to a quarter delivery; the root
+feature catalog holds navigation, history and tentative backlog, never duplicate
+normative text. Closed releases are checked after each task actualization;
+baseline promotion still requires explicit analyst deployment confirmation and
+review of domain, requirements, UI, API, data and decisions.
+
 This contract is CLI-neutral. It applies to Codex CLI, Claude Code, Qwen CLI, VSCodium agents, and other LLM assistants working in a project scaffolded with this harness.
 
 ## Analyst communication

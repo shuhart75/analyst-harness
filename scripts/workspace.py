@@ -17,7 +17,7 @@ from commit_message_policy import HOOK_MARKER
 
 CONFIG_NAME = ".analyst-workspace.json"
 WORKSPACE_NAME = "analyst-workspace.code-workspace"
-PROJECT_PATHS = ("baseline", "context", "features", "planning", "releases")
+PROJECT_PATHS = ("baseline", "context", "features", "planning", "quarters", "backlog", "releases", "delivery-index.json", "migration-layout.json")
 CODE_PUSH_DISABLED = "DISABLED_BY_ANALYST_HARNESS"
 
 

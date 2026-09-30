@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+
 import argparse
 import hashlib
 import json
@@ -12,6 +13,12 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+def layout_feature_root(project, feature):
+    # Only analyst-side authoring resolves the workspace; packaged receiver is standalone.
+    from project_layout import feature_root
+    return feature_root(project, feature)
 
 
 REVISION_STATES = {
@@ -699,7 +706,7 @@ def validate_root(root: Path) -> list[str]:
 
 def init_command(args: argparse.Namespace) -> int:
     project = Path(args.project).resolve()
-    root = project / "features" / args.feature / "handoffs" / args.package_id
+    root = layout_feature_root(project, args.feature) / "handoffs" / args.package_id
     if root.exists():
         raise ValueError(f"Handoff root already exists: {root}")
     root.mkdir(parents=True)
@@ -732,7 +739,7 @@ def init_command(args: argparse.Namespace) -> int:
 
 def init_feature_command(args: argparse.Namespace) -> int:
     project = Path(args.project).resolve()
-    root = project / "features" / args.feature / "handoffs" / args.package_id
+    root = layout_feature_root(project, args.feature) / "handoffs" / args.package_id
     if root.exists():
         raise ValueError(f"Handoff root already exists: {root}")
     root.mkdir(parents=True)
@@ -768,8 +775,8 @@ def add_feature_revision(root: Path, manifest: dict[str, Any], args: argparse.Na
     revision = args.revision
     if any(item.get("revision") == revision for item in manifest.get("revisions", [])):
         raise ValueError(f"Revision already exists: {revision_name(revision)}")
-    project = root.parents[3]
-    preparation_state = project / "features" / manifest["feature"] / "requirements-state.json"
+    project = next((p for p in root.parents if (p / "delivery-index.json").is_file()), root.parents[3])
+    preparation_state = layout_feature_root(project, manifest["feature"]) / "requirements-state.json"
     if preparation_state.is_file():
         state = load(preparation_state)
         offer = state.get("revision_offer")
@@ -831,7 +838,7 @@ def add_feature_revision(root: Path, manifest: dict[str, Any], args: argparse.Na
         "purpose": "Полные требования функциональности",
     }]
     slices: list[dict[str, Any]] = []
-    slices_root = project / "features" / manifest["feature"] / "slices"
+    slices_root = layout_feature_root(project, manifest["feature"]) / "slices"
     if slices_root.is_dir():
         for source in sorted(slices_root.glob("*/slice.md")):
             slice_id = source.parent.name
