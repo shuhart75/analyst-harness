@@ -779,13 +779,8 @@ def apply_command(args: argparse.Namespace) -> int:
             identity = git(repository, "var", variable)
             if identity.returncode != 0:
                 raise ValueError(f"Не настроена Git-идентификация {variable}: {identity.stderr.strip()}")
-        features = ", ".join(metadata.get("included_features", [])) or "нет"
-        commit_subject = f"sync: применить обратную заплату {metadata['artifact_id']}"
-        commit_body = (
-            f"Analytics-Commit: {metadata['analytics_commit']}\n"
-            f"Analytics-Tree: {metadata['analytics_tree']}\n"
-            f"Included-Features: {features}"
-        )
+        commit_subject = "Принять обратные аналитические изменения"
+        commit_body = "Применить проверенную заплату с сохранением состава файлов и целевого дерева."
         require_valid_commit_message(f"{commit_subject}\n\n{commit_body}")
         checked = git(
             repository,
