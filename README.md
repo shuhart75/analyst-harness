@@ -328,6 +328,11 @@ reviewed и закрытие, новая публикация требует м�
 
 Пока аналитик прорабатывает функциональность, LLM изменяет только корневой `requirements.md` как документ требований. Срезы, отдельные требования клиентской и серверной частей, предварительные задачи разработки и редакции передачи не создаются.
 
+Для OpenSpec аналитик также готовит производный `sdd/`: proposal и delta specs
+затронутых контуров по `core/sdd-input.md`. Они входят в тот же аудит и ту же
+неизменяемую редакцию обмена. Разработка продолжает с design/tasks.
+Точка входа остаётся `requirements-exchange/<delivery-key>/revisions/NNN/`.
+
 Сам `requirements.md` не содержит поля `Статус`: оно создало бы неоднозначность с
 исполняемой статусной моделью. Авторская готовность и аудит хранятся в
 `features/<feature>/requirements-state.json`, а состояние передачи конкретной
@@ -345,13 +350,17 @@ python3 scripts/requirementsctl.py record-change <project> <feature> --origin an
 python3 scripts/requirementsctl.py record-change <project> <feature> --origin developer-result --return-id <id>
 python3 scripts/requirementsctl.py mark-offered <project> <feature>
 python3 scripts/requirementsctl.py decline-revision <project> <feature>
-python3 scripts/requirementsctl.py begin-preparation <project> <feature>
+python3 scripts/requirementsctl.py begin-preparation <project> <feature> --input-profile openspec-spec-driven-v1
 python3 scripts/requirementsctl.py record-audit <project> <feature> --finding-count <N> --accepted-risk-count <N> --blocking-finding-count <N> --summary <итог>
 python3 scripts/requirementsctl.py confirm-audit <project> <feature>
 python3 scripts/requirementsctl.py mark-published <project> <feature> --manifest <путь> --revision <N> --destination-role <analytics|code>
 ```
 
 Аналитику эти команды помнить не требуется. Файл состояния переносит решение между задачами LLM и машинами. Устаревший `handoffctl.py` не используется для новых передач.
+
+Профиль `requirements-only-v1` оставлен для прежнего процесса. Новая передача
+OpenSpec выбирает `openspec-spec-driven-v1`; ошибки проверки или отсутствие
+доступа к коду не разрешают автоматически вернуться к прежнему профилю.
 
 Перед изменением существующей функциональности LLM проверяет состояние. Если живые требования расходятся с последней отправленной редакцией, обвязка требует сначала классифицировать расхождение. LLM не угадывает источник, а задаёт один вопрос: это инициативная правка или принятый результат разработки.
 
@@ -416,7 +425,13 @@ requirements-exchange/
                 └── summary.md
 ```
 
-Вход функциональности состоит только из `manifest.json` и одной неизменяемой редакции `requirements.md`. Переданный файл является бизнес-контрактом. Разработческая SDD не копирует его целиком в локальный `spec.md`: она сверяет требования с кодом, выделяет техническую дельту каждого контура и создаёт собственные `proposal/spec/design/tasks` либо их местные аналоги. Каталог `returns/` создаётся при принятии редакции, а его первым файлом становится неизменяемая квитанция `receipt.json`, связанная с точным номером редакции и SHA-256 требований. ZIP не создаётся автоматически и запрещён внутри репозитория.
+Вход поставки состоит из `manifest.json`, неизменяемой редакции `requirements.md`
+и, для OpenSpec, каталога `sdd/` с proposal/delta specs аналитика. Разработка
+сверяет готовый вход с кодом и main specs, принимает его через `sdd-receive.py`
+и продолжает с design/tasks. Прежние пакеты без SDD сохраняют прежний процесс.
+Каталог `returns/` начинается с неизменяемой квитанции `receipt.json`, связанной
+с редакцией, SHA-256 требований и, для нового профиля, `sdd_sha256`.
+ZIP не создаётся автоматически и запрещён внутри репозитория.
 
 Место выбирается автоматически:
 

@@ -381,7 +381,7 @@ class HarnessTests(unittest.TestCase):
             self.assertIn("`new`", contract)
             self.assertIn("`completed`", contract)
             self.assertIn("только уже согласованную разработчиками разбивку", contract)
-            self.assertIn("Отдельные срезы", contract)
+            self.assertIn("Отдельные бизнес-срезы", contract)
             self.assertTrue((ROOT / "scripts/requirements-exchange.py").is_file())
             commands = (ROOT / "templates/workflow/command-cheatsheet.template.md").read_text(encoding="utf-8")
             self.assertIn("сформируй пакет для разработки", commands)
