@@ -265,3 +265,11 @@ This repository is the root of a configurable analyst workspace. The harness rem
 - Run `python3 scripts/validate-requirements-profile.py "$PROJECT_ROOT"` for changed profiled root documents.
 - Run `python3 scripts/validate-requirements-wording.py "$PROJECT_ROOT"` for changed compact requirements. A successful script result never replaces the isolated-reader review from `core/requirements-wording.md`.
 - Preserve unrelated user changes and report any validation failure that cannot be resolved within the requested scope.
+
+## Передача по явному решению аналитика
+
+Если аналитик явно просит передать текущий пакет без аудита и сверки с кодом,
+приоритет имеет `core/analyst-decision-delivery.md`: одна команда
+`requirements-exchange.py send-by-decision`, без предварительных main gate,
+record-change, аудитов и отмены прежнего кандидата. Разрешение повторно не
+запрашивать. Обычный маршрут остаётся для передачи без такого решения.
