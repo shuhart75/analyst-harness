@@ -265,7 +265,7 @@ def update_feature_command(args: argparse.Namespace) -> int:
     if operation.endswith("fast-forward"):
         merged = git(repository, "merge", "--ff-only", f"origin/{BRANCH}")
     else:
-        merge_message = f"Merge origin/{BRANCH} into {branch}"
+        merge_message = "Integrate accepted changes into working branch"
         require_valid_commit_message(merge_message)
         merged = git(
             repository,
