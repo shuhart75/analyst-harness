@@ -71,7 +71,7 @@ class ActualProgressRoleWorkItemsTests(unittest.TestCase):
             self.assertIn("TASK_RSCON_100_QA", content)
             self.assertIn("[RSCON-100 · FE Списковая форма legacy · релиз не уточнён]", content)
             self.assertNotIn("[[FE]", content)
-            self.assertIn("[RSCON-100 · QA Shared delivery · релиз не уточнён]", content)
+            self.assertIn("[RSCON-100 · QA Shared delivery · релиз не уточнён (прогноз QA)]", content)
 
     def test_duplicate_tracker_role_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -110,7 +110,7 @@ class QaFeatureSchedulingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.resources = {"AN": ["A1"], "BE": ["B1"], "FE": ["F1"], "QA": ["Q1"]}
 
-    def test_qa_starts_one_open_day_before_first_fe_finishes(self) -> None:
+    def test_qa_covers_three_open_days_after_last_fe(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 5, "2026-09-21", "F1"),
             "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
@@ -118,9 +118,10 @@ class QaFeatureSchedulingTest(unittest.TestCase):
 
         schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
 
-        self.assertEqual(date(2026, 9, 24), schedules["ITEM/QA"].start)
+        self.assertEqual(date(2026, 9, 28), schedules["ITEM/QA"].start)
+        self.assertEqual(date(2026, 9, 30), schedules["ITEM/QA"].finish)
 
-    def test_qa_can_overlap_short_fe_work(self) -> None:
+    def test_short_qa_has_at_least_three_regression_days(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 2, "2026-09-21", "F1"),
             "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
@@ -128,9 +129,10 @@ class QaFeatureSchedulingTest(unittest.TestCase):
 
         schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
 
-        self.assertEqual(date(2026, 9, 21), schedules["ITEM/QA"].start)
+        self.assertEqual(date(2026, 9, 23), schedules["ITEM/QA"].start)
+        self.assertEqual(date(2026, 9, 25), schedules["ITEM/QA"].finish)
 
-    def test_qa_is_rendered_in_chronological_order(self) -> None:
+    def test_qa_is_rendered_last(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 5, "2026-09-21", "F1"),
             "OTHER/FE": task("OTHER/FE", "FE", 7, "2026-09-21", "F1"),
@@ -150,7 +152,7 @@ class QaFeatureSchedulingTest(unittest.TestCase):
 
         assert rendered
         self.assertLess(rendered.index("TASK_ITEM_FE"), rendered.index("TASK_ITEM_QA"))
-        self.assertLess(rendered.index("TASK_ITEM_QA"), rendered.index("TASK_OTHER_FE"))
+        self.assertLess(rendered.index("TASK_OTHER_FE"), rendered.index("TASK_ITEM_QA"))
 
     def test_feature_scope_applies_be_lead_to_unsuffixed_tasks(self) -> None:
         tasks = {
