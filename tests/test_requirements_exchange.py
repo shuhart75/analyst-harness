@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
 SCRIPT = ROOT / "scripts" / "requirements-exchange.py"
 STATE_SCRIPT = ROOT / "scripts" / "requirementsctl.py"
 
@@ -63,7 +64,8 @@ def requirements(rule: str = "Система должна показать ре�
 
 def register_stage(project: Path, feature: str = "demo") -> None:
     from analysis_task_fixture import write_binding
-    write_binding(project / "features" / feature)
+    from project_layout import feature_root
+    write_binding(feature_root(project, feature))
     result = run(
         sys.executable, str(STATE_SCRIPT), "start-stage", str(project), feature,
         "--stage-id", "stage-1", "--title", "Первый результат",
