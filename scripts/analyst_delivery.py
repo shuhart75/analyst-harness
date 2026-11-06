@@ -170,7 +170,7 @@ def publish(api, project, feature, state_path, operation_path, operation, before
         publication_confirmed=merged, local_code_worktree_unchanged=True,
         operation=str(operation_path), replaced_candidates=operation['replaced_candidates'],
         merge_request_created=False, merge_request_create_url=operation.get('merge_request_create_url'),
-        merge_request_title=api.delivery_message(project, [feature], 'Передать требования по решению аналитика'),
+        merge_request_title='Передать требования по решению аналитика',
         next_action='receiver-import' if merged else 'human-merge-then-repeat-same-command')
 
 

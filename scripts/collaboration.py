@@ -588,8 +588,7 @@ def submit_command(args: argparse.Namespace) -> int:
     if changed.returncode:
         raise ValueError("Не удалось проверить задачи для PR")
     keys = working_keys(analytics, filter(None, changed.stdout.split("\0")))
-    review_title = (", ".join(sorted(keys)) + ": Обновить аналитические материалы" if keys
-                    else delivery_message(analytics, deliveries, "Обновить аналитические материалы"))
+    review_title = "Обновить аналитические материалы"
 
     pushed = git(analytics, "push", "--set-upstream", "origin", f"HEAD:{work['branch']}")
     if pushed.returncode != 0:
