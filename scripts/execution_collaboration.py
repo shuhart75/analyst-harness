@@ -167,6 +167,9 @@ def path_kind(path: str, scope: dict) -> str | None:
                 or re.fullmatch(r'gantt/preamble/(?:common|quarter-plan|commander-plan)\.puml', relative)
                 or re.fullmatch(r'gantt/includes/(?:quarter-plan|commander-plan)/FEATURE-[a-z0-9-]+\.puml', relative)):
             return 'draft-quarter-planning'
+    if (len(parts) == 3 and parts[0] == 'planning' and parts[1] in scope['quarters']
+            and parts[2] in {'release-plan.md', 'README.md'}):
+        return 'quarter-release-plan' if parts[2] == 'release-plan.md' else 'quarter-navigation'
     if len(parts) >= 4 and parts[0] == 'planning' and parts[1] in scope['quarters'] and parts[2] == 'gantt':
         relative = '/'.join(parts[3:])
         if relative in {'actual-progress.puml', 'actual-progress-confluence.puml',
