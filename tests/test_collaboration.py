@@ -118,7 +118,7 @@ class CollaborationTests(unittest.TestCase):
                 "--path", "planning/task-bindings.json", "--message", "RSCON-456: Plan quarter")
             self.assertTrue(saved["pushed"])
             submitted = self.collaboration(workspace, environment, "submit")
-            self.assertTrue(submitted["merge_request_title"].startswith("RSCON-456:"))
+            self.assertEqual(submitted["merge_request_title"], "Обновить аналитические материалы")
             self.assertNotIn("RSCON-123", submitted["merge_request_title"])
 
     def test_complete_feature_branch_cycle_and_delivery_guard(self) -> None:
@@ -183,7 +183,7 @@ class CollaborationTests(unittest.TestCase):
             self.assertEqual(self.git(remote, "rev-parse", "main"), main_before)
 
             submitted = self.collaboration(workspace, environment, "submit")
-            self.assertIn("RSCON-123", submitted["merge_request_title"])
+            self.assertEqual(submitted["merge_request_title"], "Обновить аналитические материалы")
             self.assertFalse(submitted["merge_request_created"])
             self.assertFalse(submitted["package_created"])
             self.assertIn("не создан", submitted["message"])

@@ -100,7 +100,7 @@ def publish_cleanup(project: Path, release_id: str, delivery_key: str) -> dict:
 
     def response(status, commit):
         return {"status": status, "repository_url": repository, "target_branch": target,
-                "request_branch": branch, "request_commit": commit, "merge_request_created": False, "merge_request_title": message}
+                "request_branch": branch, "request_commit": commit, "merge_request_created": False, "merge_request_title": "Удалить архивные пакеты требований"}
 
     def recheck():
         current = require_accepted_archive(project, release_id, delivery_key)

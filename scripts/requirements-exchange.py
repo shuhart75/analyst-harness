@@ -1013,7 +1013,7 @@ def publish_to_code(
                 "publication_confirmed": merged, "published_commit": target_commit if merged else None,
                 "request_commit": request_commit, "merge_request_created": False,
                 "merge_request_create_url": link.group(0) if link else None,
-                "merge_request_title": delivery_message(project, [feature], "Предложить редакцию требований для разработки"),
+                "merge_request_title": "Предложить редакцию требований для разработки",
                 "local_code_worktree_unchanged": True,
                 "publication_strategy": "review-branch", "target_branch_push_allowed": False,
                 "selection_reason": "Проверена целевая ветка" if merged else "Редакция предложена через отдельную ветку",

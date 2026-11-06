@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SberTrack analysis-task traceability for commits and review titles."""
+"""SberTrack analysis-task traceability for commit messages."""
 from __future__ import annotations
 
 import argparse
@@ -216,7 +216,7 @@ def is_harness_repository(repository: Path) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='Проверяет задачи SberTrack на аналитику в заголовках коммитов и PR')
+    parser = argparse.ArgumentParser(description='Проверяет задачи SberTrack на аналитику в заголовках коммитов')
     parser.add_argument('message_file', type=Path)
     parser.add_argument('--repository', type=Path)
     args = parser.parse_args()
