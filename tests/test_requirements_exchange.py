@@ -62,6 +62,8 @@ def requirements(rule: str = "Система должна показать ре�
 
 
 def register_stage(project: Path, feature: str = "demo") -> None:
+    from analysis_task_fixture import write_binding
+    write_binding(project / "features" / feature)
     result = run(
         sys.executable, str(STATE_SCRIPT), "start-stage", str(project), feature,
         "--stage-id", "stage-1", "--title", "Первый результат",
@@ -288,6 +290,15 @@ class RequirementsExchangeTests(unittest.TestCase):
             result = self.prepare(project, "--code-root", str(code))
             self.assertEqual(result["destination_role"], "analytics")
             self.assertFalse((code / "requirements-exchange").exists())
+
+    def test_missing_analysis_task_blocks_before_creating_exchange(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            project, feature = self.prepare_project(Path(temporary))
+            (feature / "analysis-task.json").unlink()
+            result = run(sys.executable, str(SCRIPT), "prepare", str(project), "demo", "--analyst", "ivan")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("analysis-task.json", result.stdout)
+            self.assertFalse((project / "requirements-exchange").exists())
 
     def test_existing_writable_code_exchange_is_used(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

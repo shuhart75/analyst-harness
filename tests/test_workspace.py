@@ -83,13 +83,13 @@ class AnalystWorkspaceTests(unittest.TestCase):
                 self.assertEqual(configured.returncode, 0, configured.stdout + configured.stderr)
             blocked_commit = run(
                 "git", "-C", str(analytical), "commit", "--allow-empty",
-                "-m", "Обновить RSCON-123",
+                "-m", "Обновить без ключа",
             )
             self.assertNotEqual(blocked_commit.returncode, 0)
             self.assertIn("Сообщение коммита отклонено", blocked_commit.stderr)
             valid_commit = run(
                 "git", "-C", str(analytical), "commit", "--allow-empty",
-                "-m", "Проверить смысловое сообщение",
+                "-m", "RSCON-123: Проверить смысловое сообщение",
             )
             self.assertEqual(valid_commit.returncode, 0, valid_commit.stdout + valid_commit.stderr)
             for forbidden in (".workflow", ".vscode"):

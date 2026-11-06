@@ -35,8 +35,10 @@ class CollaborationTests(unittest.TestCase):
         self.git(seed, "config", "user.email", "harness@example.test")
         feature = seed / "features/registry"
         feature.mkdir(parents=True)
+        from analysis_task_fixture import write_binding
+        write_binding(feature)
         (feature / "requirements.md").write_text("# Требования\n\nИсходная версия.\n", encoding="utf-8")
-        self.git(seed, "add", "--", "features/registry/requirements.md")
+        self.git(seed, "add", "--", "features/registry/requirements.md", "features/registry/analysis-task.json")
         self.git(seed, "commit", "-m", "Добавить требования")
         self.assertEqual(run("git", "clone", "--bare", str(seed), str(remote)).returncode, 0)
         self.git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
@@ -95,6 +97,30 @@ class CollaborationTests(unittest.TestCase):
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
         return json.loads(result.stdout)
 
+    def test_planning_save_asks_before_staging_then_uses_quarter_task_in_pr(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace, project, remote, environment = self.prepare_workspace(Path(temporary))
+            self.collaboration(workspace, environment, "migrate", "--analyst", "ivan")
+            self.collaboration(workspace, environment, "start", "--feature", "registry")
+            path = "planning/2026-Q4/quarter/README.md"
+            (project / path).parent.mkdir(parents=True)
+            (project / path).write_text("Quarter planning\n")
+            before = self.git(project, "rev-parse", "HEAD")
+            rejected = run(sys.executable, str(COLLABORATION), "--root", str(workspace),
+                           "save", "--path", path, "--message", "RSCON-123: Plan", env=environment)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn("Какую задачу SberTrack связать с планированием квартала 2026-Q4?", rejected.stdout)
+            self.assertEqual(self.git(project, "rev-parse", "HEAD"), before)
+            self.assertEqual(self.git(project, "diff", "--cached", "--name-only"), "")
+            from analysis_task_fixture import write_planning_binding
+            write_planning_binding(project, ("2026-Q4",), key="RSCON-456")
+            saved = self.collaboration(workspace, environment, "save", "--path", path,
+                "--path", "planning/task-bindings.json", "--message", "RSCON-456: Plan quarter")
+            self.assertTrue(saved["pushed"])
+            submitted = self.collaboration(workspace, environment, "submit")
+            self.assertTrue(submitted["merge_request_title"].startswith("RSCON-456:"))
+            self.assertNotIn("RSCON-123", submitted["merge_request_title"])
+
     def test_complete_feature_branch_cycle_and_delivery_guard(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -135,7 +161,7 @@ class CollaborationTests(unittest.TestCase):
                 str(workspace),
                 "save",
                 "--message",
-                "Уточнить RSCON-123",
+                "Уточнить требования без ключа",
                 "--path",
                 requirements,
                 env=environment,
@@ -149,7 +175,7 @@ class CollaborationTests(unittest.TestCase):
                 environment,
                 "save",
                 "--message",
-                "Уточнить требования Реестра",
+                "RSCON-123: Уточнить требования Реестра",
                 "--path",
                 requirements,
             )
@@ -157,6 +183,7 @@ class CollaborationTests(unittest.TestCase):
             self.assertEqual(self.git(remote, "rev-parse", "main"), main_before)
 
             submitted = self.collaboration(workspace, environment, "submit")
+            self.assertIn("RSCON-123", submitted["merge_request_title"])
             self.assertFalse(submitted["merge_request_created"])
             self.assertFalse(submitted["package_created"])
             self.assertIn("не создан", submitted["message"])
@@ -250,7 +277,7 @@ class CollaborationTests(unittest.TestCase):
                 environment,
                 "save",
                 "--message",
-                "Изменить требования в рабочей ветке",
+                "RSCON-123: Изменить требования в рабочей ветке",
                 "--path",
                 relative,
             )

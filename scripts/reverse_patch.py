@@ -13,7 +13,7 @@ from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
-from commit_message_policy import require_valid_commit_message
+from commit_message_policy import require_valid_commit_message, keys_for_paths, TRACKER_IDENTIFIER_RE
 
 
 CONFIG_NAME = ".analyst-workspace.json"
@@ -360,7 +360,7 @@ def base_receipt(metadata_path: Path, patch: Path | None, metadata: dict, reposi
     }
 
 
-def verify_patch_tree(repository: Path, patch: Path, expected_tree: str, expected_paths: list[str] | None = None) -> None:
+def verify_patch_tree(repository: Path, patch: Path, expected_tree: str, expected_paths: list[str] | None = None, *, analysis_keys: bool = False) -> set[str] | None:
     git_objects = git(repository, "rev-parse", "--git-path", "objects")
     if git_objects.returncode != 0 or not git_objects.stdout.strip():
         raise ValueError(f"Не удалось определить хранилище объектов Git: {git_objects.stderr.strip()}")
@@ -413,6 +413,15 @@ def verify_patch_tree(repository: Path, patch: Path, expected_tree: str, expecte
             changed = git(repository, "diff", "--cached", "--name-only", "-z", "HEAD", env=environment)
             if changed.returncode != 0 or sorted(filter(None, changed.stdout.split("\0"))) != sorted(expected_paths):
                 raise ValueError("Состав применённых путей не совпадает с квитанцией")
+        if analysis_keys:
+            def read_binding(path):
+                value = git(repository, "show", expected_tree + ":" + path, env=environment)
+                if value.returncode == 0:
+                    return value.stdout
+                previous = git(repository, "show", "HEAD:" + path, env=environment)
+                return previous.stdout if previous.returncode == 0 else None
+            return keys_for_paths(expected_paths or [], read_binding)
+
 
 
 def rollback_patch(repository: Path, patch: Path) -> None:
@@ -774,12 +783,16 @@ def apply_command(args: argparse.Namespace) -> int:
             )
         if patch is None:
             raise ValueError("Квитанция не содержит заплату, но текущее дерево не совпадает с целевым")
-        verify_patch_tree(repository, patch, metadata["analytics_tree"], metadata["changed_paths"])
+        keys = verify_patch_tree(repository, patch, metadata["analytics_tree"], metadata["changed_paths"], analysis_keys=True)
         for variable in ("GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"):
             identity = git(repository, "var", variable)
             if identity.returncode != 0:
                 raise ValueError(f"Не настроена Git-идентификация {variable}: {identity.stderr.strip()}")
-        commit_subject = "Принять обратные аналитические изменения"
+        explicit_keys = getattr(args, "analysis_task", None) or []
+        if any(not TRACKER_IDENTIFIER_RE.fullmatch(key) for key in explicit_keys):
+            raise ValueError("Некорректный ключ задачи SberTrack на аналитику")
+        keys.update(explicit_keys)
+        commit_subject = ", ".join(sorted(keys)) + ": Принять обратные аналитические изменения"
         commit_body = "Применить проверенную заплату с сохранением состава файлов и целевого дерева."
         require_valid_commit_message(f"{commit_subject}\n\n{commit_body}")
         checked = git(
@@ -858,6 +871,7 @@ def parser() -> argparse.ArgumentParser:
     inspect_parser.set_defaults(handler=inspect_command)
     apply_parser = commands.add_parser("apply")
     add_input_arguments(apply_parser)
+    apply_parser.add_argument("--analysis-task", action="append", help="Подтверждённая задача SberTrack на аналитику для изменений вне поставок")
     apply_parser.add_argument("--no-push", action="store_true", help="Создать коммит, но не отправлять его")
     apply_parser.set_defaults(handler=apply_command)
     return result
