@@ -109,7 +109,7 @@ class CollaborationTests(unittest.TestCase):
             rejected = run(sys.executable, str(COLLABORATION), "--root", str(workspace),
                            "save", "--path", path, "--message", "RSCON-123: Plan", env=environment)
             self.assertNotEqual(rejected.returncode, 0)
-            self.assertIn("Какую задачу SberTrack связать с планированием квартала 2026-Q4?", rejected.stdout)
+            self.assertIn("Разреши задачу [PLANNING_QUARTER] в эпике планирования квартала 2026-Q4.", rejected.stdout)
             self.assertEqual(self.git(project, "rev-parse", "HEAD"), before)
             self.assertEqual(self.git(project, "diff", "--cached", "--name-only"), "")
             from analysis_task_fixture import write_planning_binding
