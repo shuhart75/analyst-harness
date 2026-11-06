@@ -16,6 +16,12 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 ## Execution diagnostics and generation
 
+- После каждой применённой актуализации текущих задач и успешной генерации Ганта
+  обновляй `<resolved-quarter-root>/release-plan.md` по `core/release-plan.md`
+  до финального ответа и сохранения. Сохраняй бизнес-формат, целевые даты и состав;
+  прогнозы готовности переноси из проверенного полного Ганта. Шаблон находится
+  в `templates/planning/release-plan.template.md`.
+
 - Whenever creating or changing any Gantt diagram (including quarter-plan, commander-plan and actual-progress), generate or refresh its sibling `<name>-confluence.puml` as a standalone expansion without `!include`. Verify exact parity with the source expansion and save both in the same reviewed change. This also applies when only includes or preambles change; never regenerate approved plans or other views to obtain an export. Confluence exports themselves do not require another export. See `core/tooling-policy.md`.
 
 - Resolve analytics with `workspace.py project-root`; use `git -C "$PROJECT_ROOT"` for project status, history and diff. An ignored project directory in HARNESS_ROOT says nothing about tracking in the independent analytics repository. Never fix this by changing the harness ignore rules, running git init or staging analytics into the harness.
