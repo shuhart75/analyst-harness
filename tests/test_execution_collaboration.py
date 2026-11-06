@@ -37,6 +37,12 @@ class ExecutionCollaborationTests(unittest.TestCase):
             target = self.project / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('Initial source\n')
+        from analysis_task_fixture import write_binding, write_planning_binding
+        write_planning_binding(self.project, ("2026-Q2", "2026-Q3"), shared={
+            "planning/team.md": "2026-Q3",
+            "features/registry/planning/stories/STORY-REGISTRY-BE.md": "2026-Q3",
+            "features/registry/planning/actualization.md": "2026-Q3"})
+        write_binding(self.project / 'features/other')
         includes = self.gantt / 'includes/actual-progress'
         includes.mkdir(parents=True)
         for feature in ('registry', 'other'):
@@ -45,13 +51,24 @@ class ExecutionCollaborationTests(unittest.TestCase):
             '@startgantt\n!include includes/actual-progress/FEATURE-registry.puml\n'
             '!include includes/actual-progress/FEATURE-other.puml\n@endgantt\n')
         self.expand()
-        self.git(self.project, 'add', '--', self.source, self.other, 'planning/2026-Q3/gantt')
-        self.git(self.project, 'commit', '-m', 'Prepare execution fixtures')
+        self.git(self.project, 'add', '--', self.source, self.other, 'features/other/analysis-task.json', 'planning/task-bindings.json', 'planning/2026-Q3/gantt')
+        self.git(self.project, 'commit', '-m', 'RSCON-123: Prepare execution fixtures')
         self.initial_head = self.git(self.project, 'rev-parse', 'HEAD')
 
     def expand(self):
         lines = import_module('expand-plantuml-includes').expand_file(self.gantt / 'actual-progress.puml', [])
         (self.gantt / 'actual-progress-confluence.puml').write_text('\n'.join(lines).rstrip() + '\n')
+
+    def test_quarter_task_registration_cannot_change_another_quarter(self):
+        self.scope('registry')
+        path = self.project / 'planning/task-bindings.json'
+        value = json.loads(path.read_text())
+        value['quarters']['2026-Q2']['key'] = 'RSCON-999'
+        path.write_text(json.dumps(value))
+        result = self.raw('save-preview')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('outside confirmed execution scope', result.stdout)
+        self.assertEqual(self.git(self.project, 'diff', '--cached', '--name-only'), '')
 
     def test_release_plan_saved_only_in_confirmed_quarter(self):
         self.scope('registry')
@@ -110,7 +127,7 @@ class ExecutionCollaborationTests(unittest.TestCase):
         snapshot = 'planning/approved-plans/2026-Q3.json'
         self.change(snapshot, json.dumps({'files': {path: hashlib.sha256((self.project / path).read_bytes()).hexdigest()}}))
         self.git(self.project, 'add', '--', path, snapshot)
-        self.git(self.project, 'commit', '-m', 'Protect planning fixtures')
+        self.git(self.project, 'commit', '-m', 'RSCON-123: Protect planning fixtures')
         return path, snapshot
 
     def test_explicit_planning_scope_saves_both_artifact_sets_and_pushes_one_commit(self):
@@ -126,7 +143,7 @@ class ExecutionCollaborationTests(unittest.TestCase):
                          {'execution-source', 'draft-feature-planning', 'draft-quarter-planning'})
         self.assertEqual(preview['confluence_verified'], ['2026-Q3'])
         command = preview['save_command']
-        command[command.index('--message') + 1] = 'Save draft plans and execution together'
+        command[command.index('--message') + 1] = 'RSCON-123: Save draft plans and execution together'
         result = test_collaboration.run(*command, env=self.environment)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         saved = json.loads(result.stdout)
@@ -148,7 +165,7 @@ class ExecutionCollaborationTests(unittest.TestCase):
         self.protect_plan()
         self.change('planning/2026-Q3/plan-state.md', 'Status: approved\n')
         self.git(self.project, 'add', '--', 'planning/2026-Q3/plan-state.md')
-        self.git(self.project, 'commit', '-m', 'Approve planning fixtures')
+        self.git(self.project, 'commit', '-m', 'RSCON-123: Approve planning fixtures')
         self.change('planning/2026-Q3/plan-state.md', 'Status: draft\n')
         result = self.raw('set-execution-scope', '--feature', 'registry', '--quarter', '2026-Q3',
                           '--include-planning', '--reason', 'Confirmed planning', '--analyst-confirmed')
@@ -191,7 +208,7 @@ class ExecutionCollaborationTests(unittest.TestCase):
         path = 'features/registry/planning/estimates-2026-Q2.md'
         self.change(path, 'Historical source\n')
         self.git(self.project, 'add', '--', path)
-        self.git(self.project, 'commit', '-m', 'Preserve historical estimate fixtures')
+        self.git(self.project, 'commit', '-m', 'RSCON-123: Preserve historical estimate fixtures')
         self.planning_scope()
         self.change(path, 'Changed history\n')
         self.assertIn('estimate archive is immutable', self.raw('save-preview').stdout)
@@ -210,7 +227,7 @@ class ExecutionCollaborationTests(unittest.TestCase):
         self.assertEqual(self.git(self.project, 'status', '--porcelain'), before)
         self.assertEqual(self.git(self.project, 'rev-parse', 'HEAD'), self.initial_head)
         command = preview['save_command']
-        command[command.index('--message') + 1] = 'Update execution and derived quarter views'
+        command[command.index('--message') + 1] = 'RSCON-123: Update execution and derived quarter views'
         result = test_collaboration.run(*command, env=self.environment)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         saved = json.loads(result.stdout)
@@ -261,13 +278,13 @@ class ExecutionCollaborationTests(unittest.TestCase):
         self.change(shifted, '[other] happens at 2026/09/23\n')
         preview = self.raw('save-preview')
         self.assertIn('Confluence export differs', preview.stdout)
-        rejected = self.raw('save', '--path', shifted, '--message', 'Update forecast')
+        rejected = self.raw('save', '--path', shifted, '--message', 'RSCON-123: Update forecast')
         self.assertNotEqual(rejected.returncode, 0)
         self.assertEqual(self.git(self.project, 'diff', '--cached', '--name-only'), '')
         self.expand()
-        rejected = self.raw('save', '--path', shifted, '--message', 'Update forecast')
+        rejected = self.raw('save', '--path', shifted, '--message', 'RSCON-123: Update forecast')
         self.assertIn('exact-path-set-mismatch', rejected.stdout)
-        rejected = self.raw('save', '--path', 'documents/' + shifted, '--message', 'Update forecast')
+        rejected = self.raw('save', '--path', 'documents/' + shifted, '--message', 'RSCON-123: Update forecast')
         self.assertIn('без префикса documents/', rejected.stdout)
         self.assertEqual(self.git(self.project, 'rev-parse', 'HEAD'), self.initial_head)
 

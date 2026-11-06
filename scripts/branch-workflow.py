@@ -11,7 +11,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from commit_message_policy import require_valid_commit_message
+from commit_message_policy import require_valid_commit_message, delivery_analysis_task, keys_for_paths, git_output
 
 
 BRANCH = "main"
@@ -265,7 +265,21 @@ def update_feature_command(args: argparse.Namespace) -> int:
     if operation.endswith("fast-forward"):
         merged = git(repository, "merge", "--ff-only", f"origin/{BRANCH}")
     else:
-        merge_message = "Integrate accepted changes into working branch"
+        state = load_json(root / ".workspace-state/collaboration.json")
+        work = state.get("active_work") or {}
+        if work.get("branch") != branch:
+            raise ValueError("Для слияния нужна активная поставка и её задача на аналитику")
+        deliveries = work.get("execution_scope", {}).get("features") or [work["feature"]]
+        keys = set()
+        changed = git(repository, "diff", "--name-only", "--no-renames", "-z", before, incoming)
+        if changed.returncode:
+            raise ValueError("Не удалось проверить поставки входящих изменений")
+        keys.update(keys_for_paths(filter(None, changed.stdout.split("\0")),
+            lambda path: git_output(repository, "show", incoming + ":" + path)
+            or git_output(repository, "show", before + ":" + path)))
+        if not keys:
+            keys = {delivery_analysis_task(repository, key)["key"] for key in deliveries}
+        merge_message = ", ".join(sorted(keys)) + ": Integrate accepted changes into working branch"
         require_valid_commit_message(merge_message)
         merged = git(
             repository,

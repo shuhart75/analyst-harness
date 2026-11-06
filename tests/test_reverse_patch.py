@@ -36,6 +36,7 @@ class ReversePatchTests(unittest.TestCase):
         artifact_id: str = "20260821T120000000000Z",
         *,
         trailing_whitespace: bool = False,
+        updated_analysis_task: str | None = None,
     ) -> dict:
         seed = directory / "seed"
         remote = directory / "changeswork-copy.git"
@@ -51,8 +52,10 @@ class ReversePatchTests(unittest.TestCase):
         self.identity(seed)
         (seed / "README.md").write_text("# Исходное состояние\n", encoding="utf-8")
         (seed / "features/example").mkdir(parents=True)
+        from analysis_task_fixture import write_binding
+        write_binding(seed / "features/example")
         (seed / "features/example/requirements.md").write_text("# Требования\n\nВерсия 1.\n", encoding="utf-8")
-        self.git(seed, "add", "--", "README.md", "features/example/requirements.md")
+        self.git(seed, "add", "--", "README.md", "features/example/requirements.md", "features/example/analysis-task.json")
         self.git(seed, "commit", "-m", "initial")
         self.assertEqual(run("git", "clone", "--bare", str(seed), str(remote)).returncode, 0)
         self.assertEqual(run("git", "clone", str(remote), str(repository)).returncode, 0)
@@ -67,7 +70,9 @@ class ReversePatchTests(unittest.TestCase):
             requirements += "\n| Поле | Значение |\n|---|---| \n"
         (target / "features/example/requirements.md").write_text(requirements, encoding="utf-8")
         (target / "features/example/notes.md").write_text("# Примечания\n", encoding="utf-8")
-        self.git(target, "add", "--", "features/example/requirements.md", "features/example/notes.md")
+        if updated_analysis_task:
+            write_binding(target / "features/example", updated_analysis_task)
+        self.git(target, "add", "--", "features/example/requirements.md", "features/example/notes.md", "features/example/analysis-task.json")
         self.git(target, "commit", "-m", "update example requirements")
         analytics_commit = self.git(target, "rev-parse", "HEAD")
         analytics_tree = self.git(target, "rev-parse", "HEAD^{tree}")
@@ -166,6 +171,14 @@ class ReversePatchTests(unittest.TestCase):
             for path in objects.rglob("*")
             if path.is_file()
         }
+
+    def test_analysis_task_is_read_from_verified_patch_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            fixture = self.prepare(Path(temp), updated_analysis_task="RSCON-456")
+            applied = self.tool(fixture, "apply")
+            self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
+            title = self.git(fixture["repository"], "show", "-s", "--format=%s", "HEAD")
+            self.assertTrue(title.startswith("RSCON-456:"), title)
 
     def test_apply_push_and_repeat_are_safe(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
