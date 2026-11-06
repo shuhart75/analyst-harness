@@ -93,7 +93,13 @@ Commands that mean accepting a reverse patch are repository operations, not a wo
 
 Feature requirements work uses the mandatory branch protocol in `core/collaboration.md`. Before reading or editing a named feature, bootstrap the workspace, check collaboration status and create or resume the registered `feature/<feature>/<analyst>` branch. A later cycle for the same feature uses the next free `-2`, `-3` suffix instead of deleting or overwriting an earlier branch. Missing collaboration state is a migration blocker, not single-user permission. Delivery and ordinary reverse-patch reception require clean, current `main` and no active feature session. Explicitly authorized reverse-patch reception with `--isolated` follows `core/reverse-patch.md`: it changes only a separate clone and remote main, preserving the active working repository and session. This exception never authorizes delivery from an unaccepted feature branch.
 
-Правило привязки к SberTrack применяется к аналитическому проекту и его передачам в разработку. Отдельный Git-репозиторий обвязки (HARNESS_ROOT) и его worktree исключены: для их коммитов и PR задача не требуется. Каждая поставка обязательно связана с подтверждённой задачей SberTrack на аналитику (роль AN). Следуй `core/analysis-task-traceability.md`: храни связь в `analysis-task.json` выбранной поставки, включай её ключ в заголовок каждого коммита, включая автоматически созданные, merge и squash. Для нескольких поставок укажи все их ключи. Сохраняй смысловое описание изменения. Без подтверждённой связи останови сохранение и публикацию и запроси задачу; не подставляй BE/FE/QA или выдуманный номер. Проверяй сообщение до индексирования и сохраняй managed `commit-msg` hook; обход hook запрещён, сторонний hook bootstrap не перезаписывает. Планирование имеет одну подтверждённую задачу SberTrack на весь квартал, зарегистрированную в `planning/task-bindings.json`; её ключ обязателен в коммитах планирования. Перед коммитом при отсутствии связи поставки или квартального планирования запроси соответствующую задачу у аналитика и дождись ответа. Без связи коммит запрещён; для смешанного изменения нужны все соответствующие ключи.
+Правило задач коммитов: `core/analysis-task-traceability.md` и `core/commit-task-resolution.md`.
+Аналитик выбирает эпик владельца; GigaCode через MCP находит или создаёт `suit="task"`
+с префиксом `[SA][PR]`, `[PLANNING_QUARTER]`, `[BASELINE]` или `[CONTEXT] по виду работы.
+Квартал имеет свой эпик планирования, который запрашивается при начале планирования
+текущего или будущего квартала. Baseline/context поставки относятся к её эпику,
+вне поставок относятся к квартальному. Без разрешённой задачи коммит запрещён.
+Ключи обязательны в коммитах, но не в заголовках PR. Отдельная обвязка исключена.
 
 ## Feature intake rule
 
@@ -438,3 +444,5 @@ known dependencies and newly supplied sources. For future directions, follow
 `core/roadmap.md`: preserve decision history and distinguish decision state,
 maturity and realized deliveries. No prototype, test specification or summary
 update grants deployment confirmation or authority to rewrite baseline.
+
+Поиск и создание задач коммитов выполняются после config-status по `core/commit-task-resolution.md`, отдельно от read-only протокола сбора исполнения; новый execution-run для них не нужен.
