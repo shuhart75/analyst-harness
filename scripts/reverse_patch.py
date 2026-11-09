@@ -783,7 +783,7 @@ def apply_command(args: argparse.Namespace) -> int:
             )
         if patch is None:
             raise ValueError("Квитанция не содержит заплату, но текущее дерево не совпадает с целевым")
-        keys = verify_patch_tree(repository, patch, metadata["analytics_tree"], metadata["changed_paths"], analysis_keys=True)
+        verify_patch_tree(repository, patch, metadata["analytics_tree"], metadata["changed_paths"])
         for variable in ("GIT_AUTHOR_IDENT", "GIT_COMMITTER_IDENT"):
             identity = git(repository, "var", variable)
             if identity.returncode != 0:
@@ -791,10 +791,8 @@ def apply_command(args: argparse.Namespace) -> int:
         explicit_keys = getattr(args, "analysis_task", None) or []
         if any(not TRACKER_IDENTIFIER_RE.fullmatch(key) for key in explicit_keys):
             raise ValueError("Некорректный ключ задачи SberTrack на аналитику")
-        keys.update(explicit_keys)
-        commit_subject = ", ".join(sorted(keys)) + ": Принять обратные аналитические изменения"
+        commit_subject = ((", ".join(sorted(set(explicit_keys))) + ": ") if explicit_keys else "") + "Принять обратные аналитические изменения"
         commit_body = "Применить проверенную заплату с сохранением состава файлов и целевого дерева."
-        require_valid_commit_message(f"{commit_subject}\n\n{commit_body}")
         checked = git(
             repository,
             "apply", "--index", "--check", "--binary", "--whitespace=error-all",
@@ -825,6 +823,7 @@ def apply_command(args: argparse.Namespace) -> int:
                 "commit",
                 "-m", commit_subject,
                 "-m", commit_body,
+                env={**os.environ, "ANALYST_VERIFIED_REVERSE_PATCH_TREE": metadata["analytics_tree"]},
             )
             if committed.returncode != 0:
                 raise ValueError(f"Не удалось создать интеграционный коммит: {committed.stderr.strip()}")

@@ -204,6 +204,11 @@ This repository is the root of a configurable analyst workspace. The harness rem
 
 ## Collaboration
 
+- При обратном приёме не проверяй привязки к задачам повторно: исходные коммиты
+  уже приняты в отправляющем репозитории. Ключ задачи в интеграционном коммите
+  необязателен. Сохраняй проверки базы, контрольной суммы, состава путей
+  и точного целевого дерева по `core/reverse-patch.md`.
+
 Правило задач коммитов: `core/analysis-task-traceability.md` и `core/commit-task-resolution.md`.
 Аналитик выбирает эпик владельца; GigaCode через MCP находит или создаёт `suit="task"`
 с префиксом `[SA][PR]`, `[PLANNING_QUARTER]`, `[BASELINE]` или `[CONTEXT] по виду работы.
