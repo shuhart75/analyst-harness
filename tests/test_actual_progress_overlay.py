@@ -110,7 +110,7 @@ class QaFeatureSchedulingTest(unittest.TestCase):
     def setUp(self) -> None:
         self.resources = {"AN": ["A1"], "BE": ["B1"], "FE": ["F1"], "QA": ["Q1"]}
 
-    def test_qa_covers_three_open_days_after_last_fe(self) -> None:
+    def test_qa_effort_ends_at_regression_deadline(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 5, "2026-09-21", "F1"),
             "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
@@ -118,10 +118,10 @@ class QaFeatureSchedulingTest(unittest.TestCase):
 
         schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
 
-        self.assertEqual(date(2026, 9, 28), schedules["ITEM/QA"].start)
-        self.assertEqual(date(2026, 9, 30), schedules["ITEM/QA"].finish)
+        self.assertEqual(date(2026, 9, 14), schedules["ITEM/QA"].start)
+        self.assertEqual(date(2026, 9, 15), schedules["ITEM/QA"].finish)
 
-    def test_short_qa_has_at_least_three_regression_days(self) -> None:
+    def test_short_qa_does_not_reserve_regression_wait_as_work(self) -> None:
         tasks = {
             "ITEM/FE": task("ITEM/FE", "FE", 2, "2026-09-21", "F1"),
             "ITEM/QA": task("ITEM/QA", "QA", 2, "", "Q1"),
@@ -129,8 +129,8 @@ class QaFeatureSchedulingTest(unittest.TestCase):
 
         schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
 
-        self.assertEqual(date(2026, 9, 23), schedules["ITEM/QA"].start)
-        self.assertEqual(date(2026, 9, 25), schedules["ITEM/QA"].finish)
+        self.assertEqual(date(2026, 9, 9), schedules["ITEM/QA"].start)
+        self.assertEqual(date(2026, 9, 10), schedules["ITEM/QA"].finish)
 
     def test_qa_is_rendered_last(self) -> None:
         tasks = {
@@ -154,7 +154,7 @@ class QaFeatureSchedulingTest(unittest.TestCase):
         self.assertLess(rendered.index("TASK_ITEM_FE"), rendered.index("TASK_ITEM_QA"))
         self.assertLess(rendered.index("TASK_OTHER_FE"), rendered.index("TASK_ITEM_QA"))
 
-    def test_feature_scope_applies_be_lead_to_unsuffixed_tasks(self) -> None:
+    def test_feature_scope_does_not_invent_be_dependency(self) -> None:
         tasks = {
             "feature/BACKEND-ONE": task("BACKEND-ONE", "BE", 5, "2026-09-07", "B1"),
             "feature/FRONTEND-ONE": task("FRONTEND-ONE", "FE", 2, "2026-09-07", "F1"),
@@ -162,7 +162,7 @@ class QaFeatureSchedulingTest(unittest.TestCase):
 
         schedules = OVERLAY.task_schedules(tasks, set(), date(2026, 9, 4), self.resources)
 
-        self.assertEqual(date(2026, 9, 10), schedules["feature/FRONTEND-ONE"].start)
+        self.assertEqual(date(2026, 9, 4), schedules["feature/FRONTEND-ONE"].start)
 
 
 if __name__ == "__main__":
