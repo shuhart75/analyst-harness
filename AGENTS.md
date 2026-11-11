@@ -1,5 +1,10 @@
 # Harness Rules
 
+## Груминг и story до разработки
+
+По команде «грумим <фичу>» следуй `core/grooming.md`: задачи согласуются по одной с названиями требований, FE/BE определяется префиксом, оценки всегда в человеко-днях. Каждая создаваемая Story получает метку `RSCON_dev`. Согласованные `tasks/` входят в общий проверяемый SDD-вход; разработка сохраняет эту нарезку и создаёт технические шаги внутри неё. Эти правила заменяют прежний выбор story получателем для пакетов после груминга; старые передачи сохраняют прежний договор.
+
+
 This repository is the root of a configurable analyst workspace. The harness remains here; analytical data and optional code live in independent sibling Git repositories.
 
 ## Communication language
