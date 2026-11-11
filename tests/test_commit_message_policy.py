@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from collections import Counter
 from pathlib import Path
 
@@ -24,6 +26,19 @@ def binding(key='RSCON-123', kind='delivery', quarter='2026-Q4'):
 
 
 class CommitMessagePolicyTests(unittest.TestCase):
+    def test_reverse_patch_hook_requires_exact_verified_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            message = Path(tmp) / 'message'
+            message.write_text('Принять обратные аналитические изменения\n')
+            tree = 'a' * 40
+            with patch.dict(os.environ, {'ANALYST_VERIFIED_REVERSE_PATCH_TREE': tree}), \
+                    patch('commit_message_policy.git_output', return_value=tree + '\n'):
+                validate_file(message, Path(tmp))
+            with patch.dict(os.environ, {'ANALYST_VERIFIED_REVERSE_PATCH_TREE': tree}), \
+                    patch('commit_message_policy.git_output', return_value='b' * 40), \
+                    self.assertRaises(ValueError):
+                validate_file(message, Path(tmp))
+
     def test_large_snapshot_reads_bindings_once_and_does_not_cache_between_calls(self):
         files = {'baseline/analysis-task.json': json.dumps(task_binding(kind='baseline'))}
         calls = Counter()

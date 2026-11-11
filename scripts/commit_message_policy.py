@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -245,6 +246,15 @@ def validate_file(path: Path, repository: Path | None = None) -> None:
         message = path.read_text(encoding='utf-8')
     except OSError as exc:
         raise ValueError(f'Не удалось прочитать сообщение коммита: {exc}') from exc
+    expected_tree = os.environ.get('ANALYST_VERIFIED_REVERSE_PATCH_TREE')
+    if expected_tree is not None:
+        actual_tree = git_output(repository, 'write-tree') if repository is not None else None
+        if (not re.fullmatch(r'[0-9a-f]{40,64}', expected_tree)
+                or actual_tree is None or actual_tree.strip() != expected_tree):
+            raise ValueError('Индекс обратной заплаты не совпадает с проверенным целевым деревом')
+        if not message.split('\n', 1)[0].strip():
+            raise ValueError('Заголовок интеграционного коммита не должен быть пустым')
+        return
     if repository is not None and is_harness_repository(repository):
         if not message.split('\n', 1)[0].strip():
             raise ValueError('Заголовок коммита обвязки не должен быть пустым')
