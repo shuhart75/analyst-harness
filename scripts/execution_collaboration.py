@@ -293,6 +293,11 @@ def check_save(root, analytics, work, paths, review_files, api) -> dict:
                 raise ValueError('Gantt dependency is outside analytics or export is linked')
             if export.read_text() != expanded:
                 raise ValueError(f'Confluence export differs from {view}: {quarter}; expand the selected source')
+        plan = gantt.parent / 'release-plan.md'
+        previous_plan = api.git(analytics, 'cat-file', '-e', f'HEAD:{plan.relative_to(analytics).as_posix()}')
+        if plan.exists() or previous_plan.returncode == 0:
+            from release_plan_review import check_review
+            check_review(gantt.parent)
         verified_quarters.append(quarter)
     baseline_candidates = __import__('baseline_releases').scan(analytics)
     return {'paths': classified, 'confluence_verified': verified_quarters,
