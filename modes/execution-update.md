@@ -28,7 +28,8 @@ legacy-пути `features/<feature>/...` означают корень выбр�
 
 После каждой применённой актуализации задач и успешной генерации Ганта обязательно
 обновляй бизнес-план релизов квартала по `core/release-plan.md` до ответа и save.
-Режим разрешает `<resolved-quarter-root>/release-plan.md` в execution-области;
+Режим разрешает `<resolved-quarter-root>/release-plan.md` и
+`<resolved-quarter-root>/release-plan-sources.json` в execution-области;
 целевые даты и бизнес-состав меняются только по решению аналитика.
 
 Track real work with or without a recorded planning baseline.
