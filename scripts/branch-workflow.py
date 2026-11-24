@@ -276,7 +276,9 @@ def update_feature_command(args: argparse.Namespace) -> int:
             raise ValueError("Не удалось проверить поставки входящих изменений")
         keys.update(keys_for_paths(filter(None, changed.stdout.split("\0")),
             lambda path: git_output(repository, "show", incoming + ":" + path)
-            or git_output(repository, "show", before + ":" + path)))
+            or git_output(repository, "show", before + ":" + path),
+            lambda path: git_output(repository, "show", before + ":" + path),
+            allow_receiver_requests=True))
         if not keys:
             keys = {delivery_analysis_task(repository, key)["key"] for key in deliveries}
         merge_message = ", ".join(sorted(keys)) + ": Integrate accepted changes into working branch"

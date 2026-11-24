@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
@@ -24,6 +26,19 @@ def binding(key='RSCON-123', kind='delivery', quarter='2026-Q4'):
 
 
 class CommitMessagePolicyTests(unittest.TestCase):
+    def test_reverse_patch_hook_requires_exact_verified_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            message = Path(tmp) / 'message'
+            message.write_text('Принять обратные аналитические изменения\n')
+            tree = 'a' * 40
+            with patch.dict(os.environ, {'ANALYST_VERIFIED_REVERSE_PATCH_TREE': tree}), \
+                    patch('commit_message_policy.git_output', return_value=tree + '\n'):
+                validate_file(message, Path(tmp))
+            with patch.dict(os.environ, {'ANALYST_VERIFIED_REVERSE_PATCH_TREE': tree}), \
+                    patch('commit_message_policy.git_output', return_value='b' * 40), \
+                    self.assertRaises(ValueError):
+                validate_file(message, Path(tmp))
+
     def test_removed_delivery_keeps_task_with_empty_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)

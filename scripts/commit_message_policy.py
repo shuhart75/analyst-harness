@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -24,10 +25,16 @@ def has_tracker_identifier(message: str) -> bool:
 
 def require_valid_commit_message(message: str, required_keys=()) -> None:
     title = message.split('\n', 1)[0]
+    from receiver_tasks import TOKEN
+    deferred = {key for key in required_keys if key.startswith(TOKEN)}
+    if any(token not in title for token in deferred):
+        raise ValueError('Укажи идентификаторы запросов создания задач на принимающей стороне')
+    for token in deferred:
+        title = title.replace(token, '')
     keys = set(TRACKER_IDENTIFIER_RE.findall(title))
-    if not keys or not re.search(r'[A-Za-zА-Яа-яЁё]', TRACKER_IDENTIFIER_RE.sub('', title)):
+    if (not keys and not deferred) or not re.search(r'[A-Za-zА-Яа-яЁё]', TRACKER_IDENTIFIER_RE.sub('', title)):
         raise ValueError(ERROR_MESSAGE)
-    missing = set(required_keys) - keys
+    missing = set(required_keys) - deferred - keys
     if missing:
         raise ValueError('Сообщение коммита отклонено: в заголовке отсутствуют обязательные задачи: ' + ', '.join(sorted(missing)))
 
@@ -53,12 +60,27 @@ def delivery_message(project: Path, deliveries, description: str) -> str:
     return message
 
 
-def keys_for_paths(paths, read, previous_read=None) -> set[str]:
+def receiver_request_key(owner, read):
+    from receiver_tasks import REQUEST_FILE, validate_request, request_token
+    root = owner.rsplit('/', 1)[0]
+    raw = read(root + '/' + REQUEST_FILE)
+    if raw is None:
+        return None
+    index = json.loads(read('delivery-index.json') or '{}')
+    matches = [key for key, entry in index.get('deliveries', {}).items() if entry['path'] == root]
+    if len(matches) != 1:
+        raise ValueError('Запрос задачи допускается только для зарегистрированной поставки')
+    return request_token(validate_request(json.loads(raw), matches[0]))
+
+
+def keys_for_paths(paths, read, previous_read=None, *, allow_receiver_requests=False) -> set[str]:
     """Resolve delivery and quarterly planning ownership from one snapshot."""
     # Scope to this validation only, including missing files. Never reuse reads
     # across changes to the index, worktree or receiver decisions.
     read = cache(read)
     paths = list(paths)
+    allow_receiver_requests = allow_receiver_requests and not any(
+        path.startswith('requirements-exchange/') for path in paths)
     index_text = read('delivery-index.json')
     index = json.loads(index_text) if index_text else None
     entries = index['deliveries'] if index else {}
@@ -66,7 +88,8 @@ def keys_for_paths(paths, read, previous_read=None) -> set[str]:
     owners, quarters = set(), set()
     work_task_keys = set()
     if 'delivery-index.json' in paths and previous_read is not None:
-        work_task_keys.update(delivery_index_keys(read, cache(previous_read)))
+        work_task_keys.update(delivery_index_keys(read, cache(previous_read),
+                                                  allow_receiver_requests=allow_receiver_requests))
         paths.remove('delivery-index.json')
     planning_raw = read(PLANNING_BINDINGS)
     planning = json.loads(planning_raw) if planning_raw else {}
@@ -165,6 +188,11 @@ def keys_for_paths(paths, read, previous_read=None) -> set[str]:
     legacy_packets = False
     for owner in sorted(owners):
         raw = read(owner)
+        if raw is None and allow_receiver_requests and owner.endswith('/' + BINDING_FILE):
+            token = receiver_request_key(owner, read)
+            if token:
+                keys.add(token)
+                continue
         if raw is None:
             raise ValueError(f'Разреши задачу [SA][PR] в эпике поставки {owner.rsplit("/", 1)[0]}? '
                              f'До разрешения задачи коммит запрещён ({owner}).')
@@ -217,10 +245,15 @@ def delivery_index_changes(read, previous_read):
             yield key, path, reader
 
 
-def delivery_index_keys(read, previous_read) -> set[str]:
+def delivery_index_keys(read, previous_read, *, allow_receiver_requests=False) -> set[str]:
     keys = set()
     for key, path, reader in delivery_index_changes(read, previous_read):
         raw = reader(path)
+        if raw is None and allow_receiver_requests:
+            token = receiver_request_key(path, reader)
+            if token:
+                keys.add(token)
+                continue
         try:
             keys.add(validate_binding(json.loads(raw) if raw else None, 'delivery')['key'])
         except ValueError as exc:
@@ -273,7 +306,8 @@ def working_keys(project: Path, paths) -> set[str]:
     if PLANNING_BINDINGS in paths:
         require_preserved_planning_bindings(read(PLANNING_BINDINGS),
                                            git_output(project, 'show', 'HEAD:' + PLANNING_BINDINGS))
-    return keys_for_paths(paths, read, lambda path: git_output(project, 'show', 'HEAD:' + path))
+    return keys_for_paths(paths, read, lambda path: git_output(project, 'show', 'HEAD:' + path),
+                          allow_receiver_requests=True)
 
 
 def git_output(repository: Path, *args) -> str | None:
@@ -304,7 +338,8 @@ def staged_keys(repository: Path) -> set[str]:
         require_preserved_planning_bindings(read(PLANNING_BINDINGS),
                                            git_output(repository, 'show', 'HEAD:' + PLANNING_BINDINGS))
     return keys_for_paths(filter(None, paths.split('\0')), read,
-                          lambda path: git_output(repository, 'show', 'HEAD:' + path))
+                          lambda path: git_output(repository, 'show', 'HEAD:' + path),
+                          allow_receiver_requests=True)
 
 
 def validate_file(path: Path, repository: Path | None = None) -> None:
@@ -312,6 +347,15 @@ def validate_file(path: Path, repository: Path | None = None) -> None:
         message = path.read_text(encoding='utf-8')
     except OSError as exc:
         raise ValueError(f'Не удалось прочитать сообщение коммита: {exc}') from exc
+    expected_tree = os.environ.get('ANALYST_VERIFIED_REVERSE_PATCH_TREE')
+    if expected_tree is not None:
+        actual_tree = git_output(repository, 'write-tree') if repository is not None else None
+        if (not re.fullmatch(r'[0-9a-f]{40,64}', expected_tree)
+                or actual_tree is None or actual_tree.strip() != expected_tree):
+            raise ValueError('Индекс обратной заплаты не совпадает с проверенным целевым деревом')
+        if not message.split('\n', 1)[0].strip():
+            raise ValueError('Заголовок интеграционного коммита не должен быть пустым')
+        return
     if repository is not None and is_harness_repository(repository):
         if not message.split('\n', 1)[0].strip():
             raise ValueError('Заголовок коммита обвязки не должен быть пустым')
