@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -24,10 +25,16 @@ def has_tracker_identifier(message: str) -> bool:
 
 def require_valid_commit_message(message: str, required_keys=()) -> None:
     title = message.split('\n', 1)[0]
+    from receiver_tasks import TOKEN
+    deferred = {key for key in required_keys if key.startswith(TOKEN)}
+    if any(token not in title for token in deferred):
+        raise ValueError('Укажи идентификаторы запросов создания задач на принимающей стороне')
+    for token in deferred:
+        title = title.replace(token, '')
     keys = set(TRACKER_IDENTIFIER_RE.findall(title))
-    if not keys or not re.search(r'[A-Za-zА-Яа-яЁё]', TRACKER_IDENTIFIER_RE.sub('', title)):
+    if (not keys and not deferred) or not re.search(r'[A-Za-zА-Яа-яЁё]', TRACKER_IDENTIFIER_RE.sub('', title)):
         raise ValueError(ERROR_MESSAGE)
-    missing = set(required_keys) - keys
+    missing = set(required_keys) - deferred - keys
     if missing:
         raise ValueError('Сообщение коммита отклонено: в заголовке отсутствуют обязательные задачи: ' + ', '.join(sorted(missing)))
 
@@ -53,18 +60,37 @@ def delivery_message(project: Path, deliveries, description: str) -> str:
     return message
 
 
-def keys_for_paths(paths, read) -> set[str]:
+def receiver_request_key(owner, read):
+    from receiver_tasks import REQUEST_FILE, validate_request, request_token
+    root = owner.rsplit('/', 1)[0]
+    raw = read(root + '/' + REQUEST_FILE)
+    if raw is None:
+        return None
+    index = json.loads(read('delivery-index.json') or '{}')
+    matches = [key for key, entry in index.get('deliveries', {}).items() if entry['path'] == root]
+    if len(matches) != 1:
+        raise ValueError('Запрос задачи допускается только для зарегистрированной поставки')
+    return request_token(validate_request(json.loads(raw), matches[0]))
+
+
+def keys_for_paths(paths, read, previous_read=None, *, allow_receiver_requests=False) -> set[str]:
     """Resolve delivery and quarterly planning ownership from one snapshot."""
     # Scope to this validation only, including missing files. Never reuse reads
     # across changes to the index, worktree or receiver decisions.
     read = cache(read)
     paths = list(paths)
+    allow_receiver_requests = allow_receiver_requests and not any(
+        path.startswith('requirements-exchange/') for path in paths)
     index_text = read('delivery-index.json')
     index = json.loads(index_text) if index_text else None
     entries = index['deliveries'] if index else {}
     roots = {entry['path']: entry for entry in entries.values()}
     owners, quarters = set(), set()
     work_task_keys = set()
+    if 'delivery-index.json' in paths and previous_read is not None:
+        work_task_keys.update(delivery_index_keys(read, cache(previous_read),
+                                                  allow_receiver_requests=allow_receiver_requests))
+        paths.remove('delivery-index.json')
     planning_raw = read(PLANNING_BINDINGS)
     planning = json.loads(planning_raw) if planning_raw else {}
     if not isinstance(planning, dict) or (planning and (planning.get('schema_version') != 1
@@ -162,6 +188,11 @@ def keys_for_paths(paths, read) -> set[str]:
     legacy_packets = False
     for owner in sorted(owners):
         raw = read(owner)
+        if raw is None and allow_receiver_requests and owner.endswith('/' + BINDING_FILE):
+            token = receiver_request_key(owner, read)
+            if token:
+                keys.add(token)
+                continue
         if raw is None:
             raise ValueError(f'Разреши задачу [SA][PR] в эпике поставки {owner.rsplit("/", 1)[0]}? '
                              f'До разрешения задачи коммит запрещён ({owner}).')
@@ -178,6 +209,56 @@ def keys_for_paths(paths, read) -> set[str]:
         except ValueError as exc:
             raise ValueError(f'Разреши задачу [SA][PR] в эпике поставки {owner.rsplit("/", 1)[0]}? '
                              'Выполни поиск/создание по core/commit-task-resolution.md перед коммитом.') from exc
+    return keys
+
+
+def delivery_index_changes(read, previous_read):
+    """Attribute registry changes to entries, not a permanent shared-file alias."""
+    current_raw = read('delivery-index.json')
+    previous_raw = previous_read('delivery-index.json')
+    if not current_raw:
+        raise ValueError('Нельзя удалить delivery-index.json при сохранении аналитики')
+    current = json.loads(current_raw)
+    previous = json.loads(previous_raw) if previous_raw else {'deliveries': {}}
+    for value in (current, previous):
+        if not isinstance(value, dict) or not isinstance(value.get('deliveries'), dict):
+            raise ValueError('Некорректный реестр delivery-index.json')
+    old, new = previous['deliveries'], current['deliveries']
+    # Registry-wide changes conservatively affect all entries.
+    global_change = bool(previous_raw) and (
+        {k: v for k, v in current.items() if k != 'deliveries'} !=
+        {k: v for k, v in previous.items() if k != 'deliveries'})
+    changed = {key for key in old.keys() | new.keys()
+               if global_change or old.get(key) != new.get(key)}
+    for key in sorted(changed):
+        for entries, reader in ((old, previous_read), (new, read)):
+            if key not in entries:
+                continue
+            entry = entries[key]
+            if not isinstance(entry, dict) or not isinstance(entry.get('path'), str):
+                raise ValueError('Некорректная запись delivery-index.json: ' + key)
+            path = entry['path'] + '/' + BINDING_FILE
+            # A retained entry can acquire its first binding in this commit.
+            # Deleted/moved entries retain their previous ownership as well.
+            if entries is old and key in new and new[key].get('path') == entry['path']:
+                continue
+            yield key, path, reader
+
+
+def delivery_index_keys(read, previous_read, *, allow_receiver_requests=False) -> set[str]:
+    keys = set()
+    for key, path, reader in delivery_index_changes(read, previous_read):
+        raw = reader(path)
+        if raw is None and allow_receiver_requests:
+            token = receiver_request_key(path, reader)
+            if token:
+                keys.add(token)
+                continue
+        try:
+            keys.add(validate_binding(json.loads(raw) if raw else None, 'delivery')['key'])
+        except ValueError as exc:
+            raise ValueError(f'Разреши задачу [SA][PR] для изменённой поставки {key} ({path}). '
+                             'До разрешения задачи коммит запрещён.') from exc
     return keys
 
 
@@ -199,18 +280,34 @@ def require_preserved_planning_bindings(current, previous) -> None:
 
 def working_keys(project: Path, paths) -> set[str]:
     paths = list(paths)
+    removed = git_output(project, 'diff', 'HEAD', '--name-only', '--diff-filter=D', '-z')
+    if removed is None:
+        raise ValueError('Не удалось проверить удалённые материалы перед сохранением')
+    deleted = set(filter(None, removed.split('\0')))
     def read(path):
         from project_layout import safe_path
         candidate = safe_path(project, path)
         if candidate.is_file():
             return candidate.read_text(encoding='utf-8')
-        if not candidate.parent.exists():
+        if path in deleted:
+            if path == 'delivery-index.json':
+                return None
+            if path == PLANNING_BINDINGS:
+                raise ValueError('Нельзя удалить реестр задач квартального планирования перед сохранением')
+            if path.endswith('/' + BINDING_FILE) or path.endswith('/manifest.json'):
+                tracked = git_output(project, 'ls-files', '--cached', '--others',
+                                     '--exclude-standard', '-z', '--', path.rsplit('/', 1)[0] + '/')
+                if tracked is None:
+                    raise ValueError('Не удалось проверить оставшиеся материалы поставки')
+                if set(filter(None, tracked.split('\0'))) - deleted:
+                    raise ValueError('Нельзя удалить связь с задачей, сохранив материалы поставки: ' + path)
             return git_output(project, 'show', 'HEAD:' + path)
         return None
     if PLANNING_BINDINGS in paths:
         require_preserved_planning_bindings(read(PLANNING_BINDINGS),
                                            git_output(project, 'show', 'HEAD:' + PLANNING_BINDINGS))
-    return keys_for_paths(paths, read)
+    return keys_for_paths(paths, read, lambda path: git_output(project, 'show', 'HEAD:' + path),
+                          allow_receiver_requests=True)
 
 
 def git_output(repository: Path, *args) -> str | None:
@@ -227,6 +324,8 @@ def staged_keys(repository: Path) -> set[str]:
         value = git_output(repository, 'show', ':' + path)
         # A deleted package retains its archived binding, never an unstaged substitute.
         if value is None and path in deleted:
+            if path == 'delivery-index.json':
+                return None
             if path == PLANNING_BINDINGS:
                 raise ValueError('Нельзя удалить реестр задач квартального планирования перед коммитом')
             if path.endswith('/' + BINDING_FILE) or path.endswith('/manifest.json'):
@@ -238,7 +337,9 @@ def staged_keys(repository: Path) -> set[str]:
     if PLANNING_BINDINGS in paths.split('\0'):
         require_preserved_planning_bindings(read(PLANNING_BINDINGS),
                                            git_output(repository, 'show', 'HEAD:' + PLANNING_BINDINGS))
-    return keys_for_paths(filter(None, paths.split('\0')), read)
+    return keys_for_paths(filter(None, paths.split('\0')), read,
+                          lambda path: git_output(repository, 'show', 'HEAD:' + path),
+                          allow_receiver_requests=True)
 
 
 def validate_file(path: Path, repository: Path | None = None) -> None:
@@ -246,6 +347,15 @@ def validate_file(path: Path, repository: Path | None = None) -> None:
         message = path.read_text(encoding='utf-8')
     except OSError as exc:
         raise ValueError(f'Не удалось прочитать сообщение коммита: {exc}') from exc
+    expected_tree = os.environ.get('ANALYST_VERIFIED_REVERSE_PATCH_TREE')
+    if expected_tree is not None:
+        actual_tree = git_output(repository, 'write-tree') if repository is not None else None
+        if (not re.fullmatch(r'[0-9a-f]{40,64}', expected_tree)
+                or actual_tree is None or actual_tree.strip() != expected_tree):
+            raise ValueError('Индекс обратной заплаты не совпадает с проверенным целевым деревом')
+        if not message.split('\n', 1)[0].strip():
+            raise ValueError('Заголовок интеграционного коммита не должен быть пустым')
+        return
     if repository is not None and is_harness_repository(repository):
         if not message.split('\n', 1)[0].strip():
             raise ValueError('Заголовок коммита обвязки не должен быть пустым')

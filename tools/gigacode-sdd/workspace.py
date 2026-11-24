@@ -13,10 +13,25 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import uuid
 
 
 class WorkspaceError(RuntimeError):
     pass
+
+
+class SnapshotChanged(WorkspaceError):
+    """Concurrent ordinary writes; no usable snapshot or acceptance implied."""
+    def __init__(self, report):
+        self.report = report
+        super().__init__("Source changed during snapshot; see " + report)
+
+
+def snapshot_difference(before, after):
+    return {"head_changed": before["head"] != after["head"],
+            "status_changed": before["status"] != after["status"],
+            "paths": sorted(name for name in before["files"].keys() | after["files"].keys()
+                            if before["files"].get(name) != after["files"].get(name))}
 
 
 def _run(root, args, *, env=None, data=None, base_env=None):
@@ -140,7 +155,7 @@ def _settings_paths(root):
     return paths
 
 
-def snapshot(root, *, normalize_settings=False):
+def snapshot(root, *, normalize_settings=False, include_sizes=False):
     root = Path(root).resolve()
     paths = set(_tracked(root))
     paths.update(_names(_run(root, ["ls-files", "--others", "--exclude-standard", "-z"])))
@@ -175,8 +190,12 @@ def snapshot(root, *, normalize_settings=False):
         elif path.is_symlink():
             files[relative] = {"symlink": os.readlink(path)}
         elif path.is_file():
-            files[relative] = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            with path.open('rb') as stream:
+                raw = stream.read(os.fstat(stream.fileno()).st_size) if include_sizes else stream.read()
+            files[relative] = {"sha256": hashlib.sha256(raw).hexdigest(),
                                "mode": stat.S_IMODE(info.st_mode)}
+            if include_sizes:
+                files[relative]['size'] = len(raw)
         else:
             raise WorkspaceError(f"Not an ordinary file: {relative}")
     return {"head": git(root, "rev-parse", "HEAD"),
@@ -291,7 +310,7 @@ def export_patch(root, base, allowed_paths, output):
             "base": expected, "patch": str(Path(output).resolve())}
 
 
-def _copy_file(source, dest, relative):
+def _copy_file(source, dest, relative, *, finite=False):
     path = _safe_path(source, relative)
     target = _safe_path(dest, relative)
     if not path.is_file() and not path.is_symlink():
@@ -304,7 +323,18 @@ def _copy_file(source, dest, relative):
         target.symlink_to(os.readlink(path))
         _safe_path(dest, relative)
     else:
-        shutil.copy2(path, target)
+        if finite:
+            with path.open('rb') as incoming, target.open('wb') as outgoing:
+                remaining = os.fstat(incoming.fileno()).st_size
+                while remaining:
+                    chunk = incoming.read(min(remaining, 1024 * 1024))
+                    if not chunk:
+                        raise WorkspaceError('File truncated during finite capture: ' + relative)
+                    outgoing.write(chunk)
+                    remaining -= len(chunk)
+            shutil.copystat(path, target)
+        else:
+            shutil.copy2(path, target)
 
 
 def _copy_hooks(source, dest):
@@ -372,7 +402,26 @@ def _copy_permissions(source, dest):
     return copied
 
 
-def clone_snapshot(source, dest, ref="HEAD", include_dirty=False):
+def clone_snapshot(source, dest, ref="HEAD", include_dirty=False, *, attempts=1, capture_appends=False):
+    """Retry only concurrent ordinary writes, retaining each failed copy/report."""
+    if type(attempts) is not int or not 1 <= attempts <= 3:
+        raise ValueError("Snapshot attempts must be between 1 and 3")
+    retries = []
+    for attempt in range(attempts):
+        try:
+            result = _clone_snapshot(source, dest, ref, include_dirty, capture_appends=capture_appends)
+            result['retry_reports'] = retries
+            return result
+        except SnapshotChanged:
+            if attempt + 1 == attempts:
+                raise
+            # A new name preserves evidence without reusing an inconsistent copy.
+            retained = Path(dest).with_name(Path(dest).name + "-unstable-" + uuid.uuid4().hex)
+            Path(dest).rename(retained)
+            retries.append(str(retained / '.git' / 'snapshot-conflict.json'))
+
+
+def _clone_snapshot(source, dest, ref="HEAD", include_dirty=False, *, capture_appends=False):
     source, dest = Path(source).resolve(), Path(dest).absolute()
     if dest.exists() or dest.is_symlink():
         raise WorkspaceError(f"Destination already exists: {dest}")
@@ -382,7 +431,7 @@ def clone_snapshot(source, dest, ref="HEAD", include_dirty=False):
         pass
     else:
         raise WorkspaceError("Managed clone must be outside the source checkout")
-    before = snapshot(source)
+    before = snapshot(source, include_sizes=capture_appends)
     resolved = git(source, "rev-parse", f"{ref}^{{commit}}")
     if include_dirty and resolved != before["head"]:
         raise WorkspaceError("Dirty snapshot requires the source HEAD")
@@ -399,17 +448,25 @@ def clone_snapshot(source, dest, ref="HEAD", include_dirty=False):
             _safe_path(source, name)
             if _secret(name) or ".git" in PurePosixPath(name).parts:
                 raise WorkspaceError(f"Cannot transfer modified secret: {name}")
-        with tempfile.TemporaryDirectory(prefix="sdd-dirty-") as temp:
-            patch = Path(temp) / "changes.patch"
-            _write_patch(source, resolved, tracked_changes, patch)
-            apply_patch(dest, patch)
+        if capture_appends:
+            for name in tracked_changes:
+                original = _safe_path(source, name)
+                if original.exists() or original.is_symlink():
+                    _copy_file(source, dest, name, finite=True)
+                else:
+                    _safe_path(dest, name).unlink(missing_ok=True)
+        else:
+            with tempfile.TemporaryDirectory(prefix="sdd-dirty-") as temp:
+                patch = Path(temp) / "changes.patch"
+                _write_patch(source, resolved, tracked_changes, patch)
+                apply_patch(dest, patch)
         copied.extend(tracked_changes)
         for name in _names(_run(source, ["ls-files", "--others", "--exclude-standard", "-z"])):
             if _secret(name) or any(part in {".gigacode", ".codex", ".gigaide", ".idea"}
                                     for part in PurePosixPath(name).parts):
                 skipped.append(name)
                 continue
-            _copy_file(source, dest, name)
+            _copy_file(source, dest, name, finite=capture_appends)
             copied.append(name)
     permissions = _copy_permissions(source, dest)
     instructions = sorted(_instruction_paths(source))
@@ -422,11 +479,68 @@ def clone_snapshot(source, dest, ref="HEAD", include_dirty=False):
         for name in instructions:
             if name not in _tracked(dest):
                 stream.write("/" + name + "\n")
-    if snapshot(source) != before:
-        raise WorkspaceError("Source changed during snapshot; clone retained but not usable")
+    after = snapshot(source, include_sizes=capture_appends)
+    captures = []
+    if after != before:
+        difference = snapshot_difference(before, after)
+        report = dest / ".git" / "snapshot-conflict.json"
+        report.write_text(json.dumps({"source": str(source), "destination": str(dest),
+            "usable": False, "difference": difference}, ensure_ascii=True, indent=2) + "\n",
+            encoding="utf-8")
+        # Protected inputs and branch movement are not transient copy races.
+        if difference["head_changed"] or any(_forbidden(name) for name in difference["paths"]):
+            raise WorkspaceError("Protected source changed during snapshot; see " + str(report))
+        if capture_appends and include_dirty:
+            captures = _captured_appends(source, dest, before, after, difference)
+        if not captures:
+            raise SnapshotChanged(str(report))
+        report.write_text(json.dumps({'source': str(source), 'destination': str(dest),
+            'usable': True, 'verification_required': True, 'append_captures': captures},
+            ensure_ascii=True, indent=2) + '\n', encoding='utf-8')
     return {"root": str(dest.resolve()), "head": resolved, "copied": sorted(set(copied)),
             "instructions": instructions, "skipped": skipped, "hooks": hooks,
-            "permission_settings": permissions}
+            "permission_settings": permissions, "append_captures": captures}
+
+
+def _prefix_hash(path, length):
+    result = hashlib.sha256()
+    with path.open('rb') as stream:
+        while length:
+            chunk = stream.read(min(length, 1024 * 1024))
+            if not chunk:
+                return None
+            result.update(chunk)
+            length -= len(chunk)
+    return result.hexdigest()
+
+
+def _captured_appends(source, dest, before, after, difference):
+    """Prove preserved finite byte prefixes, regardless of extension or location.
+
+    This makes a NEW verification input; it does not validate old checks.
+    Truncation, rewriting, membership/mode changes and protected paths fail closed.
+    """
+    if difference['head_changed'] or not difference['paths']:
+        return []
+    captures = []
+    for name in difference['paths']:
+        a, b = before['files'].get(name, {}), after['files'].get(name, {})
+        original, copied = _safe_path(source, name), _safe_path(dest, name)
+        if (_forbidden(name) or not all('size' in info and 'sha256' in info for info in (a, b))
+                or a['mode'] != b['mode'] or b['size'] <= a['size']
+                or original.is_symlink() or copied.is_symlink() or not copied.is_file()):
+            return []
+        size = copied.stat().st_size
+        digest = _prefix_hash(copied, size)
+        if (not a['size'] <= size <= b['size'] or stat.S_IMODE(copied.stat().st_mode) != a['mode']
+                or _prefix_hash(original, a['size']) != a['sha256']
+                or _prefix_hash(copied, a['size']) != a['sha256']
+                or _prefix_hash(original, size) != digest):
+            return []
+        captures.append({'path': name, 'captured_bytes': size, 'captured_sha256': digest,
+                         'observed_source_bytes': b['size'], 'observed_source_sha256': b['sha256'],
+                         'rule': 'verified finite prefix; later appends stay in the original workspace'})
+    return captures
 
 
 def apply_patch(root, patch):

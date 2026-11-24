@@ -88,6 +88,131 @@ class ExecutionPortfolioTests(unittest.TestCase):
     def records(self):
         return [read(p) for p in (self.runner.root/'execution-cycles').glob('*/*/candidate.json')]
 
+    def test_review_copy_race_freezes_candidate_without_fatal(self):
+        from workspace import SnapshotChanged
+        self.primary_only = True
+        calls = []
+        def copying(runner, work, task):
+            calls.append(work)
+            if len(calls) == 1:
+                report = runner.root / 'copy-conflict.json'
+                save(report, {'usable': False, 'difference': {'paths': ['backend/value.txt']}})
+                raise SnapshotChanged(str(report))
+            return _review_copy(runner, work, task)
+        with patch('execution_cycle._review_copy', side_effect=copying):
+            accepted = self.run_task()
+        self.assertEqual(accepted['status'], 'accepted')
+        self.assertEqual(self.check_count, 2)
+        self.assertEqual(len(self.calls), 1)
+        self.assertNotEqual(accepted['workspace'], str(self.work))
+        self.assertTrue(accepted['verification_checkpoint'])
+        self.assertEqual(list((self.runner.root/'execution-cycles').glob('*/fatal.json')), [])
+        self.assertTrue(Path(accepted['snapshot_conflicts'][0]).is_file())
+
+    def test_settled_review_copy_rechecks_without_reexecuting_model(self):
+        from workspace import SnapshotChanged
+        self.primary_only = True
+        calls = []
+        def copying(runner, work, task):
+            calls.append(work)
+            if len(calls) == 1:
+                report = runner.root / 'copy-conflict.json'
+                save(report, {'usable': False, 'difference': {'paths': ['backend/value.txt']}})
+                error = SnapshotChanged(str(report))
+                error.stabilized = True
+                raise error
+            return _review_copy(runner, work, task)
+        with patch('execution_cycle._review_copy', side_effect=copying):
+            accepted = self.run_task()
+        self.assertEqual(accepted['status'], 'accepted')
+        self.assertEqual(self.check_count, 2)
+        self.assertEqual(len(self.calls), 1)
+
+    def test_pending_snapshot_question_resumes_through_frozen_checks_without_operator(self):
+        import operator_questions as questions
+        import snapshot_recovery
+        import workspace as ws
+        self.primary_only = True
+        accepted = self.run_task()
+        path = next(p for p in (self.runner.root/'execution-cycles').glob('*/*/candidate.json')
+                    if read(p)['model'] == accepted['model'])
+        value = read(path)
+        source = Path(value['workspace'])
+        log = source/'backend/runtime-evidence.data'
+        log.write_text('observed experiment\n')
+        value.update(stage='execute', status='waiting-user', workspace_snapshot=snapshot(source))
+        value['snapshot_recovery'] = {'previous_candidate': str(path.parent/'old-candidate.json')}
+        value['feedback'] = snapshot_recovery.repair_instruction(value['snapshot_recovery']['previous_candidate'])
+        key = questions.request(self.runner.root, self.task['id'], 'runtime-placement',
+                                'Who redirects the runtime output?', model=value['model'])
+        value['question_id'] = key
+        save(path,value)
+        original_copy = ws._copy_permissions
+        def append_live(source_root, dest):
+            if Path(source_root) == source:
+                with log.open('a') as stream:
+                    stream.write('periodic metrics\n')
+            return original_copy(source_root,dest)
+        initial_sessions, initial_checks = len(self.calls), self.check_count
+        with patch.object(ws,'_copy_permissions',side_effect=append_live):
+            result = self.run_task()
+        self.assertEqual(result['status'],'accepted')
+        self.assertNotEqual(result['workspace'],str(source))
+        self.assertEqual(len(self.calls),initial_sessions)
+        self.assertEqual(self.check_count,initial_checks+1)
+        self.assertEqual((Path(result['workspace'])/'backend/runtime-evidence.data').read_text(),
+                         'observed experiment\n')
+        self.assertIn('periodic metrics',log.read_text())
+        self.assertIsNone(questions.response(self.runner.root,key))
+        self.assertFalse(questions.questions(self.runner.root,pending_only=True))
+        self.assertTrue(read(self.runner.root/'operator-questions'/(key+'-resolved.json'))['operator_action_performed'] is False)
+
+    def test_unrelated_question_is_not_bypassed_by_old_snapshot_recovery(self):
+        import verification_checkpoint
+        self.primary_only=True
+        value=self.run_task()
+        value.update(stage='execute',status='waiting-user',feedback='Need a product decision',
+                     snapshot_recovery={'previous_candidate':'historical'})
+        self.assertFalse(verification_checkpoint.prepare(self.runner,value,self.runner.root/'candidate.json'))
+        self.assertEqual(value['status'],'waiting-user')
+
+    def test_resume_execution_without_snapshot_preserves_work_and_rechecks(self):
+        self.resume_incomplete_result(json.dumps({'operator_question': {
+            'topic': 'stand', 'question': 'Start the stand?'}}))
+
+    def test_resume_legacy_conflicting_controls_without_snapshot(self):
+        self.resume_incomplete_result(json.dumps({
+            'service_request': [{'kind': 'postgres', 'bind': '127.0.0.1:5434'}],
+            'scope_request': {'paths': ['frontend/node_modules']}}))
+
+    def resume_incomplete_result(self, text):
+        self.primary_only = True
+        accepted = self.run_task()
+        path = next(p for p in (self.runner.root/'execution-cycles').glob('*/*/candidate.json')
+                    if read(p)['model'] == accepted['model'])
+        value = read(path)
+        value.update(stage='execute', status='running')
+        value.pop('workspace_snapshot')
+        value['session_result']['text'] = text
+        old_result = value['session_result'].copy()
+        save(path, value)
+        before = self.check_count
+        def resumed(root, cwd, prompt, role, name, model=None, stop_event=None):
+            self.assertEqual((Path(root)/'backend/value.txt').read_text(), '2')
+            self.assertIn('previous session ended before workspace audit/export', prompt)
+            self.assertNotIn('workspace_snapshot', read(path))
+            self.assertNotIn('question_id', read(path))
+            return self.session(root, cwd, prompt, role, name, model, stop_event)
+        result = self.run_task(session=resumed)
+        self.assertEqual(result['status'], 'accepted')
+        self.assertEqual(result['incomplete_execution_results'], [old_result])
+        self.assertGreater(self.check_count, before)
+
+    def test_review_without_snapshot_stays_blocked(self):
+        from execution_cycle import _receipt_valid
+        with self.assertRaisesRegex(Blocked, 'no completed workspace receipt'):
+            _receipt_valid({'workspace': str(self.work), 'stage': 'review'})
+
     def test_verified_winner_cancels_only_peer_after_comparison_window(self):
         barrier = threading.Barrier(2)
         def concurrent(root, cwd, prompt, role, name, model=None, stop_event=None):
