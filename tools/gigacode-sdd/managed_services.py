@@ -111,7 +111,7 @@ class Manager:
     def prepare(self, spec, work, task):
         from controller import read, save, under
         spec = validate(spec, Path(work))
-        self.runner.audit(Path(work))
+        self.runner.audit(Path(work), operations=[spec])
         files = manifest(Path(work), spec['artifacts'])
         identity = oq.fingerprint({'spec': spec, 'files': files})
         slot = self.folder / identity
@@ -271,11 +271,34 @@ class Manager:
 
     def restore(self, stop):
         from controller import read
+        import service_handoff
         if not self.folder.exists():
             return
+        inventory = None
         for path in sorted(self.folder.glob('*/service.json')):
+            if path.is_symlink() or path.parent.is_symlink():
+                raise ValueError('Service registry must not contain symlinks')
             value = read(path)
             if value['status'] in ('ready', 'stopped', 'starting'):
+                if value.get('pid') and value['status'] != 'stopped':
+                    inventory = inventory if inventory is not None else inspect_services()
+                    listener = next((item for item in inventory.get('services', [])
+                                     if item.get('pid') == value['pid']), None)
+                    if inventory.get('complete') and listener and service_handoff.accepted(self.runner, listener):
+                        frozen = Path(value['workspace'])
+                        if (value['identity'] != path.parent.name
+                                or oq.fingerprint({'spec': value['spec'], 'files': value['files']}) != value['identity']
+                                or frozen.is_symlink() or not frozen.resolve().is_relative_to(path.parent.resolve())):
+                            raise ValueError('Approved service definition or workspace changed')
+                        validate(value['spec'], frozen)
+                        reply = oq.response(self.runner.root, value['question_id'])
+                        if not reply or reply['text'] != 'Разрешить этот запуск':
+                            raise oq.WaitingForOperator('Сервис ожидает разрешения: ' + value['spec']['id'])
+                        if manifest(frozen, value['spec']['artifacts']) != value['files']:
+                            raise ValueError('Frozen service artifacts changed; preserved process cannot be reused')
+                        # A restored observation is not a process handle. Keep
+                        # it externally owned, including during close/restart.
+                        continue
                 self.ensure(value['identity'], stop)
 
     def close(self):

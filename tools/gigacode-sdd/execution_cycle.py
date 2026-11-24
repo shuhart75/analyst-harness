@@ -21,7 +21,7 @@ import uuid
 import review_resolution
 from dynamic_scope import ScopeWait
 
-from workspace import clone_snapshot, export_patch, snapshot
+from workspace import clone_snapshot, export_patch, snapshot, SnapshotChanged
 from session_outcome import classify as session_outcome
 
 MODELS = ('DeepSeek-V4.1-Flash-1017', 'GLM-5.3-Flash')
@@ -89,6 +89,8 @@ def confirm_model(result, model):
 
 def _receipt_valid(record):
     from controller import Blocked, digest
+    if 'workspace_snapshot' not in record:
+        raise Blocked('Saved execution candidate has no completed workspace receipt')
     if snapshot(record['workspace'], normalize_settings=True) != record['workspace_snapshot']:
         raise Blocked('Saved execution candidate changed outside its recorded step')
     for path, expected in record.get('evidence_files', {}).items():
@@ -109,6 +111,8 @@ def _diagnosis(kind, detail):
                      'do not repeat already completed edits blindly.',
         'model': 'Model identity was not confirmed. Use this exact configured model and do not delegate '
                  'implementation to another model or claim completion without terminal evidence.',
+        'snapshot': 'The review input changed while copying. Prepare consistent source and evidence; '
+                    'keep all requirements and rerun checks before review.',
         'checks': 'The controller acceptance checks failed. Use their exact commands and logs to locate '
                   'the defect; keep check commands, assertions and required coverage unchanged.',
         'review': 'The independent reviewer found an implementation gap. Address the cited requirement '
@@ -257,7 +261,13 @@ def _adjudicated_report(root, task, original, report):
 def _review_copy(runner, work, task):
     from controller import save
     root = runner.root / 'reviews' / uuid.uuid4().hex
-    clone_snapshot(work, root, include_dirty=True)
+    copied = clone_snapshot(work, root, include_dirty=True, attempts=3)
+    if copied['retry_reports']:
+        # The settled copy differs from the one whose checks were recorded.
+        # Never attach old green checks to a new version of the workspace.
+        error = SnapshotChanged(copied['retry_reports'][-1])
+        error.stabilized = True
+        raise error
     target = root / '.review-input'
     target.mkdir(mode=0o700)
     shutil.copytree(runner.root / 'input', target / 'packet')
@@ -470,7 +480,11 @@ def execute_task(runner, task, record):
     folder = runner.root / 'execution-cycles' / scope
     folder.mkdir(parents=True, exist_ok=True)
     fatal_path = folder/'fatal.json'
+    from snapshot_recovery import recover
+    recover(runner, folder, scope)
     runner.scopes.recover_fatal(folder)
+    from dependency_recovery import recover_static_gate
+    recover_static_gate(runner, folder, scope)
     if fatal_path.exists():
         import inventory_recovery
         inventory_recovery.recover(runner, folder, scope, record)
@@ -525,6 +539,8 @@ def execute_task(runner, task, record):
                 runner.progress(task['id'] + ' / ' + model + ': повторное ревью границ задачи; код и проверки сохранены')
             value['acceptance_protocol'] = task_acceptance.PROTOCOL
             save(path, value)
+        from verification_checkpoint import prepare
+        prepare(runner, value, path)
         if value.get('stage') != 'execute':
             _receipt_valid(value)
         if runner.scopes.refresh(task, value, slot):
@@ -557,7 +573,21 @@ def execute_task(runner, task, record):
                 or not result.get('terminal_result') or result.get('cancelled') or result.get('timed_out')
                 or (result.get('cleanup') or {}).get('preserved')):
             continue
-        control = questions.control_or_question(result.get('text', ''))
+        if value.get('stage') == 'execute' and 'workspace_snapshot' not in value:
+            # A session can finish before audit/export records a checkpoint.
+            # Preserve its output as diagnostics, never replay its control actions
+            # or manufacture a receipt for the current, unverified workspace.
+            value.setdefault('incomplete_execution_results', []).append(value.pop('session_result'))
+            value['feedback'] = {'previous_feedback': value.get('feedback'),
+                'incomplete_execution_result': result,
+                'instruction': 'The previous session ended before workspace audit/export completed. '
+                               'Inspect and continue the preserved work; do not repeat completed edits blindly. '
+                               'Previous control requests were not applied. Submit any still needed request again.'}
+            value['status'] = 'pending'
+            save(path, value)
+            runner.progress(task['id'] + ': сохранённая сессия не прошла фиксацию; продолжу рабочие файлы с проверками')
+            continue
+        control = questions.execution_control(result.get('text', ''))
         if not control or control[0] not in ('operator_question', 'scope_request'):
             continue
         identity = fingerprint([result.get('events_path'), result.get('text')])
@@ -699,6 +729,8 @@ def execute_task(runner, task, record):
                 value['history'][-1]['result'] = 'verified'
             value.update(status='accepted', stage='accepted', accepted_at=time.time(), reviewer_model=reviewer_model)
             persist()
+            from verification_checkpoint import resolve_snapshot_question
+            resolve_snapshot_question(runner, value)
             runner.progress(task['id'] + ': вариант ' + value['model']
                             + ' прошёл проверки и независимое ревью ' + reviewer_model)
             return value
@@ -718,6 +750,16 @@ def execute_task(runner, task, record):
             if stop.is_set():
                 interrupted()
             task = scope_repair.effective_task(runner, base_task, value)
+            from dependency_audit import preserve_generated_private_configs
+            inventory = runner.audit(work, operations=task['checks'], inventory_only=True)
+            if isinstance(inventory, dict):
+                preserved = preserve_generated_private_configs(runner, work, inventory)
+                if preserved:
+                    value['preserved_test_inputs'] = preserved
+                    value['feedback'] = {'preserved_test_inputs': preserved,
+                        'instruction': 'Use isolated_check_request to generate private temporary test configurations outside product sources.'}
+                    value['stage'] = 'execute'
+                    persist()
             task = runner.scopes.discover(task, value)
             if (value['stage'] in ('review', 'adjudicate')
                     and runner.scopes.data['tasks'].get(task['id'], {}).get('paths')
@@ -786,7 +828,16 @@ def execute_task(runner, task, record):
                         value['attempts'] += 1
                         value['session_result'] = result
                         value['evidence_files'][result['events_path']] = digest(result['events_path'])
-                        runner.audit(work)
+                        inventory = runner.audit(work, operations=task['checks'], inventory_only=True)
+                        from dependency_audit import preserve_generated_private_configs
+                        if isinstance(inventory, dict):
+                            preserved = preserve_generated_private_configs(runner, work, inventory)
+                            if preserved:
+                                value['preserved_test_inputs'] = preserved
+                                value['feedback'] = {'preserved_test_inputs': preserved,
+                                    'instruction': 'Private untracked test configs were preserved outside product patches. '
+                                    'Use isolated_check_request to regenerate temporary test inputs; do not restore them into the source tree.'}
+                                persist()
                         task = runner.scopes.discover(task, value)
                         try:
                             runner.scopes.verify_conflicts(value)
@@ -796,15 +847,45 @@ def execute_task(runner, task, record):
                             continue
                         value['patch'] = export_patch(work, value['base'], task['writes'], path.parent / 'candidate.patch')
                         value['workspace_snapshot'] = snapshot(work, normalize_settings=True)
-                        control = (questions.control_or_question(result.get('text', ''))
+                        control = (questions.execution_control(result.get('text', ''))
                                    if result.get('terminal_result') and not result.get('timed_out')
                                    and not (result.get('cleanup') or {}).get('preserved') else None)
-                        if control and control[0] in ('service_request', 'service_action') and not result.get('ok'):
+                        if control and control[0] in ('service_request', 'service_action', 'isolated_check_request') and not result.get('ok'):
                             control = None
+                        value['pending_control'] = control
+                        persist()
                         if control:
                             confirm_model(result, value['model'])
                             kind, request = control
+                            if kind == 'request_repair':
+                                fail('request-protocol', json.dumps(request, ensure_ascii=False))
+                                continue
                             try:
+                                if kind == 'isolated_check_request':
+                                    import isolated_checks
+                                    try:
+                                        isolated = isolated_checks.run(runner, work, request, stop)
+                                    except isolated_checks.IsolationUnavailable as exc:
+                                        value['question_id'] = questions.request(runner.root, task['id'],
+                                            'test-isolation', 'Для отрицательного теста недоступна изоляция. '
+                                            'Какую разрешённую среду проверки использовать?', details=str(exc),
+                                            generation=value.get('answer_generation', ''), model=value['model'])
+                                        value.update(status='waiting-user')
+                                        persist()
+                                        raise CandidateStalled('Isolated test needs an available OS sandbox')
+                                    value['feedback'] = {'isolated_check': isolated,
+                                        'rule': 'Inspect test results; this does not accept the task or replace mandatory checks.'}
+                                    value['evidence_files'][isolated['log']] = digest(isolated['log'])
+                                    value['handled_question_result'] = fingerprint([result.get('events_path'), result.get('text')])
+                                    check_identity = fingerprint({'request': request, 'inputs': isolated['inputs']})
+                                    repeated = value.get('last_isolated_check') == check_identity
+                                    value['last_isolated_check'] = check_identity
+                                    persist()
+                                    if not isolated['ok']:
+                                        fail('checks', json.dumps({'isolated_check': isolated}, ensure_ascii=False))
+                                    elif repeated:
+                                        fail('request-protocol', 'Identical isolated check already completed; use its recorded result or change inputs.')
+                                    continue
                                 if scope_repair.is_request(kind, request):
                                     task = runner.scopes.requested(task, value, request)
                                     value['handled_question_result'] = fingerprint([result.get('events_path'), result.get('text')])
@@ -877,11 +958,12 @@ def execute_task(runner, task, record):
                             value['stage'] = 'checks'
                             persist()
                     if value['stage'] == 'checks':
+                        runner.audit(work, operations=task['checks'])
                         checked_task = task
                         checks = runner.checks(work, task['checks'], task['id'] + '-check', stop_event=stop)
                         if stop.is_set():
                             interrupted()
-                        runner.audit(work)
+                        runner.audit(work, operations=task['checks'])
                         task = runner.scopes.discover(task, value)
                         try:
                             runner.scopes.verify_conflicts(value)
@@ -902,6 +984,8 @@ def execute_task(runner, task, record):
                             continue
                         value['stage'] = 'review' if checked_task['checks'] == task['checks'] else 'checks'
                         persist()
+                        from verification_checkpoint import resolve_snapshot_question
+                        resolve_snapshot_question(runner, value)
                         if value['stage'] == 'checks':
                             continue
                 if value['stage'] == 'review':
@@ -1015,6 +1099,29 @@ def execute_task(runner, task, record):
                     value['draft_result'] = exc.result
                 interrupted()
             except Exception as exc:
+                from dependency_audit import DependencyConfigurationError
+                if isinstance(exc, SnapshotChanged):
+                    from verification_checkpoint import prepare
+                    report = path.parent / ('snapshot-conflict-' + uuid.uuid4().hex + '.json')
+                    save(report, read(exc.report))
+                    value.setdefault('snapshot_conflicts', []).append(str(report))
+                    try:
+                        prepare(runner, value, path, force=True)
+                    except SnapshotChanged:
+                        # Rewrites/rotations require a coherent recapture, not an
+                        # exemption by filename. Keep the existing bounded budget.
+                        fail('snapshot', 'Source is being rewritten during capture; retry a coherent checkpoint')
+                        continue
+                    work = Path(value['workspace'])
+                    continue
+                if isinstance(exc, DependencyConfigurationError):
+                    value['stage'] = 'execute'
+                    value['feedback'] = {'dependency_configuration': exc.report['blocking'],
+                        'report': exc.path, 'pending_control': value.get('pending_control'),
+                        'instruction': 'Repair active build inputs; preserve unrelated test data. '
+                        'Use isolated_check_request for negative tests. Do not waive Nexus policy.'}
+                    fail('checks', json.dumps(value['feedback'], ensure_ascii=False))
+                    continue
                 if getattr(exc, 'retryable', False):
                     value.pop('recovered_review', None)
                     if stop.is_set():
